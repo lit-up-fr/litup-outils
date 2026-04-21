@@ -76,6 +76,10 @@ tr:hover{background:rgba(91,99,224,.02)}
     <button class="b bd" onclick="importCodes()">📥 MAJ codes</button>
     <button class="b bd" onclick="showSettings()">⚙️</button>
   </div>
+  <div class="btn-group">
+    <button class="b by" onclick="backupData()" title="Sauvegarder vos données (pour changer d'appareil)">💾</button>
+    <button class="b bd" onclick="restoreData()" title="Récupérer vos données sauvegardées">📂 Récupérer</button>
+  </div>
 </div>
 <div class="content" id="mainContent"></div>
 <div id="modalC"></div>
@@ -92,7 +96,7 @@ let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||[
 ];
 function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat(CODES.map(c=>`<option>${c}</option>`)).join("")}
 function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
-const SALARIES=["Laetitia DE BORDE","Clémentine CLAUDON","Pauline GIRAUDO","Laura BOURIGAULT","Léa BURELLO","Claire SALEM","Philippe DA PIEDADE"];
+const SALARIES=["Clémentine CLAUDON","Laetitia DE BORDE","Pauline GIRAUDO","Philippe DA PIEDADE","Claire SALEM","Laura BOURIGAULT"];
 const IK_BAREME={3:[{max:5000,coef:0.529,add:0},{max:20000,coef:0.316,add:1065},{max:Infinity,coef:0.370,add:0}],4:[{max:5000,coef:0.606,add:0},{max:20000,coef:0.340,add:1330},{max:Infinity,coef:0.407,add:0}],5:[{max:5000,coef:0.636,add:0},{max:20000,coef:0.357,add:1395},{max:Infinity,coef:0.427,add:0}],6:[{max:5000,coef:0.665,add:0},{max:20000,coef:0.374,add:1457},{max:Infinity,coef:0.447,add:0}],7:[{max:5000,coef:0.697,add:0},{max:20000,coef:0.394,add:1515},{max:Infinity,coef:0.470,add:0}]};
 function calcIK(km,cv){const bar=IK_BAREME[Math.min(Math.max(cv||5,3),7)];for(const t of bar){if(km<=t.max)return Math.round((km*t.coef+t.add)*100)/100}return 0}
 
@@ -163,6 +167,9 @@ function render(){
   h+=`</tbody></table></div>`;
   // Status update notification
   if(D._lastRetour){h+=`<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:var(--green-bg);color:var(--green);margin-top:12px">📬 Dernière mise à jour direction : ${D._lastRetour}</div>`}
+  // Backup reminder
+  const daysSinceBackup=D._lastBackup?Math.floor((Date.now()-new Date(D._lastBackup).getTime())/86400000):999;
+  if(D.ndfs.length>0&&daysSinceBackup>7){h+=`<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:var(--amber-bg);color:var(--amber);margin-top:8px;cursor:pointer" onclick="backupData()">💾 Pensez à sauvegarder vos données ! ${D._lastBackup?"Dernière sauvegarde : "+D._lastBackup:"Aucune sauvegarde"} — <strong>Cliquez ici</strong></div>`}
   el.innerHTML=h;
 }
 
@@ -467,8 +474,29 @@ function importCodes(){
     if(!nc.length){alert("Aucun code trouvé.");return}CODES=nc.filter(c=>c);saveCodes();alert("✅ "+CODES.length+" codes mis à jour");render()}catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)};inp.click();
 }
 
-// ─── INIT ───
-// Detect Claude sandbox and warn
+// ─── BACKUP / RESTORE ───
+function backupData(){
+  const backup={type:"litup-ndf-backup",salarie:D.salarie,data:D,codes:CODES,date:new Date().toISOString().split("T")[0]};
+  const fn="SAUVEGARDE_NDF_"+D.salarie.replace(/\s+/g,"_")+"_"+backup.date+".json";
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:"application/json"}));a.download=fn;a.click();
+  D._lastBackup=backup.date;save();
+  alert("💾 Sauvegarde téléchargée !\n\n📁 "+fn+"\n\nGardez ce fichier pour retrouver vos données sur un autre appareil.\nUtilisez 📂 Récupérer pour les réimporter.");
+}
+function restoreData(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
+  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{
+    const d=JSON.parse(ev.target.result);
+    if(d.type==="litup-ndf-backup"&&d.data){
+      if(!confirm("Restaurer les données de "+d.salarie+" du "+d.date+" ?\n\nCela remplacera toutes vos données actuelles."))return;
+      Object.assign(D,d.data);save();
+      if(d.codes&&d.codes.length){CODES=d.codes;saveCodes()}
+      render();
+      alert("✅ Données restaurées !\n• "+D.ndfs.length+" NDF retrouvées\n• Profil : "+D.salarie);
+    } else {alert("Ce fichier n'est pas une sauvegarde NDF.")}
+  }catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)};inp.click();
+}
+
+// ─── INIT (sandbox detection) ───
 (function(){try{
   if(window.location.hostname.includes("claude")||window.frameElement||window.parent!==window){
     const warn=document.createElement("div");
