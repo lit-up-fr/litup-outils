@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lit uP · Note de frais facilitateur</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--bg:#f5f6f8;--card:#fff;--card-alt:#fafbfc;--border:#e0e4ec;--text:#1a202c;--text2:#64748b;--text3:#94a3b8;--accent:#5b63e0;--green:#16a34a;--amber:#d97706;--red:#dc2626;--radius:8px;--sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--shadow:0 1px 3px rgba(0,0,0,.05)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6}
+.container{max-width:800px;margin:0 auto;padding:24px 16px}
+.header{text-align:center;margin-bottom:28px}
+.header h1{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:2px}
+.header p{color:var(--text2);font-size:13px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.card p{color:var(--text2);font-size:12.5px;margin-bottom:12px;line-height:1.6}
+.steps{counter-reset:step}
+.step{counter-increment:step;display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f0f2f5}
+.step:last-child{border-bottom:none}
+.step::before{content:counter(step);display:flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.step-text{font-size:13px;line-height:1.6}.step-text strong{color:var(--text)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row{display:flex;flex-direction:column;gap:4px}
+.form-row.full{grid-column:1/-1}
+.form-row label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.inp{background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius);padding:9px 12px;font-size:13px;font-family:var(--sans);outline:none;width:100%;transition:all .2s}.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,99,224,.08)}
+textarea.inp{resize:vertical;min-height:60px}
+.line-card{background:var(--card-alt);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;position:relative}
+.line-card .line-num{position:absolute;top:10px;right:12px;font-size:10px;font-weight:700;color:var(--text2);background:#eef0f4;padding:2px 10px;border-radius:10px}
+.rm-btn{position:absolute;top:8px;right:70px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);padding:2px}.rm-btn:hover{color:var(--red)}
+.file-prev{margin-top:6px;padding:8px 10px;background:#eef0f4;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:8px}
+.file-prev img{max-width:80px;max-height:50px;border-radius:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;font-family:var(--sans)}.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(91,99,224,.2)}
+.btn-success{background:var(--green);color:#fff;box-shadow:0 2px 10px rgba(22,163,74,.15)}
+.btn-outline{background:#fff;color:var(--text2);border:1.5px solid var(--border)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.summary-card{flex:1;min-width:100px;background:#f8f4ff;border:1px solid rgba(91,99,224,.12);border-radius:var(--radius);padding:12px;text-align:center;box-shadow:var(--shadow)}
+.summary-v{font-size:20px;font-weight:800;font-family:var(--mono);color:var(--accent)}.summary-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:12px 16px;border-radius:var(--radius);font-size:12.5px;margin-bottom:12px}
+.alert-ik{background:#fefce8;border:1px solid #fde68a;color:#854d0e;font-size:11.5px;padding:10px 14px;border-radius:6px;margin-top:12px;line-height:1.6}
+.qr-container{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+.qr-container p{font-size:12px;color:var(--text2);text-align:center}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}.summary{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <svg width="140" height="48" viewBox="0 0 140 48" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="8" width="32" height="32" rx="8" fill="#f59e0b" opacity=".9"/>
+      <rect x="6" y="12" width="24" height="24" rx="5" fill="#f97316"/>
+      <text x="18" y="30" font-family="Inter,sans-serif" font-weight="800" font-size="14" fill="#fff" text-anchor="middle">uP</text>
+      <text x="42" y="32" font-family="Inter,sans-serif" font-weight="800" font-size="22" fill="#1a202c" letter-spacing="-1">Lit uP</text>
+    </svg>
+    <h1>Note de frais — Facilitateur</h1>
+    <p>Exercice 2026</p>
+  </div>
+
+  <div class="card">
+    <h2><span style="font-size:20px">📋</span> Comment ça marche</h2>
+    <p>Ce formulaire vous permet de déclarer vos frais engagés dans le cadre de votre mission avec Lit uP.</p>
+    <div class="steps">
+      <div class="step"><div class="step-text"><strong>Renseignez votre identité</strong> ci-dessous et choisissez votre coordinateur·rice</div></div>
+      <div class="step"><div class="step-text"><strong>Ajoutez vos dépenses</strong> une par une avec le justificatif (photo ou scan). Les pièces seront renommées automatiquement.</div></div>
+      <div class="step"><div class="step-text">Pour les <strong>indemnités kilométriques</strong>, cliquez "🚗 Ajouter un trajet" — le montant est calculé selon le barème fiscal</div></div>
+      <div class="step"><div class="step-text">Cliquez <strong>"📤 Envoyer ma note de frais"</strong> — un fichier se télécharge. <strong>Envoyez-le par email</strong> à votre coordinateur·rice de territoire.</div></div>
+    </div>
+    <div class="alert-info" style="margin-top:12px">💡 <strong>Vos données restent sur votre ordinateur</strong> — rien n'est envoyé automatiquement.</div>
+  </div>
+
+  <div class="card">
+    <h2><span style="font-size:20px">👤</span> Vos informations</h2>
+    <div class="form-grid">
+      <div class="form-row"><label>Prénom</label><input class="inp" id="prenom" placeholder="ex: Marie" oninput="updateAll()"></div>
+      <div class="form-row"><label>Nom</label><input class="inp" id="nom" placeholder="ex: DUPONT" oninput="updateAll()"></div>
+      <div class="form-row"><label>Coordinateur·rice de territoire</label>
+        <select class="inp" id="coordo"><option value="">— Choisir —</option><option>Philippe DA PIEDADE</option><option>Pauline GIRAUDO</option><option>Laura BOURIGAULT</option><option>Laetitia DE BORDE</option><option>Clémentine CLAUDON</option></select></div>
+      <div class="form-row"><label>Puissance fiscale véhicule (pour IK)</label>
+        <select class="inp" id="cv"><option>3 CV</option><option>4 CV</option><option selected>5 CV</option><option>6 CV</option><option>7 CV</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span style="font-size:20px">🧾</span> Mes dépenses</h2>
+    <p>Ajoutez chaque dépense avec son justificatif. Les fichiers seront renommés automatiquement.</p>
+    <div id="linesContainer"></div>
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn btn-outline" onclick="addLine('expense')">+ Ajouter une dépense</button>
+      <button class="btn btn-outline" style="border-color:rgba(217,119,6,.25);color:var(--amber)" onclick="addLine('ik')">🚗 Ajouter un trajet</button>
+    </div>
+    <div class="alert-ik">ℹ️ <strong>Indemnités kilométriques :</strong> Les trajets domicile — lieu de mission habituel ne sont pas remboursés. Les IK concernent uniquement les <strong>déplacements exceptionnels</strong> (déplacement inter-sites, rendez-vous extérieur, formation). Merci de préciser le motif.</div>
+  </div>
+
+  <div class="card">
+    <h2><span style="font-size:20px">📊</span> Récapitulatif</h2>
+    <div class="summary" id="summaryCards"></div>
+    <div id="summaryTable"></div>
+  </div>
+
+  <div class="card">
+    <h2><span style="font-size:20px">💬</span> Commentaire (facultatif)</h2>
+    <p>Un message pour votre coordinateur·rice ? Une difficulté avec ce formulaire ?</p>
+    <textarea class="inp" id="comment" rows="3" placeholder="ex: Le ticket de caisse était illisible, j'ai joint une photo du relevé bancaire."></textarea>
+  </div>
+
+  <div class="card" style="text-align:center;padding:28px">
+    <button class="btn btn-success" style="font-size:15px;padding:14px 28px" onclick="exportNDF()">📤 Envoyer ma note de frais</button>
+    <p style="margin-top:10px;font-size:11.5px;color:var(--text2)">Un fichier se télécharge — envoyez-le par email à votre coordinateur·rice de territoire.</p>
+  </div>
+
+  <div class="card" style="background:#fffbeb;border-color:rgba(217,119,6,.15)">
+    <h2><span style="font-size:20px">⚠️</span> Un problème ?</h2>
+    <p style="color:#92400e">Si le formulaire ne fonctionne pas, envoyez vos justificatifs par email à votre coordinateur·rice en indiquant : votre nom, la date, le montant et le fournisseur de chaque dépense.</p>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const pad2=n=>String(n).padStart(2,"0");
+const IK={3:[{m:5000,c:.529,a:0},{m:20000,c:.316,a:1065},{m:1e9,c:.370,a:0}],4:[{m:5000,c:.606,a:0},{m:20000,c:.340,a:1330},{m:1e9,c:.407,a:0}],5:[{m:5000,c:.636,a:0},{m:20000,c:.357,a:1395},{m:1e9,c:.427,a:0}],6:[{m:5000,c:.665,a:0},{m:20000,c:.374,a:1457},{m:1e9,c:.447,a:0}],7:[{m:5000,c:.697,a:0},{m:20000,c:.394,a:1515},{m:1e9,c:.470,a:0}]};
+function calcIK(km,cv){for(const t of IK[Math.min(Math.max(cv||5,3),7)]){if(km<=t.m)return Math.round((km*t.c+t.a)*100)/100}return 0}
+
+function fileNom(num){
+  const nom=($("nom")?.value||"X").toUpperCase().replace(/[^A-Z]/g,"");
+  const d=new Date();return "N2026_"+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+"_"+nom+"_"+pad2(num);
+}
+
+let lines=[],lineIdx=0;
+
+function addLine(type){
+  lineIdx++;const idx=lineIdx;lines.push({idx,type});
+  const div=document.createElement("div");div.id="line_"+idx;div.className="line-card";
+  const n=fileNom(lines.length);
+  if(type==="ik"){
+    div.style.borderColor="rgba(217,119,6,.25)";div.style.background="#fffcf5";
+    div.innerHTML=`<div class="line-num">🚗 #${idx}</div><button class="rm-btn" onclick="rmLine(${idx})">✕</button>
+      <div class="form-grid">
+        <div class="form-row"><label>Date du trajet</label><input class="inp" id="dt_${idx}" type="date"></div>
+        <div class="form-row"><label>Trajet (départ → arrivée)</label><input class="inp" id="desc_${idx}" placeholder="ex: Hyères → Toulon A/R"></div>
+        <div class="form-row full"><label>Motif du déplacement exceptionnel</label><input class="inp" id="motif_${idx}" placeholder="ex: Réunion de coordination inter-sites"></div>
+        <div class="form-row"><label>Distance (km)</label><input class="inp" style="font-family:var(--mono)" id="km_${idx}" type="number" step="1" placeholder="0" oninput="updateIK(${idx});updateAll()"></div>
+        <div class="form-row"><label>Montant calculé</label><div id="ikres_${idx}" style="padding:10px;background:#fef3c7;border-radius:6px;font-family:var(--mono);font-weight:700;font-size:18px;color:var(--amber);text-align:center">0,00 €</div></div>
+        <div class="form-row full"><label>Code projet (si vous le connaissez)</label>${codeSelect(idx)}</div>
+      </div>`;
+  } else {
+    div.innerHTML=`<div class="line-num">#${idx}</div><button class="rm-btn" onclick="rmLine(${idx})">✕</button>
+      <div class="form-grid">
+        <div class="form-row"><label>Date de la facture</label><input class="inp" id="dt_${idx}" type="date"></div>
+        <div class="form-row"><label>Fournisseur</label><input class="inp" id="four_${idx}" placeholder="ex: SNCF, Carrefour..."></div>
+        <div class="form-row full"><label>Description</label><input class="inp" id="desc_${idx}" placeholder="ex: Billet train aller-retour"></div>
+        <div class="form-row"><label>Montant TTC (€)</label><input class="inp" style="font-family:var(--mono)" id="amt_${idx}" type="number" step="0.01" placeholder="0.00" oninput="updateAll()"></div>
+        <div class="form-row"><label>Code projet (si vous le connaissez)</label>${codeSelect(idx)}</div>
+        <div class="form-row full"><label>Justificatif <span style="color:var(--red)">*obligatoire</span></label>
+          <div class="drop-zone" id="dz_${idx}" onclick="$('file_'+${idx}).click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${idx})" style="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;cursor:pointer;color:var(--text3);font-size:12px;transition:.2s">📎 Glissez un fichier ici ou cliquez</div>
+          <input type="file" id="file_${idx}" accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none" onchange="previewFile(${idx})">
+          <div id="fprev_${idx}"></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">📎 Sera renommé : <strong id="fname_${idx}">${n}</strong></div></div>
+      </div>`;
+  }
+  $("linesContainer").appendChild(div);updateAll();
+}
+function rmLine(idx){lines=lines.filter(l=>l.idx!==idx);$("line_"+idx)?.remove();updateAll()}
+function updateIK(idx){
+  const km=parseFloat($("km_"+idx)?.value)||0,cv=parseInt($("cv")?.value)||5,a=calcIK(km,cv);
+  const el=$("ikres_"+idx);if(el)el.innerHTML=fmt(a)+`<span style="font-size:11px;font-weight:400;color:var(--text2);margin-left:8px">${km} km × ${cv} CV</span>`;
+}
+function previewFile(idx){
+  const inp=$("file_"+idx),prev=$("fprev_"+idx);if(!inp?.files?.length){if(prev)prev.innerHTML="";return}
+  const f=inp.files[0],rd=new FileReader();
+  rd.onload=ev=>{const m=lines.find(l=>l.idx===idx);if(m){m._fd=ev.target.result;m._fn=f.name;m._ft=f.type}
+    if(prev){prev.innerHTML=f.type.startsWith("image/")?`<div class="file-prev"><img src="${ev.target.result}"> ${f.name}</div>`:`<div class="file-prev">📄 ${f.name} (${Math.round(f.size/1024)} Ko)</div>`}};
+  rd.readAsDataURL(f);
+}
+function handleDrop(e,idx){
+  const files=e.dataTransfer?.files;if(!files?.length)return;
+  const dt=new DataTransfer();dt.items.add(files[0]);
+  const inp=$("file_"+idx);if(inp){inp.files=dt.files;previewFile(idx)}
+  const dz=$("dz_"+idx);if(dz){dz.style.borderColor="var(--green)";dz.style.borderStyle="solid";dz.style.background="rgba(22,163,74,.04)";dz.innerHTML="✅ "+files[0].name}
+}
+
+function codeSelect(idx){
+  return `<select class="inp" id="code_${idx}">
+    <option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>
+    <optgroup label="Boost uP (parcours jeunes)"><option>BU92 - MLDS Hyères</option><option>BU96 - ML Coudon Gapeau</option><option>BU97 - Cité Éducative Paris 18</option><option>BU98 - Collège Doucet</option><option>BU99 - Collège Gustave Roux</option><option>BU100 - Nouvel Horizon</option><option>BU101 - E2C Var 8</option><option>BU102 - MIEJ</option></optgroup>
+    <optgroup label="Expérimentations"><option>EXP15 - ML Coudon Gapeau</option><option>EXP16 - ML La Seyne</option><option>EXP17 - ML La Seyne</option><option>EXP18 - MIEJ</option></optgroup>
+    <optgroup label="Form 2 Facilit"><option>F2F20 - ML Coudon Gapeau</option><option>F2F22 - ML de la Lyr</option><option>F2F23 - Fondation Orange</option></optgroup>
+    <optgroup label="Light uP"><option>LU12 - Emmaüs France</option><option>LU13 - La Verrière</option></optgroup>
+    <optgroup label="Fonctionnement"><option>FG2026 - Fonctionnement National</option><option>FV2026 - Fonctionnement Sud</option><option>FP2026 - Fonctionnement IDF</option></optgroup>
+  </select>`;
+}
+
+function updateAll(){
+  // Update nomenclature
+  let num=0;lines.forEach(l=>{num++;const el=$("fname_"+l.idx);if(el)el.textContent=fileNom(num)});
+  // Update summary
+  let total=0,ikT=0,count=0;
+  lines.forEach(l=>{if(l.type==="ik"){const a=calcIK(parseFloat($("km_"+l.idx)?.value)||0,parseInt($("cv")?.value)||5);ikT+=a;total+=a;count++}else{const a=parseFloat($("amt_"+l.idx)?.value)||0;total+=a;if(a)count++}});
+  $("summaryCards").innerHTML=`<div class="summary-card"><div class="summary-v">${count}</div><div class="summary-l">Dépense(s)</div></div>
+    <div class="summary-card"><div class="summary-v" style="color:var(--red)">${fmt(total)}</div><div class="summary-l">Total</div></div>
+    ${ikT?`<div class="summary-card"><div class="summary-v" style="color:var(--amber)">${fmt(ikT)}</div><div class="summary-l">Dont IK</div></div>`:""}`;
+  let h="";if(count){h=`<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px;font-size:10px;color:var(--text2)">#</th><th style="text-align:left;padding:6px;font-size:10px;color:var(--text2)">Description</th><th style="text-align:left;padding:6px;font-size:10px;color:var(--text2)">Justif.</th><th style="text-align:right;padding:6px;font-size:10px;color:var(--text2)">Montant</th></tr></thead><tbody>`;
+    let n2=0;lines.forEach(l=>{n2++;const desc=$("desc_"+l.idx)?.value||"—";let a=0;if(l.type==="ik")a=calcIK(parseFloat($("km_"+l.idx)?.value)||0,parseInt($("cv")?.value)||5);else a=parseFloat($("amt_"+l.idx)?.value)||0;if(!a)return;
+      h+=`<tr style="border-bottom:1px solid #f0f2f5"><td style="padding:6px;color:var(--text2)">${n2}</td><td style="padding:6px">${l.type==="ik"?"🚗 ":""}${desc}</td><td style="padding:6px;font-size:10px;color:var(--text3);font-family:var(--mono)">${fileNom(n2)}</td><td style="padding:6px;text-align:right;font-family:var(--mono);font-weight:600">${fmt(a)}</td></tr>`});
+    h+=`<tr style="border-top:2px solid var(--border);font-weight:700"><td></td><td style="padding:6px">TOTAL</td><td></td><td style="padding:6px;text-align:right;font-family:var(--mono);color:var(--accent)">${fmt(total)}</td></tr></tbody></table>`}
+  $("summaryTable").innerHTML=h;
+}
+function buildData(){
+  const prenom=($("prenom")?.value||"").trim(),nom=($("nom")?.value||"").trim();if(!prenom||!nom)return null;
+  const cv=parseInt($("cv")?.value)||5,coordo=$("coordo")?.value||"",comment=($("comment")?.value||"").trim();
+  const today=new Date().toISOString().split("T")[0],dc=today.replace(/-/g,"");
+  const exp=[];let num=0;const missingFiles=[];
+  lines.forEach(l=>{num++;const fn="N2026_"+dc+"_"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"_"+pad2(num);
+    const lineCode=$("code_"+l.idx)?.value||"";
+    if(l.type==="ik"){const km=parseFloat($("km_"+l.idx)?.value)||0;if(!km)return;const motif=$("motif_"+l.idx)?.value||"";
+      exp.push({type:"ik",date:$("dt_"+l.idx)?.value||today,desc:($("desc_"+l.idx)?.value||"")+(motif?" ("+motif+")":""),km,cv,amount:calcIK(km,cv),four:"Indemnité kilométrique",code:lineCode,fileName:"",fileData:"",fileType:"",nomenclature:fn})}
+    else{const amt=parseFloat($("amt_"+l.idx)?.value)||0;if(!amt)return;const m=lines.find(x=>x.idx===l.idx);const ext=(m?._fn||"").split(".").pop()||"pdf";
+      if(!m?._fd)missingFiles.push(num);
+      exp.push({type:"expense",date:$("dt_"+l.idx)?.value||today,desc:$("desc_"+l.idx)?.value||"",four:$("four_"+l.idx)?.value||"",amount:amt,code:lineCode,fileName:fn+"."+ext,fileData:m?._fd||"",fileType:m?._ft||"",nomenclature:fn})}});
+  if(!exp.length)return null;
+  if(missingFiles.length){return{error:"justificatif",missing:missingFiles}}
+  return{type:"litup-ndf-prestataire",salarie:prenom+" "+nom,coordo,cv,comment,ref:"PRESTA-"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"-"+today,date:today,lines:exp,total:exp.reduce((s,l)=>s+(l.amount||0),0),status:"à valider",exportDate:today}
+}
+function exportNDF(){
+  const d=buildData();
+  if(!d){alert("Merci de renseigner votre prénom, nom et d'ajouter au moins une dépense.");return}
+  if(d.error==="justificatif"){alert("⚠️ Justificatif(s) manquant(s) sur la/les ligne(s) n°"+d.missing.join(", ")+".\n\nChaque dépense (hors IK) doit avoir un justificatif joint (photo, scan ou PDF).");return}
+  if(!d.coordo){alert("Merci de choisir votre coordinateur·rice.");return}
+  const fn="NDF_"+d.salarie.split(" ").pop().toUpperCase()+"_"+d.date+".json";
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}));a.download=fn;a.click();
+  alert("✅ Fichier téléchargé !\n\n• "+d.lines.length+" dépense(s) pour "+fmt(d.total)+"\n• Coordinateur·rice : "+d.coordo+"\n\n📧 Envoyez \""+fn+"\" à "+d.coordo);
+}
+addLine("expense");
+</script>
+</body>
+</html>

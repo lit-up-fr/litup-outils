@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lit uP · NDF Direction</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--bg:#f5f6f8;--card:#fff;--card-alt:#fafbfc;--border:#e0e4ec;--text-1:#1a202c;--text-2:#4a5568;--text-3:#8896a8;
+--accent:#5b63e0;--accent-bg:rgba(91,99,224,.06);--green:#16a34a;--green-bg:rgba(22,163,74,.06);
+--red:#dc2626;--red-bg:rgba(220,38,38,.06);--amber:#d97706;--amber-bg:rgba(217,119,6,.06);--violet:#7c3aed;--violet-bg:rgba(124,58,237,.06);
+--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:13.5px}
+body{background:var(--bg);color:var(--text-1);font-family:var(--sans);line-height:1.6}
+.hd{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7c3aed,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:9px;color:#fff;flex-shrink:0}
+.bg-grp{display:flex;gap:4px;padding:3px;background:var(--card-alt);border-radius:var(--radius);border:1px solid var(--border)}
+.b{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:var(--radius);font-size:11.5px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;font-family:var(--sans)}.b:hover{transform:translateY(-1px)}
+.b-p{background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:0 2px 8px rgba(91,99,224,.2)}
+.b-g{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,.2)}
+.b-v{background:var(--violet-bg);color:var(--violet);border:1px solid rgba(124,58,237,.2)}
+.b-d{background:#fff;color:var(--text-2);border:1px solid var(--border)}.b-d:hover{border-color:var(--accent);color:var(--accent)}
+.b-r{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,.15)}
+.content{max-width:1200px;margin:0 auto;padding:20px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--card-alt);padding:9px 10px;text-align:left;border-bottom:2px solid var(--border);color:var(--text-3);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;font-weight:600}
+td{padding:8px 10px;border-bottom:1px solid #f0f2f5;vertical-align:middle}
+tr:hover{background:rgba(91,99,224,.02)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;flex:1;min-width:110px;box-shadow:var(--shadow)}
+.stat-v{font-size:22px;font-weight:800;font-family:var(--mono)}.stat-l{font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:#fff;border:1px solid var(--border);border-radius:14px;padding:24px;max-width:900px;width:95%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.12)}
+.modal h3{font-size:16px;margin-bottom:14px;font-weight:700}
+.empty{text-align:center;padding:50px;color:var(--text-3)}.empty h3{font-size:16px;color:var(--text-2);margin-bottom:8px}
+.inp{background:#fff;color:var(--text-1);border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;font-family:var(--sans);outline:none;transition:all .2s}.inp:focus{border-color:var(--accent)}
+@media(max-width:600px){.hd{padding:10px 12px}.content{padding:14px}.stat-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="logo">DIR</div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Notes de frais — Direction</div><div style="font-size:9px;color:var(--text-3)">Lit uP · 2026</div></div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="bg-grp"><button class="b b-p" onclick="importNDF()">📂 Importer NDF</button></div>
+  <div class="bg-grp">
+    <button class="b b-g" onclick="exportRetour()">📤 Retour salariés</button>
+    <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
+  </div>
+  <div class="bg-grp"><button class="b b-r" onclick="if(confirm('Tout effacer ?')){localStorage.removeItem('litup_dir');location.reload()}">🧹</button></div>
+</div>
+<div class="content" id="main"></div>
+<div id="modalC"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const STATUTS=["brouillon","prête","à valider","validée","réglée"];
+const STY={"brouillon":{e:"📝",c:"#94a3b8"},"prête":{e:"📨",c:"#d97706"},"à valider":{e:"📨",c:"#d97706"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
+let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
+function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){}}
+function closeM(){$("modalC").innerHTML=""}
+
+function render(){
+  const ndfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);ndfs.forEach(n=>byS[n.status]=(byS[n.status]||0)+1);
+  const tot=ndfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
+  let h=`<div class="stat-row">
+    <div class="stat-card"><div class="stat-v">${ndfs.length}</div><div class="stat-l">NDF totales</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(tot)}</div><div class="stat-l">Montant total</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--amber)">${(byS["prête"]||0)+(byS["à valider"]||0)}</div><div class="stat-l">À valider</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--green)">${byS["validée"]||0}</div><div class="stat-l">Validées</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--violet)">${byS["réglée"]||0}</div><div class="stat-l">Réglées</div></div>
+  </div>`;
+  if(!ndfs.length){h+=`<div class="empty"><h3>Aucune NDF</h3><p>Importez les exports JSON des salariés via 📂</p></div>`}
+  else{
+    h+=`<div style="overflow-x:auto"><table><thead><tr><th>Salarié / Coordinateur</th><th>Bénéficiaire</th><th>N° NDF</th><th>Date</th><th>Lignes</th><th style="text-align:right">Montant</th><th>Justif.</th><th>Statut</th><th></th></tr></thead><tbody>`;
+    ndfs.sort((a,b)=>(a.source||"").localeCompare(b.source||"")||(b.id||0)-(a.id||0)).forEach((n,ni)=>{
+      const t=n.lines.reduce((s,l)=>s+(l.amount||0),0);const fc=n.lines.filter(l=>l.fileData||l.fileName).length;
+      const benef=n.isPresta?(n.salarie||"Prestataire"):(n.source||"?");const st=STY[n.status]||STY.brouillon;
+      h+=`<tr>
+        <td style="font-weight:600;font-size:11px">${n.source||"?"}</td>
+        <td style="font-size:11px">${benef}${n.isPresta?' <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-weight:600">presta</span>':""}</td>
+        <td style="font-family:var(--mono);font-size:11px">${n.ref||"—"}</td>
+        <td style="font-size:11px;color:var(--text-2)">${n.date||""}</td>
+        <td style="text-align:center">${n.lines.length}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(t)}</td>
+        <td style="text-align:center">${fc?`📎 ${fc}`:""}</td>
+        <td><select class="inp" style="font-size:11px;padding:4px 6px;width:auto;min-width:120px;color:${st.c};font-weight:600;border-color:${st.c}44" onchange="D.ndfs[${ni}].status=this.value;D.ndfs[${ni}].statusDate=new Date().toISOString().split('T')[0];save();render()">
+          ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+        </select></td>
+        <td style="white-space:nowrap">
+          <button class="b b-p" style="font-size:10px;padding:4px 8px" onclick="viewDetail(${ni})">👁</button>
+          <button class="b b-r" style="font-size:10px;padding:4px 6px" onclick="if(confirm('Supprimer cette NDF ?')){D.ndfs.splice(${ni},1);save();render()}">🗑</button>
+        </td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  $("main").innerHTML=h;
+}
+
+function viewDetail(ni){
+  const n=D.ndfs[ni];if(!n)return;const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);const st=STY[n.status]||STY.brouillon;
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0">👁 ${n.ref} — ${n.salarie||n.source||"?"}${n.isPresta?' <span style="font-size:11px;color:var(--amber)">presta</span>':""}</h3>
+      <select class="inp" style="font-size:11px;width:auto;min-width:130px;color:${st.c};font-weight:600" onchange="D.ndfs[${ni}].status=this.value;D.ndfs[${ni}].statusDate=new Date().toISOString().split('T')[0];save();viewDetail(${ni})">
+        ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+      </select>
+    </div>
+    <div class="stat-row" style="margin-bottom:12px">
+      <div class="stat-card"><div class="stat-v" style="color:var(--text-1)">${n.date||"—"}</div><div class="stat-l">Date</div></div>
+      <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(total)}</div><div class="stat-l">Total</div></div>
+      <div class="stat-card"><div class="stat-v">${n.lines.length}</div><div class="stat-l">Lignes</div></div>
+      <div class="stat-card"><div class="stat-v">${n.lines.filter(l=>l.fileData||l.fileName).length}</div><div class="stat-l">Justificatifs</div></div>
+    </div>`;
+  if(n.prestaComment)h+=`<div style="padding:8px 12px;background:var(--amber-bg);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:12px">💬 ${n.prestaComment}</div>`;
+  h+=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Type</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
+  n.lines.forEach((l,i)=>{const ik=l.type==="ik";
+    h+=`<tr${ik?' style="background:var(--amber-bg)"':""}>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${i+1}</td>
+      <td style="font-size:10px">${ik?"🚗":"📝"}</td>
+      <td style="font-size:11px;color:var(--text-2)">${l.date||""}</td>
+      <td style="font-size:11px">${l.desc||"—"}${ik?` <span style="color:var(--text-3);font-size:10px">(${l.km||0} km, ${l.cv||5} CV)</span>`:""}</td>
+      <td style="font-size:11px;color:var(--text-2)">${l.four||""}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red);font-size:11px">${fmt(l.amount)}</td>
+      <td style="font-size:10px;color:var(--text-2);max-width:140px;overflow:hidden;text-overflow:ellipsis">${l.code||"—"}</td>
+      <td style="font-size:10px">`;
+    if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a>`;
+    else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a>`}
+    else if(l.fileName)h+=`<span style="color:var(--text-3)">📄 ${l.fileName}</span>`;
+    h+=`</td></tr>`;
+  });
+  h+=`<tr style="border-top:2px solid var(--border);font-weight:700"><td></td><td></td><td></td><td></td><td>TOTAL</td><td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(total)}</td><td></td><td></td></tr></tbody></table></div>`;
+  h+=`<div style="display:flex;gap:6px;margin-top:16px;justify-content:flex-end"><button class="b b-d" onclick="closeM()">Fermer</button></div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function showImg(name,dataUrl){const d=document.createElement("div");d.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:900px;text-align:center"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">📎 ${name}</h3><div style="display:flex;gap:6px"><a href="${dataUrl}" download="${name}" class="b b-g" style="text-decoration:none">⬇️</a><button class="b b-d" onclick="this.closest('.modal-bg').remove()">✕</button></div></div><img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px;border:1px solid var(--border)"></div></div>`;document.body.appendChild(d.firstElementChild)}
+
+function importNDF(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.multiple=true;
+  inp.onchange=e=>{Array.from(e.target.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{
+    const d=JSON.parse(ev.target.result);
+    if(d.salarie&&d.ndfs){d.ndfs.forEach(n=>{n.source=d.salarie;const ex=D.ndfs.find(x=>x.ref===n.ref&&x.source===d.salarie);if(ex)Object.assign(ex,n);else D.ndfs.push(n)});save();render();alert("✅ "+d.ndfs.length+" NDF de "+d.salarie)}
+    else if(d.type==="litup-ndf-prestataire"){alert("⚠️ C'est une NDF prestataire.\nImportez-la dans l'outil salarié d'abord (le coordinateur complètera les codes projets).")}
+    else{alert("Format non reconnu.")}
+  }catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)})};inp.click();
+}
+
+function exportRetour(){
+  const today=new Date().toISOString().split("T")[0];
+  const ret={type:"litup-ndf-retour",date:today,updates:D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,status:n.status,statusDate:n.statusDate||today,statusBy:"Direction"}))};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(ret,null,2)],{type:"application/json"}));a.download="NDF_retour_"+today+".json";a.click();
+  alert("✅ "+ret.updates.length+" statuts exportés\n\nChaque salarié importera ce fichier pour voir les mises à jour.");
+}
+
+function exportCompta(){
+  const ok=D.ndfs.filter(n=>n.status==="validée"||n.status==="réglée");
+  if(!ok.length){alert("Aucune NDF validée/réglée.");return}
+  const buf={};ok.forEach(n=>{buf[n.ref]=n.lines.map((l,i)=>({dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||0,cat:"",act:l.code||"",resp:n.salarie||n.source||"",numj:n.ref+"_"+String(i+1).padStart(2,"0"),ndf:n.ref}))});
+  const data={ndfBuffer:buf,exportSource:"litup-ndf-direction",exportDate:new Date().toISOString().split("T")[0]};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="NDF_compta_"+data.exportDate+".json";a.click();
+  alert("✅ "+Object.keys(buf).length+" NDF exportées pour la compta\n\nImportez dans l'outil V6 via 📥 AT.");
+}
+
+render();
+</script>
+</body>
+</html>

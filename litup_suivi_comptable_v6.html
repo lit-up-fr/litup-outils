@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lit uP · Suivi Comptable & Budget V6</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg-0:#0b0d12;--bg-1:#12151c;--bg-2:#181c26;--bg-3:#1f2433;
+  --border:#252d3f;--border-h:#3a4560;
+  --text-1:#e8ecf4;--text-2:#a8b4c8;--text-3:#6b7a92;
+  --accent:#6366f1;--accent-l:#818cf8;--accent-bg:rgba(99,102,241,.08);
+  --green:#34d399;--green-bg:rgba(52,211,153,.08);
+  --red:#f87171;--red-bg:rgba(248,113,113,.08);
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,.08);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --radius:6px;--shadow:none;
+}
+html.light{
+  --bg-0:#f5f6f8;--bg-1:#ffffff;--bg-2:#ffffff;--bg-3:#f0f2f5;
+  --border:#e0e4ec;--border-h:#c8cdd8;
+  --text-1:#1a202c;--text-2:#4a5568;--text-3:#8896a8;
+  --accent:#5b63e0;--accent-l:#6366f1;--accent-bg:rgba(91,99,224,.06);
+  --green:#16a34a;--green-bg:rgba(22,163,74,.06);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.06);
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.06);
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
+  --shadow:0 1px 3px rgba(0,0,0,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:13px}
+body{background:var(--bg-0);color:var(--text-1);font-family:var(--sans);line-height:1.55;min-height:100vh}
+::-webkit-scrollbar{width:7px;height:7px}::-webkit-scrollbar-track{background:var(--bg-1)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--border-h)}
+a{color:var(--accent-l);text-decoration:none}
+
+/* ─── HEADER ─── */
+.hd{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg-1)}
+.logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#5b63e0 0%,#818cf8 100%);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff;flex-shrink:0;box-shadow:0 3px 12px rgba(99,102,241,.3)}
+.btn-group{display:flex;gap:4px;padding:3px;background:var(--bg-2);border-radius:8px;border:1px solid var(--border)}
+.b{display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border-radius:var(--radius);font-size:11px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;font-family:var(--sans)}.b:hover{transform:translateY(-1px)}
+.bg{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,211,153,.25)}.bg:hover{background:rgba(52,211,153,.15)}
+.by{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(251,191,36,.25)}.by:hover{background:rgba(251,191,36,.15)}
+.bb{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(96,165,250,.25)}.bb:hover{background:rgba(96,165,250,.15)}
+.bd{background:transparent;color:var(--text-3);border:1px solid var(--border)}.bd:hover{color:var(--text-2);border-color:var(--border-h)}
+.br{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,113,113,.2)}.br:hover{background:rgba(248,113,113,.15)}
+.bp{background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:0 2px 8px rgba(99,102,241,.25)}.bp:hover{box-shadow:0 4px 12px rgba(99,102,241,.35)}
+
+/* ─── STATS BAR ─── */
+.st{padding:10px 20px;display:flex;gap:10px;border-bottom:1px solid var(--border);flex-wrap:wrap;overflow-x:auto;background:var(--bg-0)}
+.sc{background:var(--bg-2);padding:8px 14px;border-radius:8px;border:1px solid var(--border);flex-shrink:0}
+.sl{font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:2px}.sv{font-size:16px;font-weight:700;color:var(--text-1);font-family:var(--mono)}
+
+/* ─── TAB BAR ─── */
+.tb{padding:8px 20px;display:flex;gap:4px;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;overflow-x:auto;background:var(--bg-1)}
+.tab{padding:7px 14px;border-radius:var(--radius);border:none;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;font-family:var(--sans)}
+.ta{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.2)}.ti{background:var(--bg-2);color:var(--text-3);border:1px solid transparent}.ti:hover{background:var(--bg-3);color:var(--text-2)}
+.fb{padding:4px 10px;border-radius:var(--radius);font-size:10px;cursor:pointer;background:transparent;white-space:nowrap;transition:.2s}
+.fb.on{border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent-l);font-weight:600}.fb:not(.on){border:1px solid var(--border);color:var(--text-3)}
+.si{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:11px;width:170px;outline:none;font-family:var(--sans);transition:border .2s}.si:focus{border-color:var(--accent)}
+
+/* ─── TABLE ─── */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600}
+td{padding:5px 8px;border-bottom:1px solid rgba(37,45,63,.4);vertical-align:middle}
+tr:hover{background:rgba(99,102,241,.03)}
+tr.ndf{background:rgba(251,191,36,.04)}
+tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,241,.3)}
+.ci{background:transparent;color:var(--text-1);border:none;font-size:12px;width:100%;padding:2px 0;outline:none;font-family:var(--sans)}
+.cj{background:transparent;color:var(--text-1);border:1px solid var(--border);border-radius:4px;font-size:11px;width:100%;padding:3px 5px;outline:none;font-family:var(--sans);transition:border .2s}.cj:focus{border-color:var(--accent)}
+.ms{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:11px;width:100%;outline:none;font-family:var(--sans)}.ms:focus{border-color:var(--accent)}
+.yr{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:11px;width:60px;outline:none;font-family:var(--sans);text-align:center}
+.ni{background:var(--bg-0);color:var(--text-1);border:1px solid var(--border);border-radius:4px;font-size:11px;padding:4px 6px;outline:none;font-family:var(--mono);text-align:right;width:95px}
+
+/* ─── SEARCH SELECT ─── */
+.ss{position:relative;width:100%}
+.ss-d{background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-height:24px;line-height:16px;color:var(--text-1);transition:border .2s}.ss-d:hover{border-color:var(--accent)}
+.ss-d.em{color:var(--text-3)}
+.ss-dd{position:absolute;top:100%;left:0;right:0;z-index:999;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;max-height:220px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.ss-s{width:100%;padding:6px 10px;font-size:11px;background:var(--bg-1);color:var(--text-1);border:none;border-bottom:1px solid var(--border);outline:none;font-family:var(--sans)}
+.ss-i{padding:5px 10px;font-size:11px;cursor:pointer;transition:.1s}.ss-i:hover{background:var(--accent-bg)}.ss-i.sel{background:rgba(99,102,241,.12);color:var(--accent-l)}
+.ib{background:none;border:none;cursor:pointer;padding:3px;color:var(--text-3);font-size:13px;transition:.2s;border-radius:4px}.ib:hover{color:var(--text-1);background:var(--bg-3)}
+.deb{text-align:right;color:var(--red);font-weight:600;white-space:nowrap;font-family:var(--mono);font-size:11px}
+.cre{text-align:right;color:var(--green);font-weight:600;white-space:nowrap;font-family:var(--mono);font-size:11px}
+.att{display:inline-flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-3);text-decoration:none;transition:.2s}
+.att.has{background:var(--accent-bg);border-color:rgba(99,102,241,.3);color:var(--accent-l)}
+.empty{text-align:center;padding:60px 24px;color:var(--text-3)}.empty h3{font-size:16px;font-weight:600;margin:12px 0 8px;color:var(--text-2)}
+
+/* ─── CARDS & GRIDS ─── */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;padding:16px 20px}
+.scard{background:var(--bg-2);border-radius:10px;padding:14px;border:1px solid var(--border);transition:border .2s;box-shadow:var(--shadow)}.scard:hover{border-color:var(--border-h)}
+.sbar{height:5px;background:var(--bg-0);border-radius:3px;overflow:hidden;margin-top:8px}.sbar-f{height:100%;border-radius:3px;transition:width .5s}
+.chip{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;background:var(--accent-bg);border:1px solid rgba(99,102,241,.2);border-radius:12px;font-size:10px;color:var(--accent-l);cursor:pointer;transition:.2s}.chip:hover{background:rgba(99,102,241,.15)}
+.chip .x{opacity:.5;margin-left:2px}.chip .x:hover{opacity:1}
+
+/* ─── MODALS ─── */
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:800px;width:95%;max-height:85vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.modal h3{font-size:15px;margin-bottom:14px;color:var(--text-1);font-weight:700}
+.cfg-row{display:flex;gap:5px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(37,45,63,.3);flex-wrap:wrap}
+.cfg-row input,.cfg-row select{padding:5px 7px;background:var(--bg-0);border:1px solid var(--border);border-radius:5px;color:var(--text-1);font-size:11px;font-family:var(--sans);outline:none}
+.warn{background:var(--amber-bg);border:1px solid rgba(251,191,36,.15);border-radius:8px;padding:12px;margin:8px 0}
+
+/* ─── ALERTS & PROGRESS ─── */
+.alert-ok{color:var(--green)}.alert-warn{color:var(--amber)}.alert-danger{color:var(--red)}
+.pbar{height:20px;background:var(--bg-3);border-radius:5px;overflow:hidden;position:relative}
+.pbar-f{height:100%;border-radius:5px;transition:width .4s ease}
+.pbar-t{position:absolute;top:0;left:8px;line-height:20px;font-size:10px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+
+/* ─── DASHBOARD ─── */
+.dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.dash-c{background:var(--bg-2);padding:14px;border-radius:10px;border:1px solid var(--border);text-align:center;transition:.2s}.dash-c:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.dash-v{font-size:24px;font-weight:800;font-family:var(--mono)}.dash-l{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;font-weight:500}
+.mo-check{width:16px;height:16px;cursor:pointer;accent-color:var(--accent)}
+.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,241,.3)}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="logo">L+</div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6</div></div>
+  </div>
+  <div style="flex:1"></div>
+  <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
+  <input type="file" id="fi_ndf" accept=".xlsx,.xls,.xlsm" style="display:none">
+  <input type="file" id="fi_scan" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none">
+  <div class="btn-group">
+    <button class="b bg" onclick="$('fi_bank').click()">📥 Banque</button>
+    <button class="b by" onclick="$('fi_ndf').click()">📥 NDF</button>
+    <button class="b bb" onclick="$('fi_scan').click()">📎 Justif.</button>
+  </div>
+  <div class="btn-group">
+    <button class="b bp" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
+    <button class="b bd" onclick="undo()" title="Annuler la dernière action">↩️</button>
+  </div>
+  <div class="btn-group">
+    <button class="b bd" onclick="exportCSV()">📤 CSV</button>
+    <button class="b bd" onclick="exportFEC()" title="Export FEC pour l'expert-comptable">📤 FEC</button>
+    <button class="b bd" onclick="exportZIP()">📦 ZIP</button>
+    <button class="b bd" onclick="saveAll()">💾</button>
+    <button class="b bd" onclick="loadAll()">📂</button>
+  </div>
+  <div class="btn-group">
+    <button class="b by" onclick="autoMatchNDF()" title="Rapprochement automatique banque ↔ NDF">🔗 Rapprocher</button>
+    <button class="b by" onclick="importAirtable()" title="Importer données Airtable (JSON)">📥 AT</button>
+    <button class="b br" onclick="clearData()" title="Effacer des données">🧹</button>
+  </div>
+  <button class="b bd" onclick="toggleTheme()" id="themeBtn" title="Changer de thème">🌙</button>
+</div>
+<div class="st" id="statsBar"></div>
+<div id="alertsBanner" style="padding:0 20px"></div>
+<div class="tb" id="toolbar"></div>
+<div id="content"></div>
+<div id="modalC"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+
+// ─── THEME TOGGLE ───
+function toggleTheme(){
+  document.documentElement.classList.toggle("light");
+  const isLight=document.documentElement.classList.contains("light");
+  localStorage.setItem("litup_theme",isLight?"light":"dark");
+  const btn=$("themeBtn");if(btn)btn.textContent=isLight?"☀️":"🌙";
+}
+// Restore saved theme
+(function(){
+  const saved=localStorage.getItem("litup_theme");
+  if(saved==="light"){document.documentElement.classList.add("light");
+    requestAnimationFrame(()=>{const btn=$("themeBtn");if(btn)btn.textContent="☀️"})
+  }
+})();
+const fmt=n=>{if(n===null||n===undefined||n==="")return"";const v=parseFloat(n);return isNaN(v)?"":v.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"};
+const fmtP=n=>{if(!n&&n!==0)return"";return Math.round(n)+"%"};
+const ds=v=>{if(v instanceof Date)return v.toISOString().split("T")[0];return String(v||"").split(" ")[0].split("T")[0]};
+const yrOf=dt=>dt?dt.substring(0,4):"2026";
+const moKey=dt=>dt?dt.substring(0,7):"";
+const MOS=["01","02","03","04","05","06","07","08","09","10","11","12"];
+const MONAMES=["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Aoû","Sep","Oct","Nov","Déc"];
+
+// ─── STATE ───
+let D={
+  rows:[],att:{},ctr:{F:0,P:0,S:0,RF:0},
+  cats:["60630000 - Fournitures pédagogiques","60640000 - Fournitures administratives","61341000 - Charges locatives Sud","61342000 - Charges locatives IDF","61343000 - Charges locatives divers","61500000 - Entretien et réparations","61560000 - Maintenance informatique","61600000 - Primes d'assurance","61810000 - Documentation","61850000 - Colloques, séminaires","62141000 - Coach en orientation","62142000 - Intervenants pédagogiques","62265000 - Cabinet expert-comptable","62268000 - Prestation admin-comptabilité","62273000 - Commissaire aux comptes","62300000 - Publicité, publication, RP","62510000 - Voyages et déplacements","62511000 - Indemnités kilométriques","62560000 - Missions","62571000 - Réceptions","62572000 - Séjours","62600000 - Frais postaux et télécom","62700000 - Services bancaires","62810000 - Divers cotisations","63130000 - Participation formation pro","63330000 - Formations du personnel","64110000 - Salaires et appointements","64160000 - Gratification Service Civique","64510000 - Cotisations URSSAF","64520000 - Cotisations Prévoyance/Santé","64530000 - Cotisations Retraite","64750000 - Médecine du travail","68120000 - Dotations amortissements","70600000 - Prestations de services","74110000 - CAF AAP Jeunes","74170000 - FONJEP","74191000 - Cité Éducative La Seyne","74192000 - Cité Éducative Toulon","74193000 - Cité Éducative Hyères","74400000 - Politique de la Ville","74500000 - Département","74800000 - Autres subventions publiques","75411000 - Dons de particuliers","75412000 - Mécénat et fondations","76890000 - Autres produits financiers"],
+  acts:[{l:"FG2026 - Fonctionnement National",t:"NAT"},{l:"FV2026 - Fonctionnement Sud",t:"SUD"},{l:"FP2026 - Fonctionnement IDF",t:"IDF"},{l:"RH2026 - Ressources humaines",t:"NAT"},{l:"EXP15 - ML Coudon Gapeau",t:"SUD"},{l:"EXP16 - ML La Seyne",t:"SUD"},{l:"EXP17 - ML La Seyne",t:"SUD"},{l:"EXP18 - MIEJ",t:"IDF"},{l:"BU80 - Micro-collège Toulon",t:"SUD"},{l:"BU81 - Collège Henri Wallon",t:"SUD"},{l:"BU83 - ML Coudon Gapeau",t:"SUD"},{l:"BU84 - Collège Rivière Hyères",t:"SUD"},{l:"BU85 - MIEJ 9",t:"IDF"},{l:"BU86 - MIEJ 10",t:"IDF"},{l:"BU87 - E2C 92",t:"IDF"},{l:"BU88 - ML Bondy/MIEJ",t:"IDF"},{l:"BU89 - ML Saint-Ouen",t:"IDF"},{l:"BU90 - Collège Ravel",t:"SUD"},{l:"BU91 - MLDS La Seyne",t:"SUD"},{l:"BU92 - MLDS Hyères",t:"SUD"},{l:"BU93 - ML Aubervilliers",t:"IDF"},{l:"BU94 - Collège Wallon 2",t:"SUD"},{l:"BU95 - MIEJ 02R",t:"IDF"},{l:"BU96 - ML Coudon Gapeau 7",t:"SUD"},{l:"BU97 - Cité Éducative Paris 18",t:"IDF"},{l:"BU98 - Collège Doucet",t:"IDF"},{l:"BU99 - Collège Gustave Roux",t:"SUD"},{l:"BU100 - Nouvel Horizon 2",t:"SUD"},{l:"BU101 - E2C Var 8",t:"SUD"},{l:"BU102 - MIEJ",t:"IDF"},{l:"F2F15 - Facilitateurs IDF",t:"IDF"},{l:"F2F17 - Facilitateurs SUD",t:"SUD"},{l:"F2F18 - MIEJ",t:"IDF"},{l:"F2F19 - ML Corail",t:"SUD"},{l:"F2F20 - ML Coudon Gapeau",t:"SUD"},{l:"F2F21 - ARML Sud",t:"SUD"},{l:"F2F22 - ML de la Lyr",t:"IDF"},{l:"F2F23 - Fondation Orange",t:"IDF"},{l:"SU1 - Speak uP",t:"NAT"},{l:"IU1 - Impact uP",t:"NAT"},{l:"LU9 - SC2S",t:"SUD"},{l:"LU10 - La Verrière",t:"IDF"},{l:"LU11 - MLDS Draguignan",t:"SUD"},{l:"LU12 - Emmaüs France",t:"IDF"},{l:"LU13 - La Verrière 3",t:"IDF"}],
+  rules:[
+    {match:"COMPTA",four:"NB Gesti'easy",cat:"62268000 - Prestation admin-comptabilité",act:"FG2026 - Fonctionnement National"},
+    {match:"COSTAMAGNA",four:"Cabinet Costamagna",cat:"62265000 - Cabinet expert-comptable",act:"FG2026 - Fonctionnement National"},
+    {match:"MAIF",four:"MAIF",cat:"61600000 - Primes d'assurance",act:"FG2026 - Fonctionnement National"},
+    {match:"SALAIRE",four:"Paie",cat:"64110000 - Salaires et appointements",act:"RH2026 - Ressources humaines"},
+    {match:"PASDSN",four:"Paie",cat:"64110000 - Salaires et appointements",act:"RH2026 - Ressources humaines"},
+    {match:"URSSAF",four:"URSSAF",cat:"64510000 - Cotisations URSSAF",act:"RH2026 - Ressources humaines"},
+    {match:"HARMONIE",four:"Harmonie Mutuelle",cat:"64520000 - Cotisations Prévoyance/Santé",act:"RH2026 - Ressources humaines"},
+    {match:"AG2R",four:"AG2R",cat:"64530000 - Cotisations Retraite",act:"RH2026 - Ressources humaines"},
+    {match:"ALLIANZ",four:"Allianz",cat:"64520000 - Cotisations Prévoyance/Santé",act:"RH2026 - Ressources humaines"},
+    {match:"AIST83",four:"AIST 83",cat:"64750000 - Médecine du travail",act:"RH2026 - Ressources humaines"},
+    {match:"FACILIT",four:"Facilitateur",cat:"62142000 - Intervenants pédagogiques",act:""},
+    {match:"SNCF",four:"SNCF",cat:"62510000 - Voyages et déplacements",act:""},
+    {match:"SFR",four:"SFR",cat:"62600000 - Frais postaux et télécom",act:"FG2026 - Fonctionnement National"},
+    {match:"CANVA",four:"Canva",cat:"62300000 - Publicité, publication, RP",act:"FG2026 - Fonctionnement National"},
+    {match:"SGT",four:"Crédit Mutuel",cat:"62700000 - Services bancaires",act:"FG2026 - Fonctionnement National"},
+    {match:"FRAIS PAIE CB",four:"Crédit Mutuel",cat:"62700000 - Services bancaires",act:"FG2026 - Fonctionnement National"},
+    {match:"CAF",four:"CAF",cat:"74110000 - CAF AAP Jeunes",act:""},
+    {match:"CHEMIN",four:"Fonds Le Chemin",cat:"75412000 - Mécénat et fondations",act:""},
+    {match:"MISSION LOCALE",four:"Mission Locale",cat:"70600000 - Prestations de services",act:""},
+  ],
+  // Budget prévisionnel: array of {cat, versions:[{date,amount}], months:[true x12 or specific], type:'charge'|'produit'}
+  budget:[
+    // CHARGES pré-remplies depuis Budget 2026 voté au CA du 03/12/2025
+    {cat:"60630000 - Fournitures pédagogiques",type:"charge",versions:[5000],seasonMode:"lisse",months:[]},
+    {cat:"60640000 - Fournitures administratives",type:"charge",versions:[1000],seasonMode:"lisse",months:[]},
+    {cat:"61341000 - Charges locatives Sud",type:"charge",versions:[5400],seasonMode:"lisse",months:[]},
+    {cat:"61342000 - Charges locatives IDF",type:"charge",versions:[10800],seasonMode:"lisse",months:[]},
+    {cat:"61343000 - Charges locatives divers",type:"charge",versions:[800],seasonMode:"lisse",months:[]},
+    {cat:"61500000 - Entretien et réparations",type:"charge",versions:[300],seasonMode:"lisse",months:[]},
+    {cat:"61560000 - Maintenance informatique",type:"charge",versions:[2000],seasonMode:"lisse",months:[]},
+    {cat:"61600000 - Primes d'assurance",type:"charge",versions:[1238.96],seasonMode:"lisse",months:[]},
+    {cat:"61810000 - Documentation",type:"charge",versions:[500],seasonMode:"lisse",months:[]},
+    {cat:"61850000 - Colloques, séminaires",type:"charge",versions:[1000],seasonMode:"lisse",months:[]},
+    {cat:"62142000 - Intervenants pédagogiques",type:"charge",versions:[85050],seasonMode:"lisse",months:[]},
+    {cat:"62265000 - Cabinet expert-comptable",type:"charge",versions:[6000],seasonMode:"lisse",months:[]},
+    {cat:"62267000 - Audit Qualiopi",type:"charge",versions:[800],seasonMode:"mois",months:[9]},
+    {cat:"62268000 - Prestation admin-comptabilité",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"62273000 - Commissaire aux comptes",type:"charge",versions:[5500],seasonMode:"mois",months:[5,6]},
+    {cat:"62300000 - Publicité, publication, RP",type:"charge",versions:[495],seasonMode:"lisse",months:[]},
+    {cat:"62510000 - Voyages et déplacements",type:"charge",versions:[4500],seasonMode:"lisse",months:[]},
+    {cat:"62511000 - Indemnités kilométriques",type:"charge",versions:[2750],seasonMode:"lisse",months:[]},
+    {cat:"62560000 - Missions",type:"charge",versions:[2530],seasonMode:"lisse",months:[]},
+    {cat:"62571000 - Réceptions",type:"charge",versions:[4500],seasonMode:"lisse",months:[]},
+    {cat:"62572000 - Séjours",type:"charge",versions:[2000],seasonMode:"mois",months:[6,7]},
+    {cat:"62600000 - Frais postaux et télécom",type:"charge",versions:[200],seasonMode:"lisse",months:[]},
+    {cat:"62700000 - Services bancaires",type:"charge",versions:[467.5],seasonMode:"lisse",months:[]},
+    {cat:"62810000 - Divers cotisations",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"63130000 - Participation formation pro",type:"charge",versions:[1500],seasonMode:"mois",months:[1]},
+    {cat:"63330000 - Formations du personnel",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"64110000 - Salaires et appointements",type:"charge",versions:[225955.5],seasonMode:"lisse",months:[]},
+    {cat:"64160000 - Gratification Service Civique",type:"charge",versions:[5500],seasonMode:"lisse",months:[]},
+    {cat:"64510000 - Cotisations URSSAF",type:"charge",versions:[55000],seasonMode:"lisse",months:[]},
+    {cat:"64520000 - Cotisations Prévoyance/Santé",type:"charge",versions:[12000],seasonMode:"lisse",months:[]},
+    {cat:"64530000 - Cotisations Retraite",type:"charge",versions:[16000],seasonMode:"lisse",months:[]},
+    {cat:"64750000 - Médecine du travail",type:"charge",versions:[820],seasonMode:"mois",months:[0,6]},
+    {cat:"68120000 - Dotations amortissements",type:"charge",versions:[2336],seasonMode:"mois",months:[11]},
+    // PRODUITS pré-remplis
+    {cat:"70600000 - Prestations de services",type:"produit",versions:[119720],seasonMode:"lisse",months:[]},
+    {cat:"74110000 - CAF AAP Jeunes",type:"produit",versions:[20000],seasonMode:"mois",months:[5,11]},
+    {cat:"74170000 - FONJEP",type:"produit",versions:[4719],seasonMode:"mois",months:[3]},
+    {cat:"74191000 - Cité Éducative La Seyne",type:"produit",versions:[8000],seasonMode:"mois",months:[4,10]},
+    {cat:"74192000 - Cité Éducative Toulon",type:"produit",versions:[6000],seasonMode:"mois",months:[4]},
+    {cat:"74193000 - Cité Éducative Hyères",type:"produit",versions:[9000],seasonMode:"mois",months:[4,10]},
+    {cat:"74400000 - Politique de la Ville",type:"produit",versions:[14500],seasonMode:"mois",months:[5,11]},
+    {cat:"74800000 - Autres subventions publiques",type:"produit",versions:[83581],seasonMode:"lisse",months:[]},
+    {cat:"75411000 - Dons de particuliers",type:"produit",versions:[7767],seasonMode:"lisse",months:[]},
+    {cat:"75412000 - Mécénat et fondations",type:"produit",versions:[231500],seasonMode:"lisse",months:[]},
+    {cat:"76890000 - Autres produits financiers",type:"produit",versions:[1000],seasonMode:"mois",months:[0]},
+  ],
+  budgetVersions:["Budget voté CA 03/12/2025"],
+  soldeInitial:81104,
+  soldeDate:"2025-01-01",
+  airtableSync:"2026-04-21",
+  airtableSubs:[
+    {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
+    {n:"Mairie Hyères",s:"versée",mt:500,ob:500,dp:"2026-01-13",t:"SUD"},
+    {n:"FSE 1.1",s:"versée",mt:30000,ob:28000,dp:"2026-02-15",t:"IDF"},
+    {n:"FSE 1.2",s:"versée",mt:21000,ob:21000,dp:"2026-02-15",t:"IDF"},
+    {n:"Fondation Brageac",s:"validée",mt:2000,ob:2000,dp:"2026-03-01",t:"NAT"},
+    {n:"CAF 93",s:"versée",mt:12800,ob:12800,dp:"2026-03-30",t:"IDF"},
+    {n:"Fondation Charis",s:"versée",mt:20000,ob:20000,dp:"2026-03-24",t:"NAT"},
+    {n:"Est-Ensemble",s:"versée",mt:6000,ob:4000,dp:"2026-03-20",t:"IDF"},
+    {n:"Fortil",s:"sollicitée",mt:10000,dp:"2026-03-30",t:"SUD"},
+    {n:"Fondation du Lucq",s:"validée",mt:10000,ob:10000,dp:"2026-06-01",t:"NAT"},
+    {n:"CAF Var 4.2",s:"validée",mt:6000,ob:6000,dp:"2026-06-30",t:"SUD"},
+    {n:"CAF Var 5.1.1",s:"sollicitée",mt:14000,dp:"2026-07-15",t:"SUD"},
+    {n:"CAF Var 5.2.1",s:"sollicitée",mt:4200,dp:"2026-07-15",t:"SUD"},
+    {n:"Fondation de France",s:"versée",mt:42000,ob:42000,dp:"2026-07-19",t:"NAT"},
+    {n:"Nanterre",s:"attente",mt:1000,dp:"2026-07-19",t:"IDF"},
+    {n:"Fondation Bellon",s:"sollicitée",mt:80000,dp:"2026-07-31",t:"NAT"},
+    {n:"Crédit mutuel",s:"attente",mt:70000,dp:"2026-07-31",t:"NAT"},
+    {n:"CE Hyères 3",s:"attente",mt:4000,dp:"2026-07-31",t:"SUD"},
+    {n:"CE La Seyne 2",s:"attente",mt:4000,dp:"2026-07-31",t:"SUD"},
+    {n:"PDV 93 Est-Ensemble",s:"attente",mt:8000,dp:"2026-08-01",t:"IDF"},
+    {n:"PDV 93 Plaine Commune",s:"attente",mt:6000,dp:"2026-08-01",t:"IDF"},
+    {n:"Ville Bezons",s:"attente",mt:1500,dp:"2026-08-01",t:"IDF"},
+    {n:"Mairie Persan",s:"attente",mt:2200,dp:"2026-08-01",t:"IDF"},
+    {n:"PDV 95 SGBDS",s:"attente",mt:2000,dp:"2026-08-01",t:"IDF"},
+    {n:"Ville Paris",s:"attente",mt:7000,dp:"2026-08-01",t:"IDF"},
+    {n:"Département 93",s:"attente",mt:15000,dp:"2026-08-01",t:"IDF"},
+    {n:"Nanterre CE",s:"validée",mt:8000,ob:5000,dp:"2026-08-01",t:"IDF"},
+    {n:"Mairie Paris 18",s:"validée",mt:5000,ob:5000,dp:"2026-09-01",t:"IDF"},
+    {n:"PDV 92",s:"attente",mt:1000,dp:"2026-09-30",t:"IDF"},
+    {n:"Saint-Ouen",s:"attente",mt:2000,dp:"2026-09-30",t:"IDF"},
+    {n:"Fondation du Lucq 3",s:"validée",mt:10000,ob:10000,dp:"2026-10-30",t:"NAT"},
+    {n:"Fonds Solma",s:"sollicitée",mt:10000,dp:"2026-11-28",t:"NAT"},
+    {n:"Fondation Le Chemin",s:"validée",mt:10000,dp:"2026-12-30",t:"NAT"},
+    {n:"Fondation Le Chemin 2",s:"sollicitée",mt:10000,dp:"2026-12-31",t:"SUD"},
+    {n:"CAF 93 3",s:"validée",mt:20000,ob:20000,dp:"2027-03-30",t:"IDF"},
+  ],
+  airtablePrestas:[
+    {n:"E2C 92 (BU87)",s:"facturé",mt:2500,ob:2500,dp:"2026-01-31",tp:"Jeunes",parc:"BU87"},
+    {n:"La Verrière (LU11)",s:"payé",mt:2000,ob:2000,dp:"2026-02-05",tp:"Jeunes",parc:"LU11"},
+    {n:"MLDS La Seyne (BU92)",s:"signé",mt:2880,ob:2800,dp:"2026-02-16",tp:"Jeunes",parc:"BU92"},
+    {n:"ML Corail - F2F19",s:"signé",mt:2800,ob:2800,dp:"2026-03-10",tp:"Pros",parc:"F2F19"},
+    {n:"Emmaüs France",s:"facturé",mt:2500,ob:2500,dp:"2026-03-10",tp:"Jeunes",parc:"LU8/LU12"},
+    {n:"ML Coudon Gapeau (BU96)",s:"signé",mt:1755,dp:"2026-03-31",tp:"Jeunes",parc:"BU96"},
+    {n:"ML Corail 6",s:"signé",mt:750,dp:"2026-03-31",tp:"Jeunes"},
+    {n:"ARML Sud - F2F21",s:"signé",mt:4710,ob:4710,dp:"2026-03-31",tp:"Pros",parc:"F2F21"},
+    {n:"MLDS Hyères (BU92)",s:"négo",mt:2880,dp:"2026-06-30",tp:"Jeunes",parc:"BU92"},
+    {n:"Nouvel Horizon",s:"négo",mt:1500,dp:"2026-07-31",tp:"Jeunes"},
+    {n:"Fondation Orange F2F",s:"signé",mt:7000,ob:7000,dp:"2026-09-30",tp:"Pros",parc:"F2FXX"},
+    {n:"ML de la Lyr F2F",s:"signé",mt:5000,ob:5000,dp:"2026-09-30",tp:"Pros",parc:"F2FXX"},
+    {n:"ML Corail - F2F19",s:"signé",mt:5000,dp:"2026-09-30",tp:"Pros",parc:"F2F19"},
+    {n:"ML Coudon Gapeau F2F",s:"négo",mt:2250,dp:"2026-09-30",tp:"Pros",parc:"F2F20"},
+    {n:"ARML Sud 3",s:"négo",mt:4710,dp:"2026-09-30",tp:"Pros"},
+    {n:"Emmaüs France 7",s:"négo",mt:6000,dp:"2026-09-30",tp:"Jeunes",parc:"LU12"},
+    {n:"Umane F2F",s:"négo",mt:7000,dp:"2026-12-31",tp:"Pros"},
+    {n:"ML Corail 5",s:"négo",mt:900,dp:"2026-12-31",tp:"Jeunes"},
+    {n:"MLDS La Seyne 3",s:"négo",mt:1500,dp:"2026-12-31",tp:"Jeunes"},
+    {n:"ML Coudon Gapeau 9",s:"négo",mt:1755,dp:"2026-12-31",tp:"Jeunes"},
+  ],
+};
+const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis"];
+const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin salaire","Classé - Reçu fiscal","Justificatif manquant","En attente","À créer","À demander","Absence"];
+const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
+
+let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
+let tresFilt={versee:true,validee:true,attente:true,sollicitee:false};
+let openDD=null;
+
+// Helper: get act labels array (for dropdowns, backward compat)
+function actLabels(){return D.acts.map(a=>typeof a==="string"?a:a.l)}
+// Helper: get territory for an act label
+function actTerr(label){if(!label)return"";const a=D.acts.find(x=>(typeof x==="string"?x:x.l)===label);return a?(typeof a==="string"?"":a.t||""):""}
+// Helper: normalize acts (support old string format from saves)
+function normActs(){D.acts=D.acts.map(a=>typeof a==="string"?{l:a,t:""}:a)}
+
+function applyRules(lib){if(!lib)return null;const u=lib.toUpperCase();for(const r of D.rules){if(u.includes(r.match.toUpperCase()))return r}return null}
+function detMod(lib){if(!lib)return"";const u=lib.toUpperCase();if(u.includes("PAIEMENT CB")||u.includes("PAIEMENT PSC"))return"Carte bancaire";if(u.startsWith("PRLV"))return"Prélèvement";if(u.startsWith("VIR "))return"Virement émis";if(u.startsWith("FAC "))return"Virement reçu";return""}
+function nextN(p){D.ctr[p]=(D.ctr[p]||0)+1;return p+"2026-"+String(D.ctr[p]).padStart(3,"0")}
+function peekN(p){return p+"2026-"+String((D.ctr[p]||0)+1).padStart(3,"0")}
+
+// Smart libellé parsing
+function parseFacilitateur(lib){
+  // "VIR FACILIT - BU58 - DIAB" → {four:"DIAB", codeProjet:"BU58"}
+  const u=lib.toUpperCase();
+  if(!u.includes("FACILIT"))return null;
+  const parts=lib.split("-").map(s=>s.trim());
+  if(parts.length>=3)return{four:parts[parts.length-1],codeBU:parts[parts.length-2].trim()};
+  if(parts.length===2)return{four:parts[1],codeBU:""};
+  return null;
+}
+function parseNDF(lib){
+  // "VIR N2025-034 - DIAB" → {ndfRef:"N2025-034", four:"DIAB"}
+  const m=lib.match(/N20\d{2}-\d{2,4}/);
+  if(!m)return null;
+  const parts=lib.split("-").map(s=>s.trim());
+  const four=parts.length>=3?parts[parts.length-1]:"";
+  return{ndfRef:m[0],four};
+}
+
+// Dedup: check if row already exists by date+libelle+amount
+function isDuplicate(dt,lib,deb,cre){
+  return D.rows.some(r=>r.dt===dt&&r.lib===lib&&r.deb==deb&&r.cre==cre);
+}
+
+// Get all known fournisseurs for autocomplete
+function allFournisseurs(){
+  const s=new Set();D.rows.forEach(r=>{if(r.four)s.add(r.four)});return[...s].sort();
+}
+
+// Apply rules to unaffected rows only
+function applyRulesToUnaffected(){
+  pushUndo();
+  let count=0;
+  D.rows.forEach(r=>{
+    if(r.cat&&r.act)return;// Already classified, skip
+    const rl=applyRules(r.lib);
+    if(rl){
+      if(!r.cat&&rl.cat)r.cat=rl.cat;
+      if(!r.act&&rl.act)r.act=rl.act;
+      if(!r.four&&rl.four)r.four=rl.four;
+      count++;
+    }
+    // Smart parsing for facilitateurs
+    if(!r.four){
+      const fac=parseFacilitateur(r.lib);
+      if(fac){r.four=fac.four;if(!r.cat)r.cat="62142000 - Intervenants pédagogiques"}
+    }
+    // Smart parsing for NDF virements
+    if(!r.four){
+      const ndf=parseNDF(r.lib);
+      if(ndf&&ndf.four)r.four=ndf.four;
+    }
+  });
+  autoSave();render();
+  alert(count+" ligne(s) mise(s) à jour par les règles");
+}
+
+// Auto-save
+function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer}))}catch(e){}}
+function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);Object.assign(D,d)}}catch(e){}}
+autoLoad();normActs();
+
+// If budget was loaded empty from old save, init with defaults
+if(!D.budget||D.budget.length===0){
+  D.budget=[
+    {cat:"60630000 - Fournitures pédagogiques",type:"charge",versions:[5000],seasonMode:"lisse",months:[]},
+    {cat:"60640000 - Fournitures administratives",type:"charge",versions:[1000],seasonMode:"lisse",months:[]},
+    {cat:"61341000 - Charges locatives Sud",type:"charge",versions:[5400],seasonMode:"lisse",months:[]},
+    {cat:"61342000 - Charges locatives IDF",type:"charge",versions:[10800],seasonMode:"lisse",months:[]},
+    {cat:"61343000 - Charges locatives divers",type:"charge",versions:[800],seasonMode:"lisse",months:[]},
+    {cat:"61500000 - Entretien et réparations",type:"charge",versions:[300],seasonMode:"lisse",months:[]},
+    {cat:"61560000 - Maintenance informatique",type:"charge",versions:[2000],seasonMode:"lisse",months:[]},
+    {cat:"61600000 - Primes d'assurance",type:"charge",versions:[1238.96],seasonMode:"lisse",months:[]},
+    {cat:"61810000 - Documentation",type:"charge",versions:[500],seasonMode:"lisse",months:[]},
+    {cat:"61850000 - Colloques, séminaires",type:"charge",versions:[1000],seasonMode:"lisse",months:[]},
+    {cat:"62142000 - Intervenants pédagogiques",type:"charge",versions:[85050],seasonMode:"lisse",months:[]},
+    {cat:"62265000 - Cabinet expert-comptable",type:"charge",versions:[6000],seasonMode:"lisse",months:[]},
+    {cat:"62267000 - Audit Qualiopi",type:"charge",versions:[800],seasonMode:"mois",months:[9]},
+    {cat:"62268000 - Prestation admin-comptabilité",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"62273000 - Commissaire aux comptes",type:"charge",versions:[5500],seasonMode:"mois",months:[5,6]},
+    {cat:"62300000 - Publicité, publication, RP",type:"charge",versions:[495],seasonMode:"lisse",months:[]},
+    {cat:"62510000 - Voyages et déplacements",type:"charge",versions:[4500],seasonMode:"lisse",months:[]},
+    {cat:"62511000 - Indemnités kilométriques",type:"charge",versions:[2750],seasonMode:"lisse",months:[]},
+    {cat:"62560000 - Missions",type:"charge",versions:[2530],seasonMode:"lisse",months:[]},
+    {cat:"62571000 - Réceptions",type:"charge",versions:[4500],seasonMode:"lisse",months:[]},
+    {cat:"62572000 - Séjours",type:"charge",versions:[2000],seasonMode:"mois",months:[6,7]},
+    {cat:"62600000 - Frais postaux et télécom",type:"charge",versions:[200],seasonMode:"lisse",months:[]},
+    {cat:"62700000 - Services bancaires",type:"charge",versions:[467.5],seasonMode:"lisse",months:[]},
+    {cat:"62810000 - Divers cotisations",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"63130000 - Participation formation pro",type:"charge",versions:[1500],seasonMode:"mois",months:[1]},
+    {cat:"63330000 - Formations du personnel",type:"charge",versions:[1200],seasonMode:"lisse",months:[]},
+    {cat:"64110000 - Salaires et appointements",type:"charge",versions:[225955.5],seasonMode:"lisse",months:[]},
+    {cat:"64160000 - Gratification Service Civique",type:"charge",versions:[5500],seasonMode:"lisse",months:[]},
+    {cat:"64510000 - Cotisations URSSAF",type:"charge",versions:[55000],seasonMode:"lisse",months:[]},
+    {cat:"64520000 - Cotisations Prévoyance/Santé",type:"charge",versions:[12000],seasonMode:"lisse",months:[]},
+    {cat:"64530000 - Cotisations Retraite",type:"charge",versions:[16000],seasonMode:"lisse",months:[]},
+    {cat:"64750000 - Médecine du travail",type:"charge",versions:[820],seasonMode:"mois",months:[0,6]},
+    {cat:"68120000 - Dotations amortissements",type:"charge",versions:[2336],seasonMode:"mois",months:[11]},
+    {cat:"70600000 - Prestations de services",type:"produit",versions:[119720],seasonMode:"lisse",months:[]},
+    {cat:"74110000 - CAF AAP Jeunes",type:"produit",versions:[20000],seasonMode:"mois",months:[5,11]},
+    {cat:"74170000 - FONJEP",type:"produit",versions:[4719],seasonMode:"mois",months:[3]},
+    {cat:"74191000 - Cité Éducative La Seyne",type:"produit",versions:[8000],seasonMode:"mois",months:[4,10]},
+    {cat:"74192000 - Cité Éducative Toulon",type:"produit",versions:[6000],seasonMode:"mois",months:[4]},
+    {cat:"74193000 - Cité Éducative Hyères",type:"produit",versions:[9000],seasonMode:"mois",months:[4,10]},
+    {cat:"74400000 - Politique de la Ville",type:"produit",versions:[14500],seasonMode:"mois",months:[5,11]},
+    {cat:"74800000 - Autres subventions publiques",type:"produit",versions:[83581],seasonMode:"lisse",months:[]},
+    {cat:"75411000 - Dons de particuliers",type:"produit",versions:[7767],seasonMode:"lisse",months:[]},
+    {cat:"75412000 - Mécénat et fondations",type:"produit",versions:[231500],seasonMode:"lisse",months:[]},
+    {cat:"76890000 - Autres produits financiers",type:"produit",versions:[1000],seasonMode:"mois",months:[0]},
+  ];
+  D.budgetVersions=["Budget voté CA 03/12/2025"];
+  autoSave();
+}
+// Init Airtable data if missing
+if(!D.airtableSubs||D.airtableSubs.length===0){
+  D.airtableSubs=[
+    {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
+    {n:"Mairie Hyères",s:"versée",mt:500,ob:500,dp:"2026-01-13",t:"SUD"},
+    {n:"FSE 1.1",s:"versée",mt:30000,ob:28000,dp:"2026-02-15",t:"IDF"},
+    {n:"FSE 1.2",s:"versée",mt:21000,ob:21000,dp:"2026-02-15",t:"IDF"},
+    {n:"Fondation Brageac",s:"validée",mt:2000,ob:2000,dp:"2026-03-01",t:"NAT"},
+    {n:"CAF 93",s:"versée",mt:12800,ob:12800,dp:"2026-03-30",t:"IDF"},
+    {n:"Fondation Charis",s:"versée",mt:20000,ob:20000,dp:"2026-03-24",t:"NAT"},
+    {n:"Est-Ensemble",s:"versée",mt:6000,ob:4000,dp:"2026-03-20",t:"IDF"},
+    {n:"Fortil",s:"sollicitée",mt:10000,dp:"2026-03-30",t:"SUD"},
+    {n:"Fondation du Lucq",s:"validée",mt:10000,ob:10000,dp:"2026-06-01",t:"NAT"},
+    {n:"CAF Var 4.2",s:"validée",mt:6000,ob:6000,dp:"2026-06-30",t:"SUD"},
+    {n:"CAF Var 5.1.1",s:"sollicitée",mt:14000,dp:"2026-07-15",t:"SUD"},
+    {n:"CAF Var 5.2.1",s:"sollicitée",mt:4200,dp:"2026-07-15",t:"SUD"},
+    {n:"Fondation de France",s:"versée",mt:42000,ob:42000,dp:"2026-07-19",t:"NAT"},
+    {n:"Nanterre",s:"attente",mt:1000,dp:"2026-07-19",t:"IDF"},
+    {n:"Fondation Bellon",s:"sollicitée",mt:80000,dp:"2026-07-31",t:"NAT"},
+    {n:"Crédit mutuel",s:"attente",mt:70000,dp:"2026-07-31",t:"NAT"},
+    {n:"CE Hyères 3",s:"attente",mt:4000,dp:"2026-07-31",t:"SUD"},
+    {n:"CE La Seyne 2",s:"attente",mt:4000,dp:"2026-07-31",t:"SUD"},
+    {n:"PDV 93 Est-Ensemble",s:"attente",mt:8000,dp:"2026-08-01",t:"IDF"},
+    {n:"PDV 93 Plaine Commune",s:"attente",mt:6000,dp:"2026-08-01",t:"IDF"},
+    {n:"Ville Bezons",s:"attente",mt:1500,dp:"2026-08-01",t:"IDF"},
+    {n:"Mairie Persan",s:"attente",mt:2200,dp:"2026-08-01",t:"IDF"},
+    {n:"PDV 95 SGBDS",s:"attente",mt:2000,dp:"2026-08-01",t:"IDF"},
+    {n:"Ville Paris",s:"attente",mt:7000,dp:"2026-08-01",t:"IDF"},
+    {n:"Département 93",s:"attente",mt:15000,dp:"2026-08-01",t:"IDF"},
+    {n:"Nanterre CE",s:"validée",mt:8000,ob:5000,dp:"2026-08-01",t:"IDF"},
+    {n:"Mairie Paris 18",s:"validée",mt:5000,ob:5000,dp:"2026-09-01",t:"IDF"},
+    {n:"PDV 92",s:"attente",mt:1000,dp:"2026-09-30",t:"IDF"},
+    {n:"Saint-Ouen",s:"attente",mt:2000,dp:"2026-09-30",t:"IDF"},
+    {n:"Fondation du Lucq 3",s:"validée",mt:10000,ob:10000,dp:"2026-10-30",t:"NAT"},
+    {n:"Fonds Solma",s:"sollicitée",mt:10000,dp:"2026-11-28",t:"NAT"},
+    {n:"Fondation Le Chemin",s:"validée",mt:10000,dp:"2026-12-30",t:"NAT"},
+    {n:"Fondation Le Chemin 2",s:"sollicitée",mt:10000,dp:"2026-12-31",t:"SUD"},
+    {n:"CAF 93 3",s:"validée",mt:20000,ob:20000,dp:"2027-03-30",t:"IDF"},
+  ];
+  D.airtableSync="2026-04-21";
+  autoSave();
+}
+
+function saveAll(){
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
+  a.download="litup_compta_"+ds(new Date())+".json";a.click()}
+function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
+  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+    rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);Object.assign(D,d);render()}catch(e){alert("Erreur: "+e.message)}};rd.readAsText(f)};inp.click()}
+
+// ─── IMPORTS with dedup + smart parsing ───
+$("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=ev=>{pushUndo();const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    let st=0,added=0;window._pendingDups=[];
+    for(let i=0;i<Math.min(10,data.length);i++){if(String(data[i]?.[0]).toLowerCase().includes("date")){st=i+1;break}}
+    for(let i=st;i<data.length;i++){const r=data[i];if(!r||!r[0])continue;const lib=String(r[2]||"").trim();if(!lib)continue;
+      const deb=r[3]?Math.abs(parseFloat(r[3])):0;const cre=r[4]?Math.abs(parseFloat(r[4])):0;const dt=ds(r[0]);
+      if(isDuplicate(dt,lib,deb||null,cre||null)){
+        window._pendingDups.push({dt,lib,deb:deb||null,cre:cre||null,src:"banque"});continue}
+      const rl=applyRules(lib);let four=rl?.four||"",cat=rl?.cat||"",act=rl?.act||"";
+      if(!four){const fac=parseFacilitateur(lib);if(fac){four=fac.four;if(!cat)cat="62142000 - Intervenants pédagogiques"}}
+      if(!four){const ndf=parseNDF(lib);if(ndf&&ndf.four)four=ndf.four}
+      D.rows.push({id:"b"+i+"_"+Date.now(),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:rl?"Justificatif manquant":"",resp:"",numj:"",ndf:"",src:"banque"});added++}
+    autoSave();render();
+    if(window._pendingDups.length>0)showDupModal(added);
+    else if(added>0)alert(added+" ligne(s) ajoutée(s)")
+  };rd.readAsArrayBuffer(f);e.target.value=""};
+
+$("fi_ndf").onchange=function(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=ev=>{pushUndo();const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
+    if(!D.ndfBuffer)D.ndfBuffer={};
+    let imported=0;const unmatchedCodes={};
+    for(const nm of wb.SheetNames){if(nm==="Données"||!nm.startsWith("N20"))continue;
+      const ws=wb.Sheets[nm];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      let sal="";for(let i=8;i<Math.min(14,data.length);i++){if(String(data[i]?.[1]).includes("Prénom")){sal=String(data[i]?.[2]||"").trim();break}}
+      let sr=-1;for(let i=0;i<Math.min(20,data.length);i++){if(String(data[i]?.[1]).includes("Date de la facture")){sr=i+1;break}}
+      if(sr<0)continue;
+      const subLines=[];let lineNum=0;
+      for(let i=sr;i<data.length;i++){const r=data[i];if(!r[1]||!r[2])continue;if(String(r[3]).includes("TOTAL"))break;
+        const mt=r[4]?parseFloat(String(r[4]).replace(",",".")):0;if(!mt||isNaN(mt))continue;
+        lineNum++;const dt=ds(r[1]);
+        const desc=String(r[2]||"").trim();
+        const codeProjet=String(r[5]||"").trim();
+        let actMatch="",matched=false;
+        if(codeProjet){
+          const cpCode=codeProjet.split(" ")[0].trim();
+          const found=actLabels().find(a=>a.startsWith(cpCode));
+          if(found){actMatch=found;matched=true}
+          else{actMatch=codeProjet;unmatchedCodes[codeProjet]=(unmatchedCodes[codeProjet]||0)+1}
+        }
+        subLines.push({dt,desc,four:String(r[3]||"").trim(),deb:mt,cat:"",act:actMatch,actMatched:matched,resp:sal,
+          numj:nm+"_"+String(lineNum).padStart(2,"0"),ndf:nm,lineNum})}
+      if(subLines.length){D.ndfBuffer[nm]=subLines;imported+=subLines.length}}
+    autoSave();render();
+    const ndfCount=Object.keys(D.ndfBuffer).length;
+    const bankMatches=D.rows.filter(r=>r.src==="banque"&&parseNDF(r.lib)).length;
+    const unmatchedList=Object.keys(unmatchedCodes);
+    if(unmatchedList.length>0){showNdfCodeModal(unmatchedList,unmatchedCodes,imported,ndfCount,bankMatches)}
+    else{alert(imported+" sous-ligne(s) importées pour "+ndfCount+" NDF.\n"+bankMatches+" virement(s) NDF repéré(s).\n\nTous les codes projets ont été reconnus ✅\n\nCliquez ✂️ sur les lignes de virement NDF pour éclater.")}
+  };rd.readAsArrayBuffer(f);e.target.value=""};
+
+// ─── NDF CODE PROJET RESOLUTION MODAL ───
+function showNdfCodeModal(unmatchedList,counts,imported,ndfCount,bankMatches){
+  const acts=actLabels();
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:700px">
+    <h3>⚠️ Codes projets non reconnus dans les NDF</h3>
+    <p style="font-size:11px;color:var(--text-2);margin-bottom:12px">${imported} sous-ligne(s) importées pour ${ndfCount} NDF. Les codes projets ci-dessous n'existent pas dans la configuration de l'outil. Pour chaque code, vous pouvez :</p>
+    <ul style="font-size:11px;color:var(--text-2);margin-bottom:14px;padding-left:16px">
+      <li><strong>Associer</strong> à un code projet existant (menu déroulant)</li>
+      <li><strong>Créer</strong> un nouveau code dans la config (bouton +)</li>
+      <li><strong>Ignorer</strong> — le code brut sera conservé tel quel</li>
+    </ul>
+    <div style="max-height:350px;overflow:auto">
+    <table><thead><tr><th>Code NDF (non reconnu)</th><th>Lignes</th><th>Action</th></tr></thead><tbody>`;
+  unmatchedList.forEach((code,i)=>{
+    h+=`<tr>
+      <td style="font-weight:600;font-size:11px">${code}</td>
+      <td style="text-align:center;font-size:11px">${counts[code]}</td>
+      <td style="min-width:280px"><div style="display:flex;gap:4px;align-items:center">
+        <select class="ms" id="ndfcode_${i}" style="flex:1">
+          <option value="">— Ignorer (garder tel quel) —</option>
+          ${acts.map(a=>`<option value="${a}">${a}</option>`).join("")}
+        </select>
+        <button class="b bg" style="font-size:10px;padding:4px 6px" onclick="createActFromNdf(${i},'${code.replace(/'/g,"\\'")}')">+</button>
+      </div></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Ignorer tout</button>
+      <button class="b bp" onclick="applyNdfCodeResolution(${JSON.stringify(unmatchedList).replace(/"/g,'&quot;')})">✅ Appliquer</button>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function createActFromNdf(idx,rawCode){
+  const cpCode=rawCode.split(" ")[0].trim();
+  const label=prompt("Créer un nouveau code projet dans la config.\n\nCode brut NDF : "+rawCode+"\n\nEntrez le libellé complet :",cpCode+" - "+rawCode.split(" - ").slice(1).join(" - "));
+  if(!label)return;
+  const terr=prompt("Territoire (SUD / IDF / NAT) :","NAT")||"NAT";
+  D.acts.push({l:label,t:terr});
+  autoSave();
+  // Update the select dropdown
+  const sel=$("ndfcode_"+idx);if(sel){
+    const opt=document.createElement("option");opt.value=label;opt.textContent=label;opt.selected=true;
+    sel.appendChild(opt)}
+  alert("Code projet créé : "+label+" ("+terr+")");
+}
+
+function applyNdfCodeResolution(unmatchedList){
+  const mapping={};
+  unmatchedList.forEach((code,i)=>{
+    const sel=$("ndfcode_"+i);
+    if(sel&&sel.value)mapping[code]=sel.value;
+  });
+  // Apply mapping to all ndfBuffer entries
+  let resolved=0;
+  Object.values(D.ndfBuffer).forEach(lines=>{
+    lines.forEach(line=>{
+      if(line.act&&!line.actMatched&&mapping[line.act]){
+        line.act=mapping[line.act];line.actMatched=true;resolved++}
+    });
+  });
+  autoSave();closeM();
+  if(resolved>0)alert(resolved+" ligne(s) mises à jour avec les nouveaux codes.");
+  else alert("Aucune modification (codes ignorés ou déjà résolus).");
+}
+
+// ─── DUPLICATE REVIEW MODAL ───
+function showDupModal(addedCount){
+  const dups=window._pendingDups||[];
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:750px">
+    <h3>⚠️ ${dups.length} doublon(s) détecté(s)</h3>
+    <p style="font-size:10px;color:#94a3b8;margin-bottom:8px">${addedCount} ligne(s) ajoutée(s). Les lignes ci-dessous existent déjà (même date + libellé + montant). Cochez celles que vous souhaitez ajouter quand même :</p>
+    <div style="max-height:350px;overflow:auto">
+    <table><thead><tr><th style="width:30px">✓</th><th>Date</th><th>Libellé</th><th>Débit</th><th>Crédit</th><th>Source</th></tr></thead><tbody>`;
+  dups.forEach((d,i)=>{
+    h+=`<tr><td><input type="checkbox" class="mo-check" id="dup_${i}"></td>
+      <td style="font-size:9px;color:#64748b;white-space:nowrap">${d.dt}</td>
+      <td style="font-size:9px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.lib||'').replace(/"/g,'&quot;')}">${d.lib}</td>
+      <td class="deb">${d.deb?fmt(d.deb):""}</td>
+      <td class="cre">${d.cre?fmt(d.cre):""}</td>
+      <td style="font-size:8px;color:#64748b">${d.src}</td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div style="display:flex;gap:4px;margin-top:10px;justify-content:space-between;align-items:center">
+      <label style="font-size:9px;color:#94a3b8;cursor:pointer"><input type="checkbox" id="dupSelAll" onchange="document.querySelectorAll('[id^=dup_]').forEach(c=>c.checked=this.checked)"> Tout cocher</label>
+      <div style="display:flex;gap:4px">
+        <button class="b bd" onclick="window._pendingDups=[];closeM()">Ignorer tout</button>
+        <button class="b bg" onclick="addSelectedDups()">Ajouter les cochés</button>
+      </div>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function addSelectedDups(){
+  const dups=window._pendingDups||[];
+  let added=0;
+  dups.forEach((d,i)=>{
+    if(!$("dup_"+i)?.checked)return;
+    const rl=applyRules(d.lib);let four=rl?.four||d.four||"",cat=rl?.cat||"",act=rl?.act||"";
+    if(!four){const fac=parseFacilitateur(d.lib);if(fac)four=fac.four}
+    if(!four){const ndf=parseNDF(d.lib);if(ndf&&ndf.four)four=ndf.four}
+    D.rows.push({id:"dup"+Date.now()+"_"+i,dt:d.dt,yr:yrOf(d.dt),lib:d.lib,four,cat,act,
+      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:rl?"Justificatif manquant":"",
+      resp:d.sal||"",numj:d.numj||"",ndf:d.ndf||"",src:d.src});
+    added++;
+  });
+  window._pendingDups=[];
+  autoSave();closeM();render();
+  if(added>0)alert(added+" doublon(s) ajouté(s)");
+}
+
+$("fi_scan").onchange=function(e){const files=Array.from(e.target.files);if(!files.length)return;showScanModal(files);e.target.value=""};
+
+// ─── ATTACHMENTS ───
+function showScanModal(files){
+  const um=D.rows.filter(r=>!D.att[r.id]);
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal"><h3>📎 Associer ${files.length} justificatif(s)</h3>`;
+  files.forEach((f,i)=>{h+=`<div style="background:#0f1117;padding:5px;border-radius:3px;margin-bottom:4px"><div style="font-size:9px;font-weight:600;margin-bottom:2px">📄 ${f.name}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">
+    <select id="sr_${i}" style="flex:1;min-width:180px;padding:2px;background:#1a1d27;border:1px solid #2d3148;border-radius:2px;color:#e2e8f0;font-size:8px" onchange="updScanType(${i})"><option value="">— Ligne —</option>${um.map(r=>`<option value="${r.id}" data-c="${r.cre&&r.cre>0?1:0}">${r.dt}|${r.lib.substring(0,35)}|${r.deb?fmt(r.deb):""}${r.cre?fmt(r.cre):""}</option>`).join("")}</select>
+    <select id="st_${i}" style="width:100px;padding:2px;background:#1a1d27;border:1px solid #2d3148;border-radius:2px;color:#e2e8f0;font-size:8px"><option value="F">Facture</option><option value="S">Subvention</option><option value="P">Prestation</option><option value="RF">Reçu fiscal</option></select></div></div>`});
+  h+=`<div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button><button class="b bb" onclick="doScan()">✓</button></div></div></div>`;
+  $("modalC").innerHTML=h;window._sf=files}
+function updScanType(i){const s=$("sr_"+i);const c=s?.selectedOptions[0]?.dataset?.c==="1";$("st_"+i).value=c?"S":"F"}
+function closeM(){$("modalC").innerHTML=""}
+function doScan(){(window._sf||[]).forEach((f,i)=>{const t=$("st_"+i)?.value||"F";const rid=$("sr_"+i)?.value;const nj=nextN(t);
+  const rd=new FileReader();rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();
+    const a={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
+    if(rid){D.att[rid]=a;const r=D.rows.find(x=>x.id===rid);if(r){r.numj=nj;r.stat=t==="S"?"Classé - Convention":t==="RF"?"Classé - Reçu fiscal":"Classé - Facture"}}
+    else D.att["orph_"+nj]=a;autoSave();render()};rd.readAsArrayBuffer(f)});closeM()}
+
+function attRow(rid){
+  const r=D.rows.find(x=>x.id===rid);if(!r)return;
+  const isC=r.cre&&r.cre>0&&(!r.deb||r.deb===0);
+  if(isC){let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:380px">
+    <h3>📎 Justificatif (produit)</h3><p style="font-size:9px;color:#94a3b8;margin-bottom:6px">${r.lib.substring(0,60)}<br>${fmt(r.cre)}</p>
+    <select id="attPfx" style="width:100%;padding:4px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:10px" onchange="$('attCust').style.display=this.value==='X'?'block':'none'">
+      <option value="S">Subvention → ${peekN("S")}</option><option value="P">Prestation → ${peekN("P")}</option>
+      <option value="RF">Reçu fiscal → ${peekN("RF")}</option><option value="X">Nom libre</option></select>
+    <input id="attCust" type="text" placeholder="Nom libre" style="display:none;margin-top:4px;width:100%;padding:4px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:10px">
+    <input id="attFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="margin-top:6px;font-size:9px">
+    <div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button><button class="b bb" onclick="doAttC('${rid}')">✓</button></div></div></div>`;
+    $("modalC").innerHTML=h;
+  }else{const inp=document.createElement("input");inp.type="file";inp.accept=".pdf,.jpg,.jpeg,.png";
+    inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const nj=nextN("F");const rd=new FileReader();
+      rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();D.att[rid]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
+        r.numj=nj;if(!r.stat||r.stat.includes("manquant"))r.stat="Classé - Facture";autoSave();render()};rd.readAsArrayBuffer(f)};inp.click()}}
+function doAttC(rid){const r=D.rows.find(x=>x.id===rid);if(!r)return;const p=$("attPfx")?.value;const c=$("attCust")?.value?.trim();
+  const fi=$("attFile");if(!fi?.files?.length){alert("Fichier requis");return}const f=fi.files[0];
+  let nj;if(p==="X"&&c)nj=c;else nj=nextN(p||"S");
+  const rd=new FileReader();rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();
+    D.att[rid]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};r.numj=nj;
+    r.stat=p==="S"?"Classé - Convention":p==="RF"?"Classé - Reçu fiscal":"Classé - Facture";
+    closeM();autoSave();render()};rd.readAsArrayBuffer(f)}
+function viewAtt(k){const a=D.att[k];if(!a)return;window.open(URL.createObjectURL(new Blob([a.data],{type:a.type})),"_blank")}
+
+// ─── EXPORTS ───
+function exportCSV(){const h=["Date","Année","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","Modalité","Statut","Responsable","N° Justificatif","NDF","Source"];
+  const l=[h.join(";")];D.rows.forEach(r=>l.push([r.dt,r.yr,'"'+r.lib+'"','"'+r.four+'"','"'+r.cat+'"','"'+r.act+'"',r.deb||"",r.cre||"",r.modal,'"'+r.stat+'"',r.resp,r.numj,r.ndf,r.src].join(";")));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+l.join("\n")],{type:"text/csv;charset=utf-8;"}));a.download="suivi_compta_"+ds(new Date())+".csv";a.click()}
+async function exportZIP(){const z=new JSZip();const h=["Date","Année","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","Modalité","Statut","Responsable","N° Justificatif"];
+  const l=[h.join(";")];D.rows.forEach(r=>l.push([r.dt,r.yr,'"'+r.lib+'"','"'+r.four+'"','"'+r.cat+'"','"'+r.act+'"',r.deb||"",r.cre||"",r.modal,'"'+r.stat+'"',r.resp,r.numj].join(";")));
+  z.file("suivi_comptable.csv","\uFEFF"+l.join("\n"));
+  for(const[k,a] of Object.entries(D.att)){const r=D.rows.find(x=>x.id===k);const mo=r?moKey(r.dt).replace("-","/"):"divers";z.file("justificatifs/"+mo+"/"+a.name,a.data)}
+  const a=document.createElement("a");a.href=URL.createObjectURL(await z.generateAsync({type:"blob"}));a.download="litup_"+ds(new Date())+".zip";a.click()}
+
+// ─── EXPORT FEC (Fichier des Écritures Comptables) ───
+function exportFEC(){
+  // FEC format: tab-separated, ISO 8859-15 compatible, mandatory columns
+  const SIRET="90304598700018";const SIREN="903045987";
+  const raison="ASSOCIATION LIT UP";
+  const cloture="20261231";
+  // Headers FEC normé (article A.47 A-1 du LPF)
+  const fecHeaders=["JournalCode","JournalLib","EcritureNum","EcritureDate","CompteNum","CompteLib","CompAuxNum","CompAuxLib","PieceRef","PieceDate","EcritureLib","Debit","Credit","EcritureLet","DateLet","ValidDate","Montantdevise","Idevise"];
+  const lines=[fecHeaders.join("\t")];
+  let ecNum=0;
+  D.rows.filter(r=>r.cat&&r.yr==="2026").sort((a,b)=>(a.dt||"").localeCompare(b.dt||"")).forEach(r=>{
+    ecNum++;
+    const ecId=String(ecNum).padStart(6,"0");
+    const dt=(r.dt||"").replace(/-/g,"");
+    const cat=r.cat?r.cat.substring(0,8).replace(/\s.*/,""):""; // code comptable sans libellé
+    const catLib=r.cat||"";
+    const journal=r.src==="ndf-split"?"NDF":(r.cre?"BQ":"BQ");
+    const journalLib=journal==="NDF"?"Notes de frais":"Banque";
+    const debit=r.deb?String(r.deb).replace(".",","):"0,00";
+    const credit=r.cre?String(r.cre).replace(".",","):"0,00";
+    const pieceRef=r.numj||r.ndf||ecId;
+    const lib=(r.lib||"").substring(0,200).replace(/\t/g," ");
+    // Ligne d'écriture
+    lines.push([journal,journalLib,ecId,dt,cat,catLib,"","",pieceRef,dt,lib,debit,credit,"","",dt,"",""].join("\t"));
+    // Contrepartie (512 = banque)
+    lines.push([journal,journalLib,ecId,dt,"512000","Banque","","",pieceRef,dt,lib,credit,debit,"","",dt,"",""].join("\t"));
+  });
+  const content="\uFEFF"+lines.join("\r\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([content],{type:"text/tab-separated-values;charset=utf-8;"}));
+  a.download=SIREN+"FEC"+cloture+".txt";a.click();
+  alert("FEC exporté : "+ecNum+" écritures\nFichier : "+SIREN+"FEC"+cloture+".txt\n\nJournaux : BQ (Banque), NDF (Notes de frais)\nFormat : TSV conforme article A.47 A-1 du LPF");
+}
+
+// ─── ALERTS DASHBOARD ───
+function getAlerts(){
+  const alerts=[];
+  const vIdx=D.budgetVersions.length-1;
+  const now=new Date();const elapsed=(now.getMonth()+1)/12;
+  // NDF en attente dans le buffer
+  const ndfCount=Object.keys(D.ndfBuffer||{}).length;
+  if(ndfCount)alerts.push({type:"warn",icon:"✂️",text:ndfCount+" NDF importée(s) non éclatée(s) — cliquez ✂️ sur les virements correspondants"});
+  // Justificatifs manquants
+  const missing=D.rows.filter(r=>r.stat==="Justificatif manquant"&&r.cat).length;
+  if(missing)alerts.push({type:"warn",icon:"📎",text:missing+" justificatif(s) manquant(s)"});
+  // Lignes non classées
+  const unclassed=D.rows.filter(r=>!r.cat).length;
+  if(unclassed)alerts.push({type:"info",icon:"📋",text:unclassed+" ligne(s) non classée(s)"});
+  // Budget alerts
+  const realized={};
+  D.rows.filter(r=>r.yr==="2026"&&r.cat).forEach(r=>{
+    if(!realized[r.cat])realized[r.cat]={deb:0,cre:0};
+    realized[r.cat].deb+=(r.deb||0);realized[r.cat].cre+=(r.cre||0);
+  });
+  D.budget.forEach(b=>{
+    const annual=b.versions?.[vIdx]||0;if(!annual)return;
+    const real=realized[b.cat];
+    const realVal=b.type==="charge"?(real?.deb||0):(real?.cre||0);
+    const pct=annual>0?(realVal/annual):0;
+    if(b.type==="charge"&&pct>1)alerts.push({type:"danger",icon:"🔴",text:b.cat.substring(0,20)+" dépasse le budget de "+Math.round((pct-1)*100)+"%"});
+    else if(b.type==="charge"&&pct>elapsed+0.15)alerts.push({type:"warn",icon:"🟠",text:b.cat.substring(0,20)+" en avance de consommation ("+Math.round(pct*100)+"% pour "+Math.round(elapsed*100)+"% de l'année)"});
+  });
+  return alerts;
+}
+
+// ─── AUTO-MATCH BANK ↔ NDF ───
+function autoMatchNDF(){
+  if(!D.ndfBuffer||!Object.keys(D.ndfBuffer).length){alert("Aucune NDF dans le buffer à rapprocher.\nImportez d'abord un fichier NDF via 📥 NDF.");return}
+  const matches=[];
+  D.rows.filter(r=>r.src==="banque"&&parseNDF(r.lib)).forEach(bankRow=>{
+    const m=bankRow.lib.match(/N20\d{2}-\d{2,4}/);if(!m)return;
+    const ndfRef=m[0];
+    const bufLines=(D.ndfBuffer||{})[ndfRef];if(!bufLines)return;
+    const bankAmt=bankRow.deb||0;
+    const ndfTotal=bufLines.reduce((s,l)=>s+(l.deb||0),0);
+    matches.push({bankId:bankRow.id,ndfRef,bankAmt,ndfTotal,lines:bufLines.length,match:Math.abs(bankAmt-ndfTotal)<0.02});
+  });
+  if(!matches.length){alert("Aucun rapprochement trouvé entre les virements bancaires et les NDF importées.");return}
+  // Show modal
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:700px">
+    <h3>🔗 Rapprochement automatique banque ↔ NDF</h3>
+    <p style="font-size:11px;color:var(--text-2);margin-bottom:12px">${matches.length} correspondance(s) trouvée(s). Cochez celles à éclater automatiquement.</p>
+    <table><thead><tr><th style="width:30px">✓</th><th>Réf NDF</th><th style="text-align:right">Virement banque</th><th style="text-align:right">Total NDF</th><th>Lignes</th><th>Écart</th></tr></thead><tbody>`;
+  matches.forEach((m,i)=>{
+    const ecart=Math.abs(m.bankAmt-m.ndfTotal);
+    const ok=ecart<0.02;
+    h+=`<tr><td><input type="checkbox" class="mo-check" id="am_${i}"${ok?" checked":""}></td>
+      <td style="font-family:var(--mono);font-size:11px">${m.ndfRef}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt(m.bankAmt)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt(m.ndfTotal)}</td>
+      <td style="text-align:center">${m.lines}</td>
+      <td style="font-family:var(--mono);color:${ok?"var(--green)":"var(--red)"}">${ok?"✅ OK":"⚠️ "+fmt(ecart)}</td></tr>`;
+  });
+  h+=`</tbody></table>
+    <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Annuler</button>
+      <button class="b bp" onclick="execAutoMatch(${JSON.stringify(matches.map(m=>({bankId:m.bankId,ndfRef:m.ndfRef}))).replace(/"/g,'&quot;')})">✂️ Éclater les cochés</button>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function execAutoMatch(matchList){
+  let done=0;
+  matchList.forEach((m,i)=>{
+    if(!$("am_"+i)?.checked)return;
+    // Reuse splitNDF logic inline
+    const bankRow=D.rows.find(r=>r.id===m.bankId);if(!bankRow)return;
+    const ndfLines=(D.ndfBuffer||{})[m.ndfRef];if(!ndfLines)return;
+    const nameParts=bankRow.lib.split("-");
+    let salName="";if(nameParts.length>=2){let raw=nameParts[nameParts.length-1].trim();raw=raw.replace(/^(VIR|FACILIT)\s*/i,"").trim();if(raw.length>1)salName=raw}
+    const bankIdx=D.rows.findIndex(r=>r.id===m.bankId);
+    D.rows.splice(bankIdx,1);
+    D.rows=D.rows.filter(r=>!(r.src==="ndf"&&r.ndf===m.ndfRef));
+    ndfLines.forEach((nr,j)=>{
+      const parts=["NDF "+m.ndfRef];if(salName)parts.push(salName);if(nr.desc)parts.push(nr.desc);
+      D.rows.splice(bankIdx+j,0,{
+        id:"am"+Date.now()+"_"+j,dt:bankRow.dt,yr:bankRow.yr,lib:parts.join(" - "),
+        four:nr.four||"",cat:nr.cat||"",act:nr.act||"",deb:nr.deb,cre:null,
+        modal:"Virement émis",stat:"Justificatif manquant",resp:nr.resp||"",
+        numj:m.ndfRef+"_"+String(j+1).padStart(2,"0"),ndf:m.ndfRef,src:"ndf-split"
+      });
+    });
+    delete D.ndfBuffer[m.ndfRef];done++;
+  });
+  autoSave();closeM();render();
+  alert(done+" NDF éclatée(s) automatiquement.");
+}
+
+// ─── CORE ───
+// ─── UNDO HISTORY ───
+let undoStack=[];const MAX_UNDO=30;
+function pushUndo(){
+  undoStack.push(JSON.stringify({rows:D.rows,att_keys:Object.keys(D.att),budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate}));
+  if(undoStack.length>MAX_UNDO)undoStack.shift();
+}
+function undo(){
+  if(!undoStack.length){alert("Rien à annuler");return}
+  const prev=JSON.parse(undoStack.pop());
+  D.rows=prev.rows;D.budget=prev.budget||D.budget;D.budgetVersions=prev.budgetVersions||D.budgetVersions;
+  D.soldeInitial=prev.soldeInitial??D.soldeInitial;D.soldeDate=prev.soldeDate||D.soldeDate;
+  // Keep attachments that still have matching rows, remove orphaned
+  const validKeys=new Set(prev.att_keys||[]);
+  for(const k of Object.keys(D.att)){if(!validKeys.has(k))delete D.att[k]}
+  autoSave();render();
+}
+
+function clearData(){
+  const choice=prompt("Que voulez-vous effacer ?\n\n1 = Tout (lignes + budget + justificatifs)\n2 = Lignes uniquement (garder budget et config)\n3 = Budget uniquement\n\nTapez 1, 2 ou 3 :");
+  if(!choice)return;
+  pushUndo();
+  if(choice==="1"){D.rows=[];D.att={};D.ctr={F:0,P:0,S:0,RF:0};D.budget=[];D.budgetVersions=["Budget initial"]}
+  else if(choice==="2"){D.rows=[];D.att={};D.ctr={F:0,P:0,S:0,RF:0}}
+  else if(choice==="3"){D.budget=[];D.budgetVersions=["Budget initial"]}
+  else{alert("Choix non reconnu");return}
+  autoSave();render();
+}
+
+function upd(id,f,v){pushUndo();const r=D.rows.find(x=>x.id===id);if(r){r[f]=v;autoSave();render()}}
+function del(id){pushUndo();D.rows=D.rows.filter(r=>r.id!==id);delete D.att[id];autoSave();render()}
+function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){D.rows.splice(i+1,0,{...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0});autoSave();render()}}
+
+// ─── NDF SPLIT: replace bank NDF line with sub-lines from NDF import ───
+function splitNDF(bankId){
+  const bankRow=D.rows.find(r=>r.id===bankId);if(!bankRow)return;
+  const m=bankRow.lib.match(/N20\d{2}-\d{2,4}/);
+  if(!m){alert("Pas de référence NDF trouvée dans le libellé.\nFormat attendu: VIR N2026-XXX - NOM");return}
+  const ndfRef=m[0];
+  // Extract salarié name from bank libellé: "VIR N2026-001 - QUIBOIS" → "QUIBOIS"
+  const nameParts=bankRow.lib.split("-");
+  let salName="";
+  if(nameParts.length>=2){let raw=nameParts[nameParts.length-1].trim();
+    raw=raw.replace(/^(VIR|FACILIT)\s*/i,"").trim();
+    if(raw.length>1)salName=raw}
+  // Look in ndfBuffer first, then fallback to D.rows
+  const bufferLines=(D.ndfBuffer||{})[ndfRef]||[];
+  const rowLines=D.rows.filter(r=>r.src==="ndf"&&r.ndf===ndfRef);
+  const ndfLines=bufferLines.length?bufferLines:rowLines;
+  if(!ndfLines.length){alert("Aucune sous-ligne NDF trouvée pour "+ndfRef+".\n\nImportez d'abord le fichier Notes de frais via 📥 NDF.");return}
+  // Check total
+  const bankAmt=bankRow.deb||0;
+  const ndfTotal=ndfLines.reduce((s,r)=>s+(r.deb||0),0);
+  if(Math.abs(bankAmt-ndfTotal)>0.02){
+    if(!confirm("⚠️ Écart de montant :\n\nVirement banque : "+fmt(bankAmt)+"\nTotal NDF "+ndfRef+" : "+fmt(ndfTotal)+"\nÉcart : "+fmt(Math.abs(bankAmt-ndfTotal))+"\n\nContinuer quand même ?")){return}
+  }
+  pushUndo();
+  const bankIdx=D.rows.findIndex(r=>r.id===bankId);
+  D.rows.splice(bankIdx,1);
+  D.rows=D.rows.filter(r=>!(r.src==="ndf"&&r.ndf===ndfRef));
+  ndfLines.forEach((nr,i)=>{
+    // Libellé: "NDF N2026-001 - QUIBOIS - Kahoot !"
+    const desc=nr.desc||"";
+    const parts=["NDF "+ndfRef];
+    if(salName)parts.push(salName);
+    if(desc)parts.push(desc);
+    const lib=parts.join(" - ");
+    // Justificatif: N2026-001_01, N2026-001_02...
+    const numj=ndfRef+"_"+String(i+1).padStart(2,"0");
+    D.rows.splice(bankIdx+i,0,{
+      id:"ns"+Date.now()+"_"+i,dt:bankRow.dt,yr:bankRow.yr,
+      lib,four:nr.four||"",cat:nr.cat||"",act:nr.act||"",
+      deb:nr.deb,cre:null,modal:"Virement émis",
+      stat:"Justificatif manquant",resp:nr.resp||"",
+      numj,ndf:ndfRef,src:"ndf-split"
+    });
+  });
+  if(D.ndfBuffer&&D.ndfBuffer[ndfRef])delete D.ndfBuffer[ndfRef];
+  autoSave();render();
+  alert("✂️ "+ndfRef+" éclaté en "+ndfLines.length+" sous-ligne(s)\n\n"+
+    "Libellé : NDF "+ndfRef+(salName?" - "+salName:"")+" - [description]\n"+
+    "Justificatifs : "+ndfRef+"_01 à _"+String(ndfLines.length).padStart(2,"0")+"\n"+
+    (ndfLines[0]?.act?"Code projet reporté depuis la NDF":""));
+}
+
+// ─── RH MODULE: salary allocation per project ───
+if(!D.rhAlloc)D.rhAlloc=[];
+function rRH(el){
+  const salaries=[
+    {nom:"Laetitia DE BORDE",poste:"Co-directrice SUD",brut:3282,net:2583,charges:1400,t:"SUD"},
+    {nom:"Clémentine CLAUDON",poste:"Co-directrice IDF",brut:3282,net:2583,charges:1400,t:"IDF"},
+    {nom:"Pauline GIRAUDO",poste:"Coord. Jeunes SUD",brut:2479,net:1950,charges:1060,t:"SUD"},
+    {nom:"Laura BOURIGAULT",poste:"Coord. Jeunes IDF",brut:2479,net:1950,charges:1060,t:"IDF"},
+    {nom:"Léa BURELLO",poste:"Resp. Labo Péda",brut:2854,net:2245,charges:1220,t:"NAT"},
+    {nom:"Claire SALEM",poste:"Resp. Recherche",brut:1600,net:1259,charges:680,t:"NAT"},
+  ];
+  let h='<div style="padding:14px 16px"><h3 style="font-size:14px;margin-bottom:6px">👥 Répartition RH par projet</h3>';
+  h+='<p style="font-size:10px;color:#5c6a80;margin-bottom:12px">Affectez un % du temps de chaque salarié à un ou plusieurs codes projet. Les charges patronales sont réparties au pro-rata de la masse salariale totale.</p>';
+
+  salaries.forEach((s,si)=>{
+    const allocs=(D.rhAlloc||[]).filter(a=>a.sal===s.nom);
+    const totPct=allocs.reduce((sum,a)=>sum+(a.pct||0),0);
+    const color=totPct>100?"#ef4444":totPct===100?"#22c55e":"#fbbf24";
+    h+=`<div class="scard" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div><strong style="font-size:11px">${s.nom}</strong> <span style="font-size:10px;color:#5c6a80">— ${s.poste}</span></div>
+        <div style="font-size:10px">Net: <strong style="font-family:'JetBrains Mono'">${fmt(s.net)}</strong>/mois · <span style="color:${color};font-weight:700">${totPct}%</span> affecté</div>
+      </div>`;
+    allocs.forEach((a,ai)=>{
+      const idx=D.rhAlloc.indexOf(a);
+      h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
+        <select class="ms" style="width:220px" onchange="D.rhAlloc[${idx}].act=this.value;autoSave();render()">
+          <option value="">— Code projet —</option>${actLabels().map(l=>`<option${l===a.act?" selected":""}>${l}</option>`).join("")}
+        </select>
+        <input type="number" class="cj" style="width:60px;text-align:center" value="${a.pct||0}" min="0" max="100" onchange="D.rhAlloc[${idx}].pct=parseInt(this.value)||0;autoSave();render()">
+        <span style="font-size:10px;color:#5c6a80">%</span>
+        <span style="font-size:10px;font-family:'JetBrains Mono';color:#7c8cf5;width:80px;text-align:right">${fmt(s.net*(a.pct||0)/100)}</span>
+        <button class="ib" onclick="pushUndo();D.rhAlloc.splice(${idx},1);autoSave();render()">🗑</button>
+      </div>`;
+    });
+    h+=`<button class="b bd" style="margin-top:3px;font-size:9px" onclick="D.rhAlloc.push({sal:'${s.nom}',act:'',pct:0});autoSave();render()">+ Ajouter projet</button>`;
+    h+=`</div>`;
+  });
+
+  // Summary table
+  h+='<h4 style="font-size:12px;margin:16px 0 8px">📊 Synthèse par code projet</h4>';
+  const byProject={};
+  (D.rhAlloc||[]).forEach(a=>{
+    if(!a.act||!a.pct)return;
+    const sal=salaries.find(s=>s.nom===a.sal);if(!sal)return;
+    if(!byProject[a.act])byProject[a.act]={net:0,charges:0,salaries:[]};
+    const netPart=sal.net*a.pct/100;
+    const chPart=sal.charges*a.pct/100;
+    byProject[a.act].net+=netPart;
+    byProject[a.act].charges+=chPart;
+    byProject[a.act].salaries.push({nom:sal.nom,pct:a.pct,net:netPart});
+  });
+  if(Object.keys(byProject).length){
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Code projet</th><th style="text-align:right">Salaires net/mois</th><th style="text-align:right">Charges pat./mois</th><th style="text-align:right">Coût total/mois</th><th style="text-align:right">Coût annuel</th><th>Détail</th></tr></thead><tbody>';
+    Object.entries(byProject).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([act,d])=>{
+      const total=d.net+d.charges;
+      h+=`<tr><td style="font-weight:600;font-size:10px">${act}</td>
+        <td class="deb">${fmt(d.net)}</td>
+        <td class="deb">${fmt(d.charges)}</td>
+        <td style="text-align:right;font-weight:700;font-family:'JetBrains Mono';font-size:10px">${fmt(total)}</td>
+        <td style="text-align:right;font-weight:700;font-family:'JetBrains Mono';font-size:10px;color:#fbbf24">${fmt(total*12)}</td>
+        <td style="font-size:9px;color:#5c6a80">${d.salaries.map(s=>s.nom.split(" ").pop()+" "+s.pct+"%").join(", ")}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';el.innerHTML=h;
+}
+function switchTab(t){curTab=t;render()}
+function tglF(el){curFilt=curFilt===el.dataset.f?"":el.dataset.f;render()}
+function getFilt(){const q=($("si")?.value||"").toLowerCase();return D.rows.filter(r=>{
+  if(curFilt==="uncl"&&r.cat&&r.act)return false;if(curFilt==="cl"&&(!r.cat||!r.act))return false;
+  if(curFilt==="bank"&&r.src!=="banque")return false;if(curFilt==="ndf"&&r.src!=="ndf")return false;
+  if(curFilt==="noatt"&&D.att[r.id])return false;
+  if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q))return false;return true})}
+
+// ─── SEARCH SELECT ───
+document.addEventListener("click",e=>{if(openDD&&!openDD.contains(e.target)){const x=openDD.querySelector(".ss-dd");if(x)x.remove();openDD=null}});
+function mkSS(el,val,opts,ph,cb){el.innerHTML="";el.className="ss";
+  const d=document.createElement("div");d.className="ss-d"+(val?"":" em");d.textContent=val||ph||"—";d.title=val||"";
+  d.onclick=function(ev){ev.stopPropagation();if(openDD&&openDD!==el){const x=openDD.querySelector(".ss-dd");if(x)x.remove()}
+    if(el.querySelector(".ss-dd")){el.querySelector(".ss-dd").remove();openDD=null;return}openDD=el;
+    const dd=document.createElement("div");dd.className="ss-dd";const s=document.createElement("input");s.className="ss-s";s.placeholder="Rechercher...";s.onclick=e=>e.stopPropagation();dd.appendChild(s);
+    const ls=document.createElement("div");ls.style.cssText="overflow-y:auto;flex:1";dd.appendChild(ls);
+    function rl(q){ls.innerHTML="";const no=document.createElement("div");no.className="ss-i";no.style.color="#64748b";no.textContent="— Aucun —";no.onclick=()=>{cb("");dd.remove();openDD=null};ls.appendChild(no);
+      opts.filter(o=>!q||o.toLowerCase().includes(q.toLowerCase())).slice(0,40).forEach(o=>{const it=document.createElement("div");it.className="ss-i"+(o===val?" sel":"");it.textContent=o;it.onclick=()=>{cb(o);dd.remove();openDD=null};ls.appendChild(it)})}
+    s.oninput=()=>rl(s.value);rl("");el.appendChild(dd);s.focus()};el.appendChild(d)}
+
+// ─── MISSING JUSTIFICATIFS ───
+function getMissing(){const nums={F:[],P:[],S:[],RF:[]};Object.values(D.att).forEach(a=>{if(!a.nj)return;const m=a.nj.match(/^(F|P|S|RF)2026-(\d+)$/);if(m)nums[m[1]].push(parseInt(m[2]))});
+  const miss=[];for(const[p,arr] of Object.entries(nums)){if(!arr.length)continue;arr.sort((a,b)=>a-b);for(let i=1;i<=Math.max(...arr);i++){if(!arr.includes(i))miss.push(p+"2026-"+String(i).padStart(3,"0"))}}return miss}
+
+// ─── SUGGEST RECURRING LABELS ───
+function getSuggestions(){const freq={};D.rows.forEach(r=>{if(!r.lib)return;
+  // Extract keywords from libellé
+  const words=r.lib.toUpperCase().replace(/[0-9]{4,}/g,"").replace(/\s+/g," ").trim().split(" ").filter(w=>w.length>3);
+  words.forEach(w=>{freq[w]=(freq[w]||0)+1})});
+  // Find frequent words not already in rules
+  const ruleWords=D.rules.map(r=>r.match.toUpperCase());
+  return Object.entries(freq).filter(([w,n])=>n>=3&&!ruleWords.some(rw=>w.includes(rw)||rw.includes(w))).sort((a,b)=>b[1]-a[1]).slice(0,15)}
+
+// ─── CONFIG ───
+function showConfig(){
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:750px">
+  <h3>⚙️ Configuration</h3>
+  <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+    <button class="b bd cfgtab" data-ct="rules" onclick="showCfgTab('rules')">Règles auto</button>
+    <button class="b bd cfgtab" data-ct="suggest" onclick="showCfgTab('suggest')">💡 Suggestions</button>
+    <button class="b bd cfgtab" data-ct="acts" onclick="showCfgTab('acts')">Codes projets</button>
+    <button class="b bd cfgtab" data-ct="cats" onclick="showCfgTab('cats')">Codes comptables</button>
+  </div><div id="cfgC"></div>
+  <div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Fermer</button></div></div></div>`;
+  $("modalC").innerHTML=h;showCfgTab("rules")}
+
+function showCfgTab(tab){
+  document.querySelectorAll(".cfgtab").forEach(b=>{b.style.background=b.dataset.ct===tab?"#6366f1":"transparent";b.style.color=b.dataset.ct===tab?"#fff":"#94a3b8"});
+  const ct=$("cfgC");
+  if(tab==="rules"){
+    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Si le libellé contient le mot-clé → remplir automatiquement.</p><div style="max-height:300px;overflow:auto">';
+    D.rules.forEach((r,i)=>{h+=`<div class="cfg-row">
+      <input value="${r.match}" placeholder="Mot-clé" onchange="D.rules[${i}].match=this.value;autoSave()" style="flex:0 0 100px">
+      <input value="${r.four}" placeholder="Fournisseur" onchange="D.rules[${i}].four=this.value;autoSave()" style="flex:0 0 90px">
+      <select onchange="D.rules[${i}].cat=this.value;autoSave()" style="flex:1;min-width:150px"><option value="">— Comptable —</option>${D.cats.map(c=>`<option${c===r.cat?' selected':''}>${c}</option>`).join('')}</select>
+      <select onchange="D.rules[${i}].act=this.value;autoSave()" style="flex:1;min-width:140px"><option value="">— Projet —</option>${actLabels().map(a=>`<option${a===r.act?' selected':''}>${a}</option>`).join('')}</select>
+      <button class="b br" onclick="D.rules.splice(${i},1);autoSave();showCfgTab('rules')">×</button></div>`});
+    h+='</div><button class="b bg" style="margin-top:4px" onclick="D.rules.push({match:\'\',four:\'\',cat:\'\',act:\'\'});showCfgTab(\'rules\')">+ Règle</button>';
+    ct.innerHTML=h;
+  }else if(tab==="suggest"){
+    const suggs=getSuggestions();
+    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Mots-clés fréquents dans vos libellés, non encore couverts par une règle :</p>';
+    if(!suggs.length)h+='<div style="color:#22c55e;font-size:10px">✓ Tous les libellés récurrents sont couverts !</div>';
+    else{h+='<div style="max-height:300px;overflow:auto">';suggs.forEach(([w,n])=>{
+      h+=`<div class="cfg-row" style="justify-content:space-between"><div><span style="font-weight:600;color:#818cf8">${w}</span> <span style="font-size:8px;color:#64748b">(${n} occurrences)</span></div>
+        <button class="b bg" onclick="D.rules.push({match:'${w}',four:'',cat:'',act:''});showCfgTab('rules')">→ Créer règle</button></div>`});h+='</div>'}
+    ct.innerHTML=h;
+  }else if(tab==="acts"){
+    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Codes projets / actions. <em>À terme, synchronisé depuis Airtable.</em></p><div style="max-height:280px;overflow:auto">';
+    h+='<div class="cfg-row" style="font-weight:600;color:#64748b;font-size:8px;border-bottom:1px solid #2d3148"><span style="flex:1">Code projet / Action</span><span style="flex:0 0 65px;text-align:center">Territoire</span><span style="flex:0 0 24px"></span></div>';
+    D.acts.forEach((a,i)=>{const act=typeof a==="string"?{l:a,t:""}:a;
+      h+=`<div class="cfg-row"><input value="${act.l}" onchange="D.acts[${i}].l=this.value;autoSave()" style="flex:1">
+        <select onchange="D.acts[${i}].t=this.value;autoSave()" style="flex:0 0 65px;padding:2px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:8px;text-align:center">
+          <option value=""${act.t===""?" selected":""}>—</option><option value="SUD"${act.t==="SUD"?" selected":""}>SUD</option><option value="IDF"${act.t==="IDF"?" selected":""}>IDF</option><option value="NAT"${act.t==="NAT"?" selected":""}>NAT</option>
+        </select>
+        <button class="b br" onclick="D.acts.splice(${i},1);autoSave();showCfgTab('acts')">×</button></div>`});
+    h+='</div><div style="display:flex;gap:3px;margin-top:4px"><input id="nA" placeholder="Nouveau code projet" style="flex:1;padding:3px 5px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:9px"><select id="nAT" style="width:60px;padding:2px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:8px"><option value="">—</option><option>SUD</option><option>IDF</option><option>NAT</option></select><button class="b bg" onclick="const v=$(\'nA\').value.trim();if(v){D.acts.push({l:v,t:$(\'nAT\').value});autoSave();showCfgTab(\'acts\')}">+</button></div>';
+    ct.innerHTML=h;
+  }else{
+    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Codes comptables.</p><div style="max-height:280px;overflow:auto">';
+    D.cats.forEach((c,i)=>{h+=`<div class="cfg-row"><input value="${c}" onchange="D.cats[${i}]=this.value;autoSave()" style="flex:1"><button class="b br" onclick="D.cats.splice(${i},1);autoSave();showCfgTab('cats')">×</button></div>`});
+    h+='</div><div style="display:flex;gap:3px;margin-top:4px"><input id="nC" placeholder="Nouveau" style="flex:1;padding:3px 5px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:9px"><button class="b bg" onclick="const v=$(\'nC\').value.trim();if(v){D.cats.push(v);D.cats.sort();autoSave();showCfgTab(\'cats\')}">+</button></div>';
+    ct.innerHTML=h;
+  }
+}
+
+// ─── BUDGET PRÉVISIONNEL ───
+function rBudget(el){
+  const vIdx=D.budgetVersions.length-1;
+  let h=`<div style="padding:10px 14px;border-bottom:1px solid #1e2030;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:10px;font-weight:600">Budget prévisionnel ${compYear}</span>
+    <button class="b bg" onclick="addBudgetLine()">+ Ligne</button>
+    <button class="b bb" onclick="addBudgetVersion()">+ Version</button>
+    <button class="b bp" onclick="autoSave();switchTab('comp')" title="Valider et voir Prévi. vs Réalisé">✓ Valider & Comparer</button>
+    <span style="font-size:8px;color:#64748b;margin-left:auto">Solde initial au </span>
+    <input class="cj" type="date" value="${D.soldeDate||'2025-01-01'}" onchange="D.soldeDate=this.value;autoSave()" style="width:100px;font-size:8px">
+    <span style="font-size:8px;color:#64748b"> : </span>
+    <input class="ni" value="${D.soldeInitial}" onchange="D.soldeInitial=parseFloat(this.value)||0;autoSave()" style="width:90px">
+    <button class="b bd" onclick="checkSolde()" title="Vérifier cohérence avec le fichier banque" style="font-size:7px">🔍 Vérif.</button>
+  </div>`;
+
+  h+='<div style="overflow-x:auto;padding:0 0 12px"><table><thead><tr><th>Code comptable</th><th>Type</th>';
+  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px">${v}</th>`);
+  h+='<th style="min-width:180px">Saisonnalité (mois)</th><th></th></tr></thead><tbody>';
+
+  D.budget.forEach((b,i)=>{
+    h+=`<tr><td style="min-width:180px"><div id="bc_${i}"></div></td>`;
+    h+=`<td><select class="ms" style="width:65px" onchange="D.budget[${i}].type=this.value;autoSave();render()">
+      <option value="charge"${b.type==="charge"?" selected":""}>Charge</option><option value="produit"${b.type==="produit"?" selected":""}>Produit</option></select></td>`;
+    D.budgetVersions.forEach((v,vi)=>{
+      const val=b.versions?.[vi]||0;
+      h+=`<td><input class="ni" value="${val}" onchange="if(!D.budget[${i}].versions)D.budget[${i}].versions=[];D.budget[${i}].versions[${vi}]=parseFloat(this.value)||0;autoSave();render()"></td>`;
+    });
+    // Saisonnalité
+    const mode=b.seasonMode||"lisse";
+    h+=`<td style="display:flex;gap:2px;align-items:center;flex-wrap:wrap;padding:3px">
+      <select class="ms" style="width:60px;flex-shrink:0" onchange="D.budget[${i}].seasonMode=this.value;autoSave();render()">
+        <option value="lisse"${mode==="lisse"?" selected":""}>Lissé</option><option value="mois"${mode==="mois"?" selected":""}>Mois</option></select>`;
+    if(mode==="mois"){MOS.forEach((m,mi)=>{
+      const checked=(b.months||[]).includes(mi);
+      h+=`<label style="font-size:7px;color:#94a3b8;display:flex;align-items:center;gap:1px"><input type="checkbox" class="mo-check" ${checked?"checked":""} onchange="toggleBudgetMonth(${i},${mi})"> ${MONAMES[mi]}</label>`;
+    })}
+    h+=`</td><td><button class="ib" onclick="D.budget.splice(${i},1);autoSave();render()">🗑</button></td></tr>`;
+  });
+
+  // Totals
+  h+='<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL CHARGES</td><td></td>';
+  D.budgetVersions.forEach((v,vi)=>{const t=D.budget.filter(b=>b.type==="charge").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="deb">${fmt(t)}</td>`});
+  h+='<td></td><td></td></tr>';
+  h+='<tr style="font-weight:700"><td>TOTAL PRODUITS</td><td></td>';
+  D.budgetVersions.forEach((v,vi)=>{const t=D.budget.filter(b=>b.type==="produit").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="cre">${fmt(t)}</td>`});
+  h+='<td></td><td></td></tr>';
+
+  h+='</tbody></table></div>';el.innerHTML=h;
+
+  // Init search selects for budget cats
+  D.budget.forEach((b,i)=>{const e=$("bc_"+i);if(e)mkSS(e,b.cat,D.cats,"Code comptable",v=>{D.budget[i].cat=v;sortBudget();autoSave();render()})});
+}
+
+function addBudgetLine(){D.budget.push({cat:"",type:"charge",versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]});sortBudget();autoSave();render()}
+function sortBudget(){D.budget.sort((a,b)=>{if(a.type!==b.type)return a.type==="charge"?-1:1;return(a.cat||"zzz").localeCompare(b.cat||"zzz")})}
+function addBudgetVersion(){const name=prompt("Nom de la version (ex: Révisé T2)");if(!name)return;D.budgetVersions.push(name);D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(0)});autoSave();render()}
+function toggleBudgetMonth(i,mi){if(!D.budget[i].months)D.budget[i].months=[];const idx=D.budget[i].months.indexOf(mi);if(idx>=0)D.budget[i].months.splice(idx,1);else D.budget[i].months.push(mi);autoSave();render()}
+
+// ─── COMPARATIF PRÉVISIONNEL vs RÉALISÉ ───
+function rComp(el){
+  const now=new Date();const curMonth=now.getMonth();// 0-indexed
+  const elapsed=(curMonth+1)/12;// % of year elapsed
+  const vIdx=D.budgetVersions.length-1;// Latest version
+
+  // Compute realized by cat
+  const realized={};
+  D.rows.filter(r=>r.yr===compYear&&r.cat).forEach(r=>{
+    if(!realized[r.cat])realized[r.cat]={deb:0,cre:0,byMonth:{}};
+    realized[r.cat].deb+=r.deb||0;realized[r.cat].cre+=r.cre||0;
+    const mi=parseInt((r.dt||"").substring(5,7))-1;
+    if(!realized[r.cat].byMonth[mi])realized[r.cat].byMonth[mi]={deb:0,cre:0};
+    realized[r.cat].byMonth[mi].deb+=r.deb||0;realized[r.cat].byMonth[mi].cre+=r.cre||0;
+  });
+
+  // Compute expected by month for each budget line
+  function expectedToMonth(b,upToMonth){
+    const annual=b.versions?.[vIdx]||0;
+    if(b.seasonMode==="lisse")return annual*((upToMonth+1)/12);
+    if(!b.months||!b.months.length)return annual*((upToMonth+1)/12);
+    const totalMonths=b.months.length;const passedMonths=b.months.filter(m=>m<=upToMonth).length;
+    return annual*(passedMonths/totalMonths);
+  }
+
+  // Dashboard
+  const totBudgetCh=D.budget.filter(b=>b.type==="charge").reduce((s,b)=>s+(b.versions?.[vIdx]||0),0);
+  const totBudgetPr=D.budget.filter(b=>b.type==="produit").reduce((s,b)=>s+(b.versions?.[vIdx]||0),0);
+  const totRealCh=D.rows.filter(r=>r.yr===compYear).reduce((s,r)=>s+(r.deb||0),0);
+  const totRealPr=D.rows.filter(r=>r.yr===compYear).reduce((s,r)=>s+(r.cre||0),0);
+  const pctCh=totBudgetCh>0?(totRealCh/totBudgetCh*100):0;
+  const pctPr=totBudgetPr>0?(totRealPr/totBudgetPr*100):0;
+  const projection=totBudgetCh>0?(totRealCh/elapsed):0;
+
+  let h='<div class="dash">';
+  h+=`<div class="dash-c"><div class="dash-v" style="color:#818cf8">${fmtP(elapsed*100)}</div><div class="dash-l">Année écoulée</div></div>`;
+  h+=`<div class="dash-c"><div class="dash-v ${pctCh>elapsed*100+10?"alert-danger":pctCh>elapsed*100?"alert-warn":"alert-ok"}">${fmtP(pctCh)}</div><div class="dash-l">Charges consommées</div></div>`;
+  h+=`<div class="dash-c"><div class="dash-v ${pctPr<elapsed*100-15?"alert-warn":"alert-ok"}">${fmtP(pctPr)}</div><div class="dash-l">Produits encaissés</div></div>`;
+  h+=`<div class="dash-c"><div class="dash-v" style="color:#f87171">${fmt(totRealCh)}</div><div class="dash-l">Réalisé charges</div></div>`;
+  h+=`<div class="dash-c"><div class="dash-v" style="color:#4ade80">${fmt(totRealPr)}</div><div class="dash-l">Réalisé produits</div></div>`;
+  h+=`<div class="dash-c"><div class="dash-v" style="color:${projection>totBudgetCh*1.05?"#ef4444":"#22c55e"}">${fmt(projection)}</div><div class="dash-l">Projection annuelle charges</div></div>`;
+  h+='</div>';
+
+  // Table
+  h+='<div style="overflow-x:auto"><table><thead><tr><th>Code comptable</th><th>Type</th><th style="text-align:right">Prévu</th><th style="text-align:right">Attendu à date</th><th style="text-align:right">Réalisé</th><th style="text-align:right">%</th><th style="min-width:120px">Progression</th><th>Alerte</th></tr></thead><tbody>';
+
+  D.budget.forEach(b=>{
+    const annual=b.versions?.[vIdx]||0;if(!annual)return;
+    const expected=expectedToMonth(b,curMonth);
+    const real=realized[b.cat];
+    const realVal=b.type==="charge"?(real?.deb||0):(real?.cre||0);
+    const pct=annual>0?(realVal/annual*100):0;
+    const vsExpected=expected>0?(realVal/expected*100):0;
+    let alert="",alertClass="alert-ok",barColor="#22c55e";
+    if(pct>100){alert="🔴 Dépassé";alertClass="alert-danger";barColor="#ef4444"}
+    else if(vsExpected>120){alert="🟠 En avance";alertClass="alert-warn";barColor="#f59e0b"}
+    else if(b.type==="produit"&&vsExpected<60){alert="🟡 Retard";alertClass="alert-warn";barColor="#f59e0b"}
+    else{alert="✅";barColor="#22c55e"}
+
+    h+=`<tr><td style="font-size:9px;font-weight:600">${b.cat||"—"}</td>
+      <td style="font-size:8px;color:${b.type==="charge"?"#f87171":"#4ade80"}">${b.type}</td>
+      <td style="text-align:right;font-size:9px">${fmt(annual)}</td>
+      <td style="text-align:right;font-size:9px;color:#64748b">${fmt(expected)}</td>
+      <td style="text-align:right;font-weight:600;color:${b.type==="charge"?"#f87171":"#4ade80"}">${fmt(realVal)}</td>
+      <td style="text-align:right;font-weight:600">${fmtP(pct)}</td>
+      <td><div class="pbar"><div class="pbar-f" style="width:${Math.min(pct,100)}%;background:${barColor}"></div><div class="pbar-t">${fmtP(pct)}</div></div></td>
+      <td style="font-size:9px" class="${alertClass}">${alert}</td></tr>`;
+  });
+  h+='</tbody></table></div>';el.innerHTML=h;
+}
+
+// ─── TREASURY FORECAST ───
+function rTreasury(el){
+  const vIdx=D.budgetVersions.length-1;
+  const subs=D.airtableSubs||[];
+  let h='<div style="padding:10px 14px"><h3 style="font-size:13px;margin-bottom:4px">💰 Prévision de trésorerie '+compYear+'</h3>';
+  h+=`<p style="font-size:9px;color:#94a3b8;margin-bottom:4px">Solde initial au <strong>${D.soldeDate||"?"}</strong> : <strong style="color:#818cf8">${fmt(D.soldeInitial)}</strong></p>`;
+  // Airtable sync info + filters
+  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:9px;color:#94a3b8">`;
+  h+=`<span>🔄 Airtable : ${D.airtableSync||"jamais"} (${subs.length} subventions)</span>`;
+  h+=`<label><input type="checkbox" ${tresFilt.versee?"checked":""} onchange="tresFilt.versee=this.checked;render()"> ✅ Versées</label>`;
+  h+=`<label><input type="checkbox" ${tresFilt.validee?"checked":""} onchange="tresFilt.validee=this.checked;render()"> 🔵 Validées</label>`;
+  h+=`<label><input type="checkbox" ${tresFilt.attente?"checked":""} onchange="tresFilt.attente=this.checked;render()"> 🟡 Attente</label>`;
+  h+=`<label><input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
+  h+=`</div>`;
+
+  // Filters from state
+  const fV=tresFilt.versee,fA2=tresFilt.validee;
+  const fAt=tresFilt.attente,fS=tresFilt.sollicitee;
+
+  // Compute monthly forecast
+  const forecastCh=MOS.map(()=>0),forecastPr=MOS.map(()=>0),airtableSub=MOS.map(()=>0),airtablePrest=MOS.map(()=>0);
+  const realCh=MOS.map(()=>0),realPr=MOS.map(()=>0);
+  const prestas=D.airtablePrestas||[];
+
+  // Charges from budget
+  D.budget.filter(b=>b.type==="charge").forEach(b=>{
+    const annual=b.versions?.[vIdx]||0;if(!annual)return;
+    if(b.seasonMode==="mois"&&b.months?.length){
+      const perMonth=annual/b.months.length;b.months.forEach(mi=>{forecastCh[mi]+=perMonth});
+    }else{const pm=annual/12;MOS.forEach((m,mi)=>{forecastCh[mi]+=pm})}
+  });
+
+  // Subventions from Airtable (with filters)
+  subs.forEach(s=>{
+    const dp=s.dp||"";if(!dp.startsWith(compYear))return;
+    const show=(s.s==="versée"&&fV)||(s.s==="validée"&&fA2)||(s.s==="attente"&&fAt)||(s.s==="sollicitée"&&fS);
+    if(!show)return;
+    const mi=parseInt(dp.substring(5,7))-1;
+    if(mi>=0&&mi<12)airtableSub[mi]+=(s.ob||s.mt||0);
+  });
+
+  // Prestations from Airtable (with filters: signé/payé=validée, facturé=validée, négo=sollicitée)
+  prestas.forEach(p=>{
+    const dp=p.dp||"";if(!dp.startsWith(compYear))return;
+    const isConfirmed=p.s==="signé"||p.s==="payé"||p.s==="facturé";
+    const isNego=p.s==="négo";
+    const show=(isConfirmed&&(fA2||fV))||(isNego&&fS);
+    if(!show)return;
+    const mi=parseInt(dp.substring(5,7))-1;
+    if(mi>=0&&mi<12)airtablePrest[mi]+=(p.ob||p.mt||0);
+  });
+
+  // Non-subvention/presta produits from budget (dons, cotisations, etc.)
+  D.budget.filter(b=>b.type==="produit").forEach(b=>{
+    const annual=b.versions?.[vIdx]||0;if(!annual)return;
+    const cat=(b.cat||"").substring(0,5);
+    // Skip categories fed by Airtable (74xxx subventions, 70xxx prestations, 75412 mécénat)
+    if(cat.startsWith("744")||cat.startsWith("748")||cat.startsWith("706")||(b.cat||"").startsWith("75412"))return;
+    if(b.seasonMode==="mois"&&b.months?.length){
+      const perMonth=annual/b.months.length;b.months.forEach(mi=>{forecastPr[mi]+=perMonth});
+    }else{const pm=annual/12;MOS.forEach((m,mi)=>{forecastPr[mi]+=pm})}
+  });
+
+  // Total forecast produits = budget non-sub + airtable subs + airtable prestas
+  const totForecastPr=MOS.map((m,i)=>forecastPr[i]+airtableSub[i]+airtablePrest[i]);
+
+  // Real data by month
+  D.rows.filter(r=>r.yr===compYear).forEach(r=>{const mi=parseInt((r.dt||"").substring(5,7))-1;if(mi>=0&&mi<12){realCh[mi]+=r.deb||0;realPr[mi]+=r.cre||0}});
+
+  h+='<div style="overflow-x:auto"><table><thead><tr><th></th>';
+  MONAMES.forEach(m=>h+=`<th style="text-align:right;min-width:70px">${m}</th>`);
+  h+='<th style="text-align:right;font-weight:700">TOTAL</th></tr></thead><tbody>';
+
+  // Forecast charges
+  h+='<tr><td style="font-weight:600;color:#f87171">Charges prévues</td>';
+  let totFC=0;forecastCh.forEach(v=>{totFC+=v;h+=`<td style="text-align:right;font-size:9px;color:#f8717188">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#f87171">${fmt(totFC)}</td></tr>`;
+
+  // Real charges
+  h+='<tr><td style="font-weight:600;color:#f87171">Charges réelles</td>';
+  let totRC=0;realCh.forEach(v=>{totRC+=v;h+=`<td style="text-align:right;font-size:9px;color:#f87171">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#f87171">${fmt(totRC)}</td></tr>`;
+
+  // Airtable subventions row
+  h+='<tr><td style="font-weight:600;color:#818cf8">Subventions (Airtable)</td>';
+  let totAT=0;airtableSub.forEach(v=>{totAT+=v;h+=`<td style="text-align:right;font-size:9px;color:#818cf8">${v?fmt(v):""}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#818cf8">${fmt(totAT)}</td></tr>`;
+
+  h+='<tr><td style="font-weight:600;color:#a78bfa">Prestations (Airtable)</td>';
+  let totPR=0;airtablePrest.forEach(v=>{totPR+=v;h+=`<td style="text-align:right;font-size:9px;color:#a78bfa">${v?fmt(v):""}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#a78bfa">${fmt(totPR)}</td></tr>`;
+
+  // Other produits (prestas, dons...)
+  h+='<tr><td style="font-weight:600;color:#4ade80">Autres produits prévus</td>';
+  let totOP=0;forecastPr.forEach(v=>{totOP+=v;h+=`<td style="text-align:right;font-size:9px;color:#4ade8088">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#4ade80">${fmt(totOP)}</td></tr>`;
+
+  // Real produits
+  h+='<tr><td style="font-weight:600;color:#4ade80">Produits réels</td>';
+  let totRP=0;realPr.forEach(v=>{totRP+=v;h+=`<td style="text-align:right;font-size:9px;color:#4ade80">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:#4ade80">${fmt(totRP)}</td></tr>`;
+
+  // Solde prévisionnel cumulé
+  h+='<tr style="border-top:2px solid #6366f1"><td style="font-weight:700">Solde prévu cumulé</td>';
+  let soldeF=D.soldeInitial;MOS.forEach((m,mi)=>{soldeF+=totForecastPr[mi]-forecastCh[mi];
+    h+=`<td style="text-align:right;font-weight:600;color:${soldeF>=0?"#4ade80":"#ef4444"}">${fmt(soldeF)}</td>`});
+  h+=`<td style="text-align:right;font-weight:700;color:${soldeF>=0?"#4ade80":"#ef4444"}">${fmt(soldeF)}</td></tr>`;
+
+  // Solde réel cumulé
+  h+='<tr><td style="font-weight:700">Solde réel cumulé</td>';
+  let soldeR=D.soldeInitial;const now=new Date().getMonth();
+  MOS.forEach((m,mi)=>{if(mi<=now){soldeR+=realPr[mi]-realCh[mi];
+    h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"#22c55e":"#ef4444"}">${fmt(soldeR)}</td>`}
+    else h+=`<td style="text-align:right;font-size:8px;color:#64748b">—</td>`});
+  h+=`<td></td></tr>`;
+
+  // Alert row
+  h+='<tr><td style="font-weight:600">Écart</td>';
+  let sF2=D.soldeInitial,sR2=D.soldeInitial;
+  MOS.forEach((m,mi)=>{sF2+=totForecastPr[mi]-forecastCh[mi];
+    if(mi<=now){sR2+=realPr[mi]-realCh[mi];const diff=sR2-sF2;
+      h+=`<td style="text-align:right;font-size:9px;font-weight:600;color:${diff>=0?"#22c55e":"#ef4444"}">${diff>=0?"+":""}${fmt(diff)}</td>`}
+    else h+='<td></td>'});
+  h+='<td></td></tr>';
+
+  // Détail subventions Airtable
+  h+='</tbody></table></div>';
+  if(subs.length){
+    h+='<h4 style="font-size:11px;margin:16px 0 6px">📋 Détail subventions Airtable (versements '+compYear+')</h4>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Financeur</th><th>Statut</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th>Date prévue</th><th>Territoire</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    const statColors={versée:"#22c55e",validée:"#60a5fa",attente:"#facc15",sollicitée:"#fb923c"};
+    subs.filter(s=>(s.dp||"").startsWith(compYear)).sort((a,b)=>(a.dp||"").localeCompare(b.dp||"")).forEach((s,idx)=>{
+      const col=statColors[s.s]||"#94a3b8";
+      const si=subs.indexOf(s);const yr=s.yr||compYear;const cc=s.cc||"";
+      h+=`<tr><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td><td style="text-align:right;font-size:9px">${fmt(s.mt)}</td><td style="text-align:right;font-size:9px">${s.ob?fmt(s.ob):""}</td><td style="font-size:9px">${s.dp||""}</td><td style="font-size:9px">${s.t||""}</td>`;
+      h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtableSubs[${si}].yr=this.value;autoSave()"></td>`;
+      h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtableSubs[${si}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
+    });
+    const totSub=subs.filter(s=>(s.dp||"").startsWith(compYear)).reduce((a,s)=>a+(s.ob||s.mt||0),0);
+    h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td style="text-align:right">${fmt(totSub)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    h+='</tbody></table></div>';
+  }
+  // Détail prestations Airtable
+  if(prestas.length){
+    h+='<h4 style="font-size:11px;margin:16px 0 6px">🏢 Détail prestations Airtable ('+compYear+')</h4>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Commanditaire</th><th>Statut</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th>Date prévue</th><th>Parcours</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    const pColors={payé:"#22c55e",signé:"#60a5fa",facturé:"#818cf8",négo:"#fb923c"};
+    prestas.filter(p=>(p.dp||"").startsWith(compYear)).sort((a,b)=>(a.dp||"").localeCompare(b.dp||"")).forEach(p=>{
+      const col=pColors[p.s]||"#94a3b8";const pi=prestas.indexOf(p);
+      const yr=p.yr||compYear;const cc=p.cc||"";
+      h+=`<tr><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:#94a3b8">${p.tp||""}</td><td style="text-align:right;font-size:9px">${fmt(p.mt)}</td><td style="text-align:right;font-size:9px">${p.ob?fmt(p.ob):""}</td><td style="font-size:9px">${p.dp||""}</td><td style="font-size:8px;color:#94a3b8">${p.parc||""}</td>`;
+      h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtablePrestas[${pi}].yr=this.value;autoSave()"></td>`;
+      h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtablePrestas[${pi}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
+    });
+    const totPres=prestas.filter(p=>(p.dp||"").startsWith(compYear)).reduce((a,p)=>a+(p.ob||p.mt||0),0);
+    h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td></td><td style="text-align:right">${fmt(totPres)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';el.innerHTML=h;
+}
+
+// ─── AIRTABLE SYNC ───
+function importAirtable(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
+  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+    rd.onload=ev=>{try{
+      const d=JSON.parse(ev.target.result);
+      pushUndo();
+      if(d.airtableSubs){D.airtableSubs=d.airtableSubs;D.airtableSync=d.airtableSync||new Date().toISOString().split("T")[0]}
+      if(d.airtablePrestas){D.airtablePrestas=d.airtablePrestas}
+      if(d.acts){
+        const existing=new Set(D.acts.map(a=>a.l.split(" - ")[0].trim()));
+        d.acts.forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim()))D.acts.push(a)});
+      }
+      autoSave();render();
+      alert("Données Airtable importées ! ("+(d.airtableSubs?.length||0)+" subventions, sync "+D.airtableSync+")");
+    }catch(e){alert("Erreur: "+e.message)}};rd.readAsText(f)};inp.click();
+}
+function exportAirtableReq(){
+  alert("Pour mettre à jour les données Airtable, demande-moi dans la conversation :\n\n\"Sync Airtable pour l'outil comptable\"\n\nJe récupérerai les données des tables 3.2 (Subventions), 3.4 (Prestas) et 4 (Parcours) et te fournirai un fichier JSON à importer ici.");
+}
+
+// ─── SOLDE VERIFICATION ───
+function checkSolde(){
+  const computed=D.soldeInitial+D.rows.reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  alert("Solde calculé par l'outil : "+fmt(computed)+"\n\nSolde initial ("+D.soldeDate+") : "+fmt(D.soldeInitial)+"\n+ Crédits : "+fmt(D.rows.reduce((s,r)=>s+(r.cre||0),0))+"\n- Débits : "+fmt(D.rows.reduce((s,r)=>s+(r.deb||0),0))+"\n\nSi ce montant diffère du solde affiché par votre banque, il y a des lignes manquantes ou en doublon.");
+}
+
+// ─── MAIN RENDER ───
+function render(){
+  const cl=D.rows.filter(r=>r.cat&&r.act).length;const ch=D.rows.reduce((s,r)=>s+(r.deb||0),0);const pr=D.rows.reduce((s,r)=>s+(r.cre||0),0);
+  const ac=Object.keys(D.att).filter(k=>!k.startsWith("orph")).length;
+  $("statsBar").innerHTML=[
+    {l:"Lignes",v:D.rows.length,c:"#818cf8"},{l:"Classées",v:cl,c:"#22c55e"},
+    {l:"À classer",v:D.rows.length-cl,c:D.rows.length-cl>0?"#ef4444":"#22c55e"},
+    {l:"Justif.",v:ac+"/"+D.rows.length,c:ac<D.rows.length?"#f59e0b":"#22c55e"},
+    {l:"Charges",v:fmt(ch),c:"#f87171"},{l:"Produits",v:fmt(pr),c:"#4ade80"},
+    {l:"Solde",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444"}
+  ].map(s=>`<div class="sc"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
+
+  // Alerts banner
+  const alerts=getAlerts();
+  const ab=$("alertsBanner");
+  if(ab){
+    if(alerts.length){
+      const colors={danger:"var(--red-bg)",warn:"var(--amber-bg)",info:"var(--accent-bg)"};
+      const txtColors={danger:"var(--red)",warn:"var(--amber)",info:"var(--accent-l)"};
+      ab.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0">`+
+        alerts.slice(0,5).map(a=>`<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${colors[a.type]||colors.info};color:${txtColors[a.type]||txtColors.info}">${a.icon} ${a.text}</div>`).join("")+
+        (alerts.length>5?`<div style="font-size:10px;color:var(--text-3);padding:4px">+${alerts.length-5} autres</div>`:"")+`</div>`;
+    } else ab.innerHTML="";
+  }
+
+  const tabs=[{id:"class",l:"📋 Classement"},{id:"synth",l:"📊 Synthèse"},{id:"suivi",l:"📈 Suivi codes"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."},{id:"config",l:"⚙️"}];
+  let tb='';tabs.forEach(t=>{
+    tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="${t.id==='config'?'showConfig()':'switchTab(\''+t.id+'\')'}">${t.l}</button>`});
+  tb+=`<div style="width:1px;height:14px;background:#2d3148;margin:0 1px"></div>`;
+  tb+=`<input class="si" id="si" placeholder="🔍" value="${$('si')?.value||''}" oninput="render()">`;
+  ["","uncl","cl","bank","ndf","noatt"].forEach(f=>{
+    const ls={"":"Tout",uncl:"⚠",cl:"✓",bank:"🏦",ndf:"🧾",noatt:"📎"};
+    tb+=`<button class="fb${curFilt===f?" on":""}" data-f="${f}" onclick="tglF(this)" title="${{"":"Tous",uncl:"Non classé",cl:"Classé",bank:"Banque",ndf:"NDF",noatt:"Sans justif."}[f]}">${ls[f]}</button>`});
+  const flt=getFilt();tb+=`<div style="margin-left:auto;font-size:7px;color:#64748b">${flt.length}/${D.rows.length}</div>`;
+  $("toolbar").innerHTML=tb;
+
+  const ct=$("content");
+  if(curTab==="synth"){rSynth(ct);return}
+  if(curTab==="suivi"){rSuivi(ct);return}
+  if(curTab==="budget"){rBudget(ct);return}
+  if(curTab==="comp"){rComp(ct);return}
+  if(curTab==="treasury"){rTreasury(ct);return}
+  if(curTab==="rh"){rRH(ct);return}
+  if(curTab==="missing"){rMissing(ct);return}
+
+  // Classement tab
+  if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
+  let h='<div style="overflow-x:auto"><table><thead><tr>';
+  ["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""].forEach(x=>h+=`<th>${x}</th>`);
+  h+="</tr></thead><tbody>";
+  flt.forEach(r=>{const a=D.att[r.id];
+    h+=`<tr${r.src==="ndf"?' class="ndf"':(r.src==="ndf-split"?' class="ndf-split"':"")}>`;
+    h+=`<td style="white-space:nowrap;font-size:10px;color:#5c6a80;min-width:65px">${r.dt}</td>`;
+    h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
+    h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib}</td>`;
+    h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
+    h+=`<td style="min-width:150px"><div id="c_${r.id}"></div></td>`;
+    h+=`<td style="min-width:150px"><div id="a_${r.id}"></div></td>`;
+    h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:#f87171;width:65px" value="${r.deb||''}" onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
+    h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
+    h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button></td>`
+        :`<td><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
+    h+=`<td style="min-width:55px"><select class="ms" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:75px"><select class="ms" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
+  // Sous-totaux
+  const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
+  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="6"></td></tr>`;
+  h+="</tbody></table></div>";ct.innerHTML=h;
+  // Init search selects + autocomplete fournisseurs
+  const allFour=allFournisseurs();
+  flt.forEach(r=>{const ce=$("c_"+r.id),ae=$("a_"+r.id),fe=$("f_"+r.id);
+    if(ce)mkSS(ce,r.cat,D.cats,"Comptable",v=>upd(r.id,"cat",v));
+    if(ae)mkSS(ae,r.act,actLabels(),"Projet",v=>upd(r.id,"act",v));
+    // Fournisseur autocomplete via datalist
+    if(fe){const dl=document.createElement("datalist");dl.id="dl_f_"+r.id;allFour.forEach(f=>{const o=document.createElement("option");o.value=f;dl.appendChild(o)});fe.parentNode.appendChild(dl);fe.setAttribute("list","dl_f_"+r.id)}
+  });
+}
+
+function rSynth(el){
+  const yrs=[...new Set(D.rows.map(r=>r.yr))].filter(Boolean).sort();
+  let h=`<div style="padding:8px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid #1e2030"><span style="font-size:9px;color:#94a3b8">Année :</span>
+    <select id="sYr" class="ms" style="width:70px" onchange="render()"><option value="">Toutes</option>${yrs.map(y=>`<option${y===($("sYr")?.value||"")?" selected":""}>${y}</option>`).join("")}</select></div>`;
+  const yrF=$("sYr")?.value||"";const fR=D.rows.filter(r=>!yrF||r.yr===yrF);
+  const g={};fR.forEach(r=>{const t=r.act?r.act.split(" ")[0].replace(/[0-9]/g,"")||"?":"⚠";if(!g[t])g[t]={ch:0,pr:0,n:0};g[t].ch+=r.deb||0;g[t].pr+=r.cre||0;g[t].n++});
+  const s=Object.entries(g).sort((a,b)=>b[1].ch-a[1].ch);const mx=Math.max(...s.map(([,d])=>d.ch),1);
+  h+='<div class="sg">';s.forEach(([t,d])=>{const p=(d.ch/mx*100).toFixed(1);
+    h+=`<div class="scard"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:700;font-size:11px">${t}</span><span style="font-size:7px;color:#64748b">${d.n}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#f87171;font-weight:600;font-size:10px">${fmt(d.ch)}</span>${d.pr>0?`<span style="color:#4ade80;font-weight:600;font-size:10px">+${fmt(d.pr)}</span>`:""}</div><div class="sbar"><div class="sbar-f" style="width:${p}%;background:linear-gradient(90deg,#6366f1,#818cf8)"></div></div></div>`});
+  h+='</div>';el.innerHTML=h}
+
+function rSuivi(el){
+  const yrs=[...new Set(D.rows.map(r=>r.yr))].filter(Boolean).sort();
+  const ua=[...new Set(D.rows.map(r=>(r.act||"").split(" - ")[0].trim()).filter(Boolean))].sort();
+  let h=`<div style="padding:6px 14px;display:flex;gap:5px;align-items:center;border-bottom:1px solid #1e2030;flex-wrap:wrap">
+    <span style="font-size:8px;color:#94a3b8">Année:</span>
+    <select class="ms" style="width:60px" onchange="suiviFilt.yr=this.value;render()"><option value="">—</option>${yrs.map(y=>`<option${y===suiviFilt.yr?" selected":""}>${y}</option>`).join("")}</select>
+    <span style="font-size:8px;color:#94a3b8">Territoire:</span>
+    <select class="ms" style="width:60px" onchange="suiviFilt.terr=this.value;render()"><option value="">Tous</option><option${suiviFilt.terr==="SUD"?" selected":""}>SUD</option><option${suiviFilt.terr==="IDF"?" selected":""}>IDF</option><option${suiviFilt.terr==="NAT"?" selected":""}>NAT</option></select>
+    <span style="font-size:8px;color:#94a3b8">Projets:</span>
+    <select class="ms" style="width:120px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.map(a=>`<option>${a}</option>`).join("")}</select>`;
+  suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${c}<span class="x">×</span></span>`);
+  h+='</div>';
+  const fR=D.rows.filter(r=>{if(suiviFilt.yr&&r.yr!==suiviFilt.yr)return false;
+    if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
+    if(suiviFilt.codes.length){const p=(r.act||"").split(" - ")[0].trim();if(!suiviFilt.codes.includes(p))return false}return true});
+  const bc={};fR.forEach(r=>{if(!r.cat)return;if(!bc[r.cat])bc[r.cat]={deb:0,cre:0,n:0,bm:{}};bc[r.cat].deb+=r.deb||0;bc[r.cat].cre+=r.cre||0;bc[r.cat].n++;
+    const mk=moKey(r.dt);if(!bc[r.cat].bm[mk])bc[r.cat].bm[mk]={deb:0,cre:0};bc[r.cat].bm[mk].deb+=r.deb||0;bc[r.cat].bm[mk].cre+=r.cre||0});
+  const so=Object.entries(bc).sort((a,b)=>(b[1].deb+b[1].cre)-(a[1].deb+a[1].cre));
+  const mos=[...new Set(fR.map(r=>moKey(r.dt)))].filter(Boolean).sort();
+  const td=so.reduce((s,[,d])=>s+d.deb,0),tc=so.reduce((s,[,d])=>s+d.cre,0);
+  h+='<div style="overflow-x:auto"><table><thead><tr><th>Code</th><th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th>N</th>';
+  mos.forEach(m=>h+=`<th style="text-align:right;font-size:6px">${m.substring(5)}</th>`);
+  h+='</tr></thead><tbody>';
+  so.forEach(([c,d])=>{h+=`<tr><td style="font-weight:600;font-size:8px">${c}</td><td class="deb">${fmt(d.deb)}</td><td class="cre">${fmt(d.cre)}</td><td style="text-align:center;font-size:7px;color:#64748b">${d.n}</td>`;
+    mos.forEach(m=>{const md=d.bm[m];h+=md?`<td style="text-align:right;font-size:7px;color:${md.cre>md.deb?"#4ade80":"#f87171"}">${fmt(md.deb||md.cre)}</td>`:'<td></td>'});h+='</tr>'});
+  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL</td><td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
+  mos.forEach(()=>h+='<td></td>');h+='</tr></tbody></table></div>';el.innerHTML=h}
+
+function rMissing(el){
+  const miss=getMissing();const allA=Object.entries(D.att).map(([k,a])=>({rid:k,...a}));
+  let h='<div style="padding:12px 14px">';
+  h+='<h3 style="font-size:12px;margin-bottom:8px">⚠️ Numéros manquants</h3>';
+  if(!miss.length)h+='<div style="color:#22c55e;font-size:10px;margin-bottom:12px">✓ OK</div>';
+  else{h+='<table style="margin-bottom:12px"><thead><tr><th>N° manquant</th><th>Déposer</th><th>Résultat</th></tr></thead><tbody>';
+    miss.forEach((m,i)=>{h+=`<tr><td style="font-weight:600;color:#f59e0b">${m}</td><td><input type="file" id="mf_${i}" accept=".pdf,.jpg,.jpeg,.png" style="font-size:8px;width:140px"><button class="b bb" style="margin-left:3px" onclick="attMiss(${i},'${m}')">📎</button></td><td id="mr_${i}" style="font-size:8px;color:#64748b">—</td></tr>`});
+    h+='</tbody></table>'}
+  h+=`<h3 style="font-size:12px;margin-bottom:8px">📄 Tous les justificatifs (${allA.length})</h3>`;
+  if(allA.length){h+='<table><thead><tr><th>N°</th><th>Fichier renommé</th><th>Original</th><th>Ligne</th><th></th></tr></thead><tbody>';
+    allA.sort((a,b)=>(a.nj||"").localeCompare(b.nj||"")).forEach(a=>{const r=D.rows.find(x=>x.id===a.rid);
+      h+=`<tr><td style="font-weight:600;color:#818cf8">${a.nj}</td><td style="color:#22c55e">${a.name}</td><td style="color:#64748b;font-size:8px">${a.orig||"—"}</td><td style="font-size:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${r?r.dt+" | "+r.lib.substring(0,30):"—"}</td><td><button class="att has" onclick="viewAtt('${a.rid}')">👁</button></td></tr>`});
+    h+='</tbody></table>'}
+  const noA=D.rows.filter(r=>!D.att[r.id]);
+  if(noA.length){h+=`<h3 style="font-size:12px;margin:12px 0 8px">📎 ${noA.length} sans justificatif</h3><table><thead><tr><th>Date</th><th>Libellé</th><th>Montant</th><th></th></tr></thead><tbody>`;
+    noA.slice(0,30).forEach(r=>{h+=`<tr><td style="font-size:8px;color:#64748b">${r.dt}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.lib}</td><td class="${r.deb?"deb":"cre"}">${r.deb?fmt(r.deb):fmt(r.cre)}</td><td><button class="b bb" style="font-size:7px" onclick="attRow('${r.id}')">📎</button></td></tr>`});
+    h+='</tbody></table>'}
+  h+='</div>';el.innerHTML=h}
+
+function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=fi.files[0];const rd=new FileReader();
+  rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();D.att["miss_"+nj]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
+    const m=nj.match(/^(F|P|S|RF)2026-(\d+)$/);if(m){const n=parseInt(m[2]);if(n>=D.ctr[m[1]])D.ctr[m[1]]=n}
+    $("mr_"+i).innerHTML=`<span style="color:#22c55e">✓ ${nj}.${ext}</span> <button class="att has" onclick="viewAtt('miss_${nj}')" style="margin-left:3px">👁</button>`;
+    autoSave()};rd.readAsArrayBuffer(f)}
+
+render();
+</script>
+</body>
+</html>
