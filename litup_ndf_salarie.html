@@ -402,7 +402,7 @@ async function calcDistance(idx){
     const gA=await fetch("https://api.openrouteservice.org/geocode/search?api_key="+orsKey+"&text="+encodeURIComponent(arr)+"&boundary.country=FR&size=1").then(r=>r.json());
     if(!gD.features?.length){if(info)info.textContent="❌ Départ non trouvé";return}if(!gA.features?.length){if(info)info.textContent="❌ Arrivée non trouvée";return}
     const cD=gD.features[0].geometry.coordinates,cA=gA.features[0].geometry.coordinates;
-    const rt=await fetch("https://api.openrouteservice.org/v2/directions/driving-car?api_key="+orsKey+"&start="+cD.join(",")+"%26end="+cA.join(",")).then(r=>r.json());
+    const rt=await fetch("https://api.openrouteservice.org/v2/directions/driving-car?api_key="+orsKey+"&start="+cD.join(",")+"&end="+cA.join(",")).then(r=>r.json());
     if(!rt.features?.length){if(info)info.textContent="❌ Itinéraire non trouvé";return}
     const km=Math.round(rt.features[0].properties.segments[0].distance/1000);const ar=parseInt($("lar_"+idx)?.value)||1;const tot=km*ar;
     $("lkm_"+idx).value=tot;if(info)info.textContent="✅ "+km+" km"+(ar>1?" × 2 = "+tot+" km":"");previewIK(idx);
