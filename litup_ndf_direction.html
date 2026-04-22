@@ -52,8 +52,9 @@ tr:hover{background:rgba(91,99,224,.02)}
   <div class="bg-grp">
     <button class="b b-p" onclick="loadFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ Cloud</button>
     <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
+    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
   </div>
-  <div class="bg-grp"><button class="b b-r" onclick="if(confirm('Tout effacer ?')){localStorage.removeItem('litup_dir');location.reload()}">🧹</button></div>
+  <div class="bg-grp"><button class="b b-d" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button></div>
 </div>
 <div class="content" id="main"></div>
 <div id="modalC"></div>
@@ -61,8 +62,8 @@ tr:hover{background:rgba(91,99,224,.02)}
 <script>
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-const STATUTS=["brouillon","prête","à valider","validée","réglée"];
-const STY={"brouillon":{e:"📝",c:"#94a3b8"},"prête":{e:"📨",c:"#d97706"},"à valider":{e:"📨",c:"#d97706"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
+const STATUTS=["brouillon","à valider","validée","réglée"];
+const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à valider":{e:"📨",c:"#d97706"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
 let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
 function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
@@ -132,18 +133,31 @@ function setSort(col){
   render();
 }
 
+async function majCodes(){
+  const btn=document.getElementById("btnMaj"),st=document.getElementById("majStatus");
+  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
+  try{
+    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
+    st.textContent="Airtable → Sheet…";
+    await new Promise(r=>setTimeout(r,10000));
+    st.textContent="✅ codes mis à jour";st.style.color="#16a34a";
+    setTimeout(()=>{st.textContent=""},5000);
+  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
+  btn.disabled=false;btn.textContent="🔄";
+}
+
 function render(){
   let ndfs=[...D.ndfs];
   // Filters
   if(filtStatus){
-    if(filtStatus==="à valider")ndfs=ndfs.filter(n=>n.status==="prête"||n.status==="à valider");
+    if(filtStatus==="à valider")ndfs=ndfs.filter(n=>n.status==="à valider");
     else ndfs=ndfs.filter(n=>n.status===filtStatus);
   }
   if(filtSalarie)ndfs=ndfs.filter(n=>(n.source||n.salarie||"")=== filtSalarie);
   // Stats (on all data, not filtered)
   const allNdfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);allNdfs.forEach(n=>byS[n.status]=(byS[n.status]||0)+1);
   const tot=allNdfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const aValider=(byS["prête"]||0)+(byS["à valider"]||0);
+  const aValider=(byS["à valider"]||0);
   // Director info
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <div><strong style="font-size:15px">${D.director||"Direction"}</strong> <span style="color:var(--text-3);font-size:11px">· ${allNdfs.length} NDF</span></div>

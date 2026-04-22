@@ -75,9 +75,9 @@ tr:hover{background:rgba(91,99,224,.02)}
     <input type="file" id="fi_presta" accept=".json" multiple style="display:none" onchange="handleImportPresta(this)">
   </div>
   <div class="btn-group">
-    <label class="b bd" for="fi_codes" style="margin:0;cursor:pointer">📥 MAJ codes</label>
-    <input type="file" id="fi_codes" accept=".json" style="display:none" onchange="handleImportCodes(this)">
+    <button class="b bd" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
     <button class="b bd" onclick="showSettings()">⚙️</button>
+    <button class="b bd" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button>
   </div>
 </div>
 <div class="content" id="mainContent"></div>
@@ -134,7 +134,7 @@ async function syncFromSheet(){
             ref:sn.ref,
             date:sn.date||"",
             lines:sn.lines||[],
-            status:sn.status||"prête",
+            status:sn.status||"à valider",
             statusDate:sn.statusDate||"",
             paymentDate:sn.paymentDate||"",
             salarie:sn.salarie||D.salarie,
@@ -166,6 +166,34 @@ let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||[
   "LU12 - Emmaüs France","LU13 - La Verrière"
 ];
 function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat(CODES.map(c=>`<option>${c}</option>`)).join("")}
+function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
+async function loadCodesFromSheet(){
+  try{
+    const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
+    if(res.value){
+      let nc;
+      try{nc=JSON.parse(res.value)}catch(e){
+        // Fallback: comma-separated string from Make
+        nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
+      }
+      if(nc&&nc.length){CODES=nc;saveCodes();render();console.log("Codes loaded from Sheet: "+nc.length)}
+    }
+  }catch(e){console.warn("Load codes error:",e)}
+}
+async function majCodes(){
+  const btn=$("btnMaj"),st=$("majStatus");
+  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
+  try{
+    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
+    st.textContent="Airtable → Sheet…";
+    await new Promise(r=>setTimeout(r,10000));
+    st.textContent="chargement…";
+    await loadCodesFromSheet();
+    st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
+    setTimeout(()=>{st.textContent=""},5000);
+  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
+  btn.disabled=false;btn.textContent="🔄";
+}
 const EXPENSE_TYPES=[
   {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
   {l:"Fournitures administratives",c:"60640000 - Fournitures administratives"},
@@ -211,12 +239,12 @@ function render(){
   // Stats
   const totAmt=ndfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
   const totIK=ndfs.reduce((s,n)=>s+n.lines.filter(l=>l.type==="ik").reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const presta=ndfs.filter(n=>n.isPresta&&(n.status==="à valider"||n.status==="prête"));
+  const presta=ndfs.filter(n=>n.isPresta&&(n.status==="à valider"||n.status==="à valider"));
   const drafts=ndfs.filter(n=>n.status==="brouillon");
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(totAmt)}</div><div class="stat-l">Total déclaré</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--amber)">${fmt(totIK)}</div><div class="stat-l">Dont IK</div></div>
-    <div class="stat-card"><div class="stat-v">${ndfs.filter(n=>n.status==="prête").length}</div><div class="stat-l">Prêtes</div></div>
+    <div class="stat-card"><div class="stat-v">${ndfs.filter(n=>n.status==="à valider").length}</div><div class="stat-l">À valider</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--green)">${ndfs.filter(n=>n.status==="validée"||n.status==="réglée").length}</div><div class="stat-l">Validées/Réglées</div></div>
   </div>`;
   // Alerts
@@ -228,8 +256,8 @@ function render(){
   }
   if(!ndfs.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong></p></div>`;el.innerHTML=h;return}
   h+=`<div style="overflow-x:auto"><table><thead><tr><th>N° NDF</th><th>Date</th><th>Lignes</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Statut</th><th>Justif.</th><th></th></tr></thead><tbody>`;
-  const statusEmoji={"brouillon":"📝","prête":"📨","à valider":"📨","validée":"✅","réglée":"💸"};
-  const statusBadge={"brouillon":"badge-draft","prête":"badge-wait","à valider":"badge-wait","validée":"badge-ok","réglée":"badge-paid"};
+  const statusEmoji={"brouillon":"📝",,"à valider":"📨","validée":"✅","réglée":"💸"};
+  const statusBadge={"brouillon":"badge-draft",,"à valider":"badge-wait","validée":"badge-ok","réglée":"badge-paid"};
   ndfs.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
@@ -242,7 +270,8 @@ function render(){
       <td style="font-size:10px;color:var(--text-2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${codes.join(", ")||"—"}</td>
       <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${n.paymentDate||n.statusDate||"?"}</span>`:""}</td>
       <td style="text-align:center">${hasFiles?"📎":""}</td>
-      <td><button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();if(confirm('Supprimer ?')){D.ndfs=D.ndfs.filter(x=>x.id!==${n.id});save();render()}">🗑</button></td></tr>`;
+      <td>${n.status==="réglée"||n.status==="validée"?"":
+        `<button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();if(confirm('Supprimer ?')){D.ndfs=D.ndfs.filter(x=>x.id!==${n.id});save();render()}">🗑</button>`}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
   // Status update notification
@@ -281,7 +310,7 @@ function showNewNDF(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('prête')">✅ Prête à valider</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addNdfLine();
 }
@@ -296,7 +325,7 @@ function showNewIK(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b by" onclick="addIkLine()">🚗 + Trajet</button><button class="b bd" onclick="addNdfLine()">+ Dépense</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('prête')">✅ Prête</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addIkLine();
 }
@@ -484,7 +513,7 @@ function editNDF(id){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('prête')">✅ Prête</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
   </div></div>`;
   window._ndfEditLines=[];_lineIdx=0;
   n.lines.forEach(l=>{
@@ -515,7 +544,7 @@ async function calcDistance(idx){
 // ─── EXPORT / IMPORT ───
 function exportJSON(){
   const exportNdfs=D.ndfs.filter(n=>n.status!=="brouillon");
-  if(!exportNdfs.length){alert("Aucune NDF prête. Passez vos brouillons au statut « prête ».");return}
+  if(!exportNdfs.length){alert("Aucune NDF à valider. Passez vos brouillons au statut « à valider ».");return}
   const noCode=exportNdfs.flatMap(n=>n.lines).filter(l=>!l.code).length;
   if(noCode&&!confirm("⚠️ "+noCode+" ligne(s) sans code projet.\nExporter quand même ?"))return;
   const today=new Date();const dateStr=today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
@@ -581,7 +610,7 @@ function showSettings(){
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">Gratuit — <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:var(--accent)">openrouteservice.org</a></div></div>
     <div class="form-row" style="margin-bottom:12px"><label>Clé API Anthropic (lecture auto des justificatifs)</label><input class="inp" id="s_anth" value="${D.anthropicKey||localStorage.getItem("litup_anthropic_key")||""}" placeholder="sk-ant-...">
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">🤖 Quand une photo est déposée, Claude lit automatiquement la date, le montant et le fournisseur</div></div>
-    <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">${CODES.length} codes projets chargés <label class="b bd" for="fi_codes" style="font-size:10px;padding:3px 8px;margin-left:6px;cursor:pointer" onclick="closeM()">📥 MAJ codes</label></div>
+    <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">${CODES.length} codes projets chargés ☁️ <span style="font-size:9px;color:var(--text-3)">(mis à jour automatiquement)</span></div>
     <div style="display:flex;gap:6px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button>
       <button class="b bp" onclick="D.salarie=$('s_name').value.trim()||D.salarie;D.cv=parseInt($('s_cv').value)||5;const k=$('s_ors').value.trim();if(k){D.orsKey=k;localStorage.setItem('litup_ors_key',k)}const ak=$('s_anth').value.trim();if(ak){D.anthropicKey=ak;localStorage.setItem('litup_anthropic_key',ak)}save();closeM();render()">💾 Enregistrer</button></div>
   </div></div>`;
@@ -624,7 +653,7 @@ function handleRestore(inp){
     document.body.appendChild(warn);
   }
 }catch(e){}})();
-initSalarie();if(D.salarie){render();syncFromSheet()}
+initSalarie();if(D.salarie){render();syncFromSheet();loadCodesFromSheet()}
 </script>
 </body>
 </html>

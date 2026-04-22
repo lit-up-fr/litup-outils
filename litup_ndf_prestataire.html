@@ -59,6 +59,8 @@ textarea.inp{resize:vertical;min-height:60px}
     </svg>
     <h1>Note de frais — Facilitateur</h1>
     <p>Exercice 2026</p>
+    <button onclick="location.href='index.html'" style="margin-top:10px;padding:6px 14px;background:none;border:1.5px solid #d1d5db;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer" title="Retour page d'accueil">🏠 Accueil</button>
+    <button onclick="majCodes()" id="btnMaj" style="margin-top:10px;margin-left:6px;padding:6px 14px;background:none;border:1.5px solid #d1d5db;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer" title="Mettre à jour les codes projets">🔄 MAJ codes</button><span id="majStatus" style="font-size:10px;margin-left:4px;vertical-align:middle"></span>
   </div>
 
   <div class="card">
@@ -123,6 +125,43 @@ textarea.inp{resize:vertical;min-height:60px}
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 const pad2=n=>String(n).padStart(2,"0");
+
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+async function sheetAPI(action,body,params){
+  let u=BACKEND_URL+"?action="+action;
+  if(params)for(const[k,v]of Object.entries(params))u+="&"+k+"="+encodeURIComponent(v);
+  const opt=body?{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)}:{};
+  const r=await fetch(u,opt);return r.json();
+}
+
+let CODES=JSON.parse(localStorage.getItem("litup_codes_presta")||"null")||[];
+async function loadCodesFromSheet(){
+  try{
+    const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
+    if(res.value){
+      let nc;
+      try{nc=JSON.parse(res.value)}catch(e){
+        nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
+      }
+      if(nc&&nc.length){CODES=nc;localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));console.log("Codes loaded: "+nc.length)}
+    }
+  }catch(e){console.warn("Load codes error:",e)}
+}
+loadCodesFromSheet();
+async function majCodes(){
+  const btn=$("btnMaj"),st=$("majStatus");
+  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
+  try{
+    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
+    st.textContent="Airtable → Sheet…";
+    await new Promise(r=>setTimeout(r,10000));
+    st.textContent="chargement…";
+    await loadCodesFromSheet();
+    st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
+    setTimeout(()=>{st.textContent=""},5000);
+  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
+  btn.disabled=false;btn.textContent="🔄 MAJ codes";
+}
 const IK={3:[{m:5000,c:.529,a:0},{m:20000,c:.316,a:1065},{m:1e9,c:.370,a:0}],4:[{m:5000,c:.606,a:0},{m:20000,c:.340,a:1330},{m:1e9,c:.407,a:0}],5:[{m:5000,c:.636,a:0},{m:20000,c:.357,a:1395},{m:1e9,c:.427,a:0}],6:[{m:5000,c:.665,a:0},{m:20000,c:.374,a:1457},{m:1e9,c:.447,a:0}],7:[{m:5000,c:.697,a:0},{m:20000,c:.394,a:1515},{m:1e9,c:.470,a:0}]};
 function calcIK(km,cv){for(const t of IK[Math.min(Math.max(cv||5,3),7)]){if(km<=t.m)return Math.round((km*t.c+t.a)*100)/100}return 0}
 
@@ -186,13 +225,10 @@ function handleDrop(e,idx){
 }
 
 function codeSelect(idx){
+  const opts=CODES.map(c=>`<option>${c}</option>`).join("");
   return `<select class="inp" id="code_${idx}">
     <option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>
-    <optgroup label="Boost uP (parcours jeunes)"><option>BU92 - MLDS Hyères</option><option>BU96 - ML Coudon Gapeau</option><option>BU97 - Cité Éducative Paris 18</option><option>BU98 - Collège Doucet</option><option>BU99 - Collège Gustave Roux</option><option>BU100 - Nouvel Horizon</option><option>BU101 - E2C Var 8</option><option>BU102 - MIEJ</option></optgroup>
-    <optgroup label="Expérimentations"><option>EXP15 - ML Coudon Gapeau</option><option>EXP16 - ML La Seyne</option><option>EXP17 - ML La Seyne</option><option>EXP18 - MIEJ</option></optgroup>
-    <optgroup label="Form 2 Facilit"><option>F2F20 - ML Coudon Gapeau</option><option>F2F22 - ML de la Lyr</option><option>F2F23 - Fondation Orange</option></optgroup>
-    <optgroup label="Light uP"><option>LU12 - Emmaüs France</option><option>LU13 - La Verrière</option></optgroup>
-    <optgroup label="Fonctionnement"><option>FG2026 - Fonctionnement National</option><option>FV2026 - Fonctionnement Sud</option><option>FP2026 - Fonctionnement IDF</option></optgroup>
+    ${opts}
   </select>`;
 }
 function expTypeSelect(idx){
