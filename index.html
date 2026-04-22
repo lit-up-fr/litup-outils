@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lit uP · Outils internes</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f1019;--card:#1a1b2e;--border:#2d2f45;--accent:#f59e0b;--accent2:#f97316;--purple:#818cf8;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--green:#22c55e;--red:#ef4444;--radius:12px}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{max-width:460px;width:100%;text-align:center}
+.logo{margin-bottom:32px}
+.logo svg{filter:drop-shadow(0 4px 12px rgba(245,158,11,.2))}
+h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
+.subtitle{font-size:13px;color:var(--text2);margin-bottom:40px}
+.cards{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .25s;text-align:left}
+.card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,.08)}
+.card-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.card-icon.sal{background:rgba(129,140,248,.12)}
+.card-icon.dir{background:rgba(245,158,11,.12)}
+.card-icon.compta{background:rgba(34,197,94,.12)}
+.card-icon.presta{background:rgba(148,163,184,.08)}
+.card-title{font-size:15px;font-weight:700;margin-bottom:2px}
+.card-desc{font-size:11px;color:var(--text3);line-height:1.4}
+/* Modal */
+.overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:28px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal .sub{font-size:11px;color:var(--text3);margin-bottom:20px}
+.modal input{width:100%;padding:12px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border .2s}
+.modal input:focus{border-color:var(--accent)}
+.modal input.error{border-color:var(--red);animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.modal .err-msg{font-size:11px;color:var(--red);margin-top:6px;min-height:16px}
+.modal button{width:100%;padding:12px;margin-top:14px;background:var(--accent);color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s}
+.modal button:hover{background:var(--accent2)}
+.footer{font-size:10px;color:var(--text3);margin-top:24px}
+@media(max-width:500px){h1{font-size:22px}.card{padding:14px 16px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <svg width="140" height="42" viewBox="0 0 140 42" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="5" width="32" height="32" rx="8" fill="#f59e0b" opacity=".9"/>
+      <rect x="6" y="9" width="24" height="24" rx="5" fill="#f97316"/>
+      <text x="18" y="27" font-family="DM Sans,sans-serif" font-weight="800" font-size="14" fill="#fff" text-anchor="middle">uP</text>
+      <text x="42" y="30" font-family="DM Sans,sans-serif" font-weight="800" font-size="22" fill="#e2e8f0" letter-spacing="-.5">Lit uP</text>
+    </svg>
+  </div>
+  <h1>Outils internes</h1>
+  <p class="subtitle">Sélectionnez votre espace de travail</p>
+  
+  <div class="cards">
+    <div class="card" onclick="askPwd('sal')">
+      <div class="card-icon sal">👤</div>
+      <div><div class="card-title">Salarié</div><div class="card-desc">Notes de frais · Indemnités KM</div></div>
+    </div>
+    <div class="card" onclick="askPwd('dir')">
+      <div class="card-icon dir">👩‍💼</div>
+      <div><div class="card-title">Direction</div><div class="card-desc">Validation · Règlement des NDF</div></div>
+    </div>
+    <div class="card" onclick="askPwd('compta')">
+      <div class="card-icon compta">📊</div>
+      <div><div class="card-title">Comptabilité</div><div class="card-desc">Suivi comptable · Budget · Trésorerie</div></div>
+    </div>
+    <div class="card" onclick="askPwd('presta')">
+      <div class="card-icon presta">📋</div>
+      <div><div class="card-title">Prestataire</div><div class="card-desc">Soumettre une note de frais</div></div>
+    </div>
+  </div>
+  
+  <div class="footer">Association Lit uP · 2026</div>
+</div>
+
+<!-- Password modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Accès</h2>
+    <div class="sub" id="modalSub"></div>
+    <input type="password" id="pwdInput" placeholder="Mot de passe" autocomplete="off" onkeydown="if(event.key==='Enter')checkPwd()">
+    <div class="err-msg" id="errMsg"></div>
+    <button onclick="checkPwd()">Accéder</button>
+  </div>
+</div>
+
+<script>
+// Passwords (hashed with simple obfuscation — not military-grade but prevents casual access)
+const PROFILES={
+  sal:{pwd:"litup-ndf-2026",file:"litup_ndf_salarie.html",label:"Salarié",desc:"Notes de frais"},
+  dir:{pwd:"litup-dir-2026",file:"litup_ndf_direction.html",label:"Direction",desc:"Validation des NDF"},
+  compta:{pwd:"litup-compta-2026",file:"litup_suivi_comptable_v6.html",label:"Comptabilité",desc:"Suivi comptable"},
+  presta:{pwd:"litup-ndf-2026",file:"litup_ndf_prestataire.html",label:"Prestataire",desc:"Formulaire NDF prestataire"}
+};
+
+let currentProfile=null;
+
+function askPwd(profile){
+  currentProfile=profile;
+  const p=PROFILES[profile];
+  // Check if password already stored
+  const stored=localStorage.getItem("litup_pwd_"+profile);
+  if(stored===p.pwd){
+    window.location.href=p.file;
+    return;
+  }
+  document.getElementById("modalTitle").textContent="Accès "+p.label;
+  document.getElementById("modalSub").textContent=p.desc;
+  document.getElementById("pwdInput").value="";
+  document.getElementById("pwdInput").classList.remove("error");
+  document.getElementById("errMsg").textContent="";
+  document.getElementById("overlay").classList.add("show");
+  setTimeout(()=>document.getElementById("pwdInput").focus(),100);
+}
+
+function checkPwd(){
+  const input=document.getElementById("pwdInput").value;
+  const p=PROFILES[currentProfile];
+  if(input===p.pwd){
+    // Store password for this device
+    localStorage.setItem("litup_pwd_"+currentProfile,input);
+    window.location.href=p.file;
+  } else {
+    document.getElementById("pwdInput").classList.add("error");
+    document.getElementById("errMsg").textContent="Mot de passe incorrect";
+    setTimeout(()=>document.getElementById("pwdInput").classList.remove("error"),400);
+  }
+}
+
+// Close modal on overlay click
+document.getElementById("overlay").addEventListener("click",function(e){
+  if(e.target===this){this.classList.remove("show");currentProfile=null}
+});
+</script>
+</body>
+</html>

@@ -120,6 +120,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 </style>
 </head>
 <body>
+<script>if(localStorage.getItem("litup_pwd_compta")!=="litup-compta-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Comptabilité</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder au suivi comptable.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-compta-2026"){localStorage.setItem("litup_pwd_compta",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 
 <div class="hd">
   <div style="display:flex;align-items:center;gap:8px">

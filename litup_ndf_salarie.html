@@ -59,6 +59,7 @@ tr:hover{background:rgba(91,99,224,.02)}
 </style>
 </head>
 <body>
+<script>if(localStorage.getItem("litup_pwd_sal")!=="litup-ndf-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Salarié</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder aux notes de frais.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-ndf-2026"){localStorage.setItem("litup_pwd_sal",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 <div class="hd">
   <div style="display:flex;align-items:center;gap:8px">
     <svg width="100" height="30" viewBox="0 0 100 30" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="24" height="24" rx="6" fill="#f59e0b" opacity=".9"/><rect x="4" y="6" width="18" height="18" rx="4" fill="#f97316"/><text x="13" y="20" font-family="Inter,sans-serif" font-weight="800" font-size="10" fill="#fff" text-anchor="middle">uP</text><text x="30" y="21" font-family="Inter,sans-serif" font-weight="800" font-size="16" fill="#1a202c" letter-spacing="-.5">Lit uP</text></svg>
@@ -108,11 +109,18 @@ async function syncToSheet(){
 async function syncFromSheet(){
   if(!D.salarie)return;setSyncStatus("🔄");
   try{
-    const res=await sheetAPI("getNDF",null,{salarie:D.salarie});
+    // Use getAllNDF and filter client-side (salarie field OR modifiedBy field matches)
+    const res=await sheetAPI("getAllNDF");
     if(res.error){setSyncStatus("⚠️");return}
     if(res.ndfs&&res.ndfs.length){
+      const sal=D.salarie.toLowerCase();
+      const myNdfs=res.ndfs.filter(sn=>{
+        const s=(sn.salarie||"").toLowerCase();
+        const m=(sn.modifiedBy||"").toLowerCase();
+        return s===sal||m===sal;
+      });
       let updated=0,added=0;
-      res.ndfs.forEach(sn=>{
+      myNdfs.forEach(sn=>{
         const local=D.ndfs.find(n=>n.ref===sn.ref);
         if(local){
           // Update status if changed
@@ -141,7 +149,7 @@ async function syncFromSheet(){
         const maxNum=D.ndfs.reduce((mx,n)=>{const m=n.ref.match(/N2026-(\d+)/);return m?Math.max(mx,parseInt(m[1])):mx},0);
         if(maxNum>=D.ndfCounter)D.ndfCounter=maxNum+1;
         save();render();
-        console.log("Cloud sync: "+added+" imported, "+updated+" updated");
+        console.log("Cloud sync: "+added+" imported, "+updated+" updated (from "+myNdfs.length+" NDF matching "+D.salarie+")");
       }
     }
     setSyncStatus("☁️");

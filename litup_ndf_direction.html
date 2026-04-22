@@ -39,20 +39,18 @@ tr:hover{background:rgba(91,99,224,.02)}
 </style>
 </head>
 <body>
+<script>if(localStorage.getItem("litup_pwd_dir")!=="litup-dir-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Direction</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder à la validation des NDF.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-dir-2026"){localStorage.setItem("litup_pwd_dir",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 <div class="hd">
   <div style="display:flex;align-items:center;gap:8px">
     <div class="logo">DIR</div>
     <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Notes de frais — Direction</div><div style="font-size:9px;color:var(--text-3)">Lit uP · 2026</div></div>
+    <span id="syncStatus" style="font-size:20px;margin-left:8px" title="Synchronisation Cloud">☁️</span>
+    <div style="font-size:8px;color:var(--text-3);margin-left:4px;line-height:1.4">☁️ synchronisé<br>🔄 envoi en cours<br>⚠️ erreur connexion</div>
     <div id="dirLabel" style="font-size:11px;color:var(--text-2);border-left:1px solid var(--border);padding-left:8px;margin-left:4px"></div>
   </div>
   <div style="flex:1"></div>
   <div class="bg-grp">
-    <label class="b b-p" for="fileImportNDF" style="margin:0">📂 Importer NDF</label>
-    <input type="file" id="fileImportNDF" accept=".json" multiple style="display:none" onchange="handleImportNDF(this)">
-    <button class="b b-d" onclick="loadFromSheet().then(()=>alert('☁️ Synchronisation terminée'))" title="Charger les NDF depuis Google Sheet">☁️ Cloud</button>
-  </div>
-  <div class="bg-grp">
-    <button class="b b-g" onclick="exportRetour()">📤 Retour salariés</button>
+    <button class="b b-p" onclick="loadFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ Cloud</button>
     <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
   </div>
   <div class="bg-grp"><button class="b b-r" onclick="if(confirm('Tout effacer ?')){localStorage.removeItem('litup_dir');location.reload()}">🧹</button></div>
@@ -80,17 +78,20 @@ async function sheetAPI(action,data,params){
     return await r.json();
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
+function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
 async function syncToSheet(){
-  if(!D.director)return;
+  if(!D.director)return;setSyncStatus("🔄");
   try{
-    // Send status updates for all NDF
     const updates=D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,status:n.status,statusDate:n.statusDate||"",paymentDate:n.paymentDate||""}));
-    await sheetAPI("updateStatus",{updates,director:D.director});
-  }catch(e){console.warn("Dir sync error:",e)}
+    const res=await sheetAPI("updateStatus",{updates,director:D.director});
+    setSyncStatus(res.error?"⚠️":"☁️");
+  }catch(e){console.warn("Dir sync error:",e);setSyncStatus("⚠️")}
 }
 async function loadFromSheet(){
+  setSyncStatus("🔄");
   try{
     const res=await sheetAPI("getAllNDF");
+    if(res.error){setSyncStatus("⚠️");return}
     if(res.ndfs&&res.ndfs.length){
       let added=0;
       res.ndfs.forEach(sn=>{
@@ -100,13 +101,13 @@ async function loadFromSheet(){
             statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE"});
           added++;
         } else {
-          // Update lines if not present locally
           if((!ex.lines||!ex.lines.length)&&sn.lines&&sn.lines.length)ex.lines=sn.lines;
         }
       });
       if(added){save();render();console.log("Loaded "+added+" NDF from Sheet")}
     }
-  }catch(e){console.warn("Load from sheet error:",e)}
+    setSyncStatus("☁️");
+  }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️")}
 }
 
 // Director profile
