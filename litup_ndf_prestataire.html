@@ -154,6 +154,7 @@ function addLine(type){
         <div class="form-row"><label>Fournisseur</label><input class="inp" id="four_${idx}" placeholder="ex: SNCF, Carrefour..."></div>
         <div class="form-row full"><label>Description</label><input class="inp" id="desc_${idx}" placeholder="ex: Billet train aller-retour"></div>
         <div class="form-row"><label>Montant TTC (€)</label><input class="inp" style="font-family:var(--mono)" id="amt_${idx}" type="number" step="0.01" placeholder="0.00" oninput="updateAll()"></div>
+        <div class="form-row"><label>Type de dépense</label>${expTypeSelect(idx)}</div>
         <div class="form-row"><label>Code projet (si vous le connaissez)</label>${codeSelect(idx)}</div>
         <div class="form-row full"><label>Justificatif <span style="color:var(--red)">*obligatoire</span></label>
           <div class="drop-zone" id="dz_${idx}" onclick="$('file_'+${idx}).click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${idx})" style="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;cursor:pointer;color:var(--text3);font-size:12px;transition:.2s">📎 Glissez un fichier ici ou cliquez</div>
@@ -193,6 +194,19 @@ function codeSelect(idx){
     <optgroup label="Fonctionnement"><option>FG2026 - Fonctionnement National</option><option>FV2026 - Fonctionnement Sud</option><option>FP2026 - Fonctionnement IDF</option></optgroup>
   </select>`;
 }
+function expTypeSelect(idx){
+  return `<select class="inp" id="exptype_${idx}">
+    <option value="">— Type de dépense —</option>
+    <option value="60630000 - Fournitures entretien et petit outillage">Fournitures pédagogiques</option>
+    <option value="60640000 - Fournitures administratives">Fournitures administratives</option>
+    <option value="61560000 - Maintenance">Maintenance informatique</option>
+    <option value="61810000 - Documentation">Documentation</option>
+    <option value="62510000 - Voyages et déplacements">Voyages et déplacements</option>
+    <option value="62560000 - Missions / Séjours / Séminaires">Missions et réceptions</option>
+    <option value="_autre">Autre</option>
+    <option value="_inconnu">Je ne sais pas</option>
+  </select>`;
+}
 
 function updateAll(){
   // Update nomenclature
@@ -220,7 +234,7 @@ function buildData(){
       exp.push({type:"ik",date:$("dt_"+l.idx)?.value||today,desc:($("desc_"+l.idx)?.value||"")+(motif?" ("+motif+")":""),km,cv,amount:calcIK(km,cv),four:"Indemnité kilométrique",code:lineCode,fileName:"",fileData:"",fileType:"",nomenclature:fn})}
     else{const amt=parseFloat($("amt_"+l.idx)?.value)||0;if(!amt)return;const m=lines.find(x=>x.idx===l.idx);const ext=(m?._fn||"").split(".").pop()||"pdf";
       if(!m?._fd)missingFiles.push(num);
-      exp.push({type:"expense",date:$("dt_"+l.idx)?.value||today,desc:$("desc_"+l.idx)?.value||"",four:$("four_"+l.idx)?.value||"",amount:amt,code:lineCode,fileName:fn+"."+ext,fileData:m?._fd||"",fileType:m?._ft||"",nomenclature:fn})}});
+      exp.push({type:"expense",date:$("dt_"+l.idx)?.value||today,desc:$("desc_"+l.idx)?.value||"",four:$("four_"+l.idx)?.value||"",amount:amt,code:lineCode,expType:$("exptype_"+l.idx)?.value||"",fileName:fn+"."+ext,fileData:m?._fd||"",fileType:m?._ft||"",nomenclature:fn})}});
   if(!exp.length)return null;
   if(missingFiles.length){return{error:"justificatif",missing:missingFiles}}
   return{type:"litup-ndf-prestataire",salarie:prenom+" "+nom,coordo,cv,comment,ref:"PRESTA-"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"-"+today,date:today,lines:exp,total:exp.reduce((s,l)=>s+(l.amount||0),0),status:"à valider",exportDate:today}

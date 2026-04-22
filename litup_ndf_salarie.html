@@ -63,28 +63,91 @@ tr:hover{background:rgba(91,99,224,.02)}
   <div style="display:flex;align-items:center;gap:8px">
     <svg width="100" height="30" viewBox="0 0 100 30" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="24" height="24" rx="6" fill="#f59e0b" opacity=".9"/><rect x="4" y="6" width="18" height="18" rx="4" fill="#f97316"/><text x="13" y="20" font-family="Inter,sans-serif" font-weight="800" font-size="10" fill="#fff" text-anchor="middle">uP</text><text x="30" y="21" font-family="Inter,sans-serif" font-weight="800" font-size="16" fill="#1a202c" letter-spacing="-.5">Lit uP</text></svg>
     <div style="font-size:10px;color:var(--text-3);border-left:1px solid var(--border);padding-left:8px;margin-left:4px">Notes de Frais<br>Salarié · 2026</div>
+    <span id="syncStatus" style="font-size:20px;margin-left:8px" title="Synchronisation Cloud">☁️</span>
+    <div id="syncLegend" style="font-size:8px;color:var(--text-3);margin-left:4px;line-height:1.4">☁️ synchronisé<br>🔄 envoi en cours<br>⚠️ erreur connexion</div>
   </div>
   <div style="flex:1"></div>
   <div class="btn-group">
     <button class="b bp" onclick="showNewNDF()">+ Nouvelle NDF</button>
     <button class="b by" onclick="showNewIK()">🚗 Indemnité KM</button>
-    <button class="b bd" onclick="importPresta()">📥 NDF presta</button>
+    <label class="b bd" for="fi_presta" style="margin:0;cursor:pointer">📥 NDF presta</label>
+    <input type="file" id="fi_presta" accept=".json" multiple style="display:none" onchange="handleImportPresta(this)">
   </div>
   <div class="btn-group">
-    <button class="b bg" onclick="exportJSON()">📤 Exporter</button>
-    <button class="b bd" onclick="importJSON()">📂 Importer</button>
-    <button class="b bd" onclick="importCodes()">📥 MAJ codes</button>
+    <label class="b bd" for="fi_codes" style="margin:0;cursor:pointer">📥 MAJ codes</label>
+    <input type="file" id="fi_codes" accept=".json" style="display:none" onchange="handleImportCodes(this)">
     <button class="b bd" onclick="showSettings()">⚙️</button>
-  </div>
-  <div class="btn-group">
-    <button class="b by" onclick="backupData()" title="Sauvegarder vos données (pour changer d'appareil)">💾</button>
-    <button class="b bd" onclick="restoreData()" title="Récupérer vos données sauvegardées">📂 Récupérer</button>
   </div>
 </div>
 <div class="content" id="mainContent"></div>
 <div id="modalC"></div>
 
 <script>
+// ─── GOOGLE SHEET BACKEND ───
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+async function sheetAPI(action,data,params){
+  try{
+    let url=BACKEND_URL+"?action="+action;
+    if(params)Object.keys(params).forEach(k=>url+="&"+k+"="+encodeURIComponent(params[k]));
+    if(!data){const r=await fetch(url,{redirect:"follow"});return await r.json()}
+    const r=await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
+    return await r.json();
+  }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
+}
+let _syncPending=false;
+function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
+async function syncToSheet(){
+  if(_syncPending||!D.salarie)return;_syncPending=true;setSyncStatus("🔄");
+  try{
+    const exportNdfs=D.ndfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
+    const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:exportNdfs,modifiedBy:D.salarie});
+    setSyncStatus(res.error?"⚠️":"☁️");
+  }catch(e){console.warn("Sync error:",e);setSyncStatus("⚠️")}
+  _syncPending=false;
+}
+async function syncFromSheet(){
+  if(!D.salarie)return;setSyncStatus("🔄");
+  try{
+    const res=await sheetAPI("getNDF",null,{salarie:D.salarie});
+    if(res.error){setSyncStatus("⚠️");return}
+    if(res.ndfs&&res.ndfs.length){
+      let updated=0,added=0;
+      res.ndfs.forEach(sn=>{
+        const local=D.ndfs.find(n=>n.ref===sn.ref);
+        if(local){
+          // Update status if changed
+          if(sn.status!==local.status||sn.paymentDate!==local.paymentDate){
+            local.status=sn.status;local.statusDate=sn.statusDate;
+            if(sn.paymentDate)local.paymentDate=sn.paymentDate;updated++}
+        } else {
+          // NDF not in local — import from Sheet
+          D.ndfs.push({
+            id:Date.now()+Math.random(),
+            ref:sn.ref,
+            date:sn.date||"",
+            lines:sn.lines||[],
+            status:sn.status||"prête",
+            statusDate:sn.statusDate||"",
+            paymentDate:sn.paymentDate||"",
+            salarie:sn.salarie||D.salarie,
+            isPresta:sn.isPresta===true||sn.isPresta==="TRUE",
+            prestaComment:sn.comment||""
+          });
+          added++;
+        }
+      });
+      if(updated||added){
+        // Update ndfCounter to avoid ref conflicts
+        const maxNum=D.ndfs.reduce((mx,n)=>{const m=n.ref.match(/N2026-(\d+)/);return m?Math.max(mx,parseInt(m[1])):mx},0);
+        if(maxNum>=D.ndfCounter)D.ndfCounter=maxNum+1;
+        save();render();
+        console.log("Cloud sync: "+added+" imported, "+updated+" updated");
+      }
+    }
+    setSyncStatus("☁️");
+  }catch(e){console.warn("Sync from sheet error:",e);setSyncStatus("⚠️")}
+}
+
 // ─── CONFIG ───
 let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||[
   "FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines",
@@ -95,6 +158,15 @@ let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||[
   "LU12 - Emmaüs France","LU13 - La Verrière"
 ];
 function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat(CODES.map(c=>`<option>${c}</option>`)).join("")}
+const EXPENSE_TYPES=[
+  {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
+  {l:"Fournitures administratives",c:"60640000 - Fournitures administratives"},
+  {l:"Maintenance informatique",c:"61560000 - Maintenance"},
+  {l:"Documentation",c:"61810000 - Documentation"},
+  {l:"Voyages et déplacements",c:"62510000 - Voyages et déplacements"},
+  {l:"Missions et réceptions",c:"62560000 - Missions / Séjours / Séminaires"},
+  {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
+function expTypeOptions(){return'<option value="">— Type de dépense —</option>'+EXPENSE_TYPES.map(t=>`<option value="${t.c}">${t.l}</option>`).join("")}
 function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
 const SALARIES=["Clémentine CLAUDON","Laetitia DE BORDE","Pauline GIRAUDO","Philippe DA PIEDADE","Claire SALEM","Laura BOURIGAULT"];
 const IK_BAREME={3:[{max:5000,coef:0.529,add:0},{max:20000,coef:0.316,add:1065},{max:Infinity,coef:0.370,add:0}],4:[{max:5000,coef:0.606,add:0},{max:20000,coef:0.340,add:1330},{max:Infinity,coef:0.407,add:0}],5:[{max:5000,coef:0.636,add:0},{max:20000,coef:0.357,add:1395},{max:Infinity,coef:0.427,add:0}],6:[{max:5000,coef:0.665,add:0},{max:20000,coef:0.374,add:1457},{max:Infinity,coef:0.447,add:0}],7:[{max:5000,coef:0.697,add:0},{max:20000,coef:0.394,add:1515},{max:Infinity,coef:0.470,add:0}]};
@@ -106,7 +178,7 @@ let D=JSON.parse(localStorage.getItem("litup_ndf")||"null")||{salarie:"",cv:5,nd
 if(!D.anthropicKey&&!localStorage.getItem("litup_anthropic_key")){D.anthropicKey="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";localStorage.setItem("litup_anthropic_key",D.anthropicKey)}
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-function save(){try{localStorage.setItem("litup_ndf",JSON.stringify(D))}catch(e){}}
+function save(){try{localStorage.setItem("litup_ndf",JSON.stringify(D))}catch(e){} syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
 
 // ─── INIT ───
@@ -160,16 +232,31 @@ function render(){
       <td style="text-align:center">${n.lines.length}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(total)}</td>
       <td style="font-size:10px;color:var(--text-2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${codes.join(", ")||"—"}</td>
-      <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span></td>
+      <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${n.paymentDate||n.statusDate||"?"}</span>`:""}</td>
       <td style="text-align:center">${hasFiles?"📎":""}</td>
       <td><button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();if(confirm('Supprimer ?')){D.ndfs=D.ndfs.filter(x=>x.id!==${n.id});save();render()}">🗑</button></td></tr>`;
   });
   h+=`</tbody></table></div>`;
   // Status update notification
   if(D._lastRetour){h+=`<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:var(--green-bg);color:var(--green);margin-top:12px">📬 Dernière mise à jour direction : ${D._lastRetour}</div>`}
-  // Backup reminder
-  const daysSinceBackup=D._lastBackup?Math.floor((Date.now()-new Date(D._lastBackup).getTime())/86400000):999;
-  if(D.ndfs.length>0&&daysSinceBackup>7){h+=`<div style="padding:10px 14px;border-radius:8px;font-size:12px;background:var(--amber-bg);color:var(--amber);margin-top:8px;cursor:pointer" onclick="backupData()">💾 Pensez à sauvegarder vos données ! ${D._lastBackup?"Dernière sauvegarde : "+D._lastBackup:"Aucune sauvegarde"} — <strong>Cliquez ici</strong></div>`}
+  // Help section
+  h+=`<div style="margin-top:24px;padding:16px 18px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)">
+    <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-1)">📖 Comment ça marche</h3>
+    <div style="font-size:12px;color:var(--text-2);line-height:1.8">
+      <strong style="color:var(--text-1)">1. Créer vos notes de frais :</strong><br>
+      ① Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong> pour créer une note de frais<br>
+      ② Remplissez les lignes de dépenses avec justificatifs (glisser-déposer)<br>
+      ③ Vos NDF sont <strong>synchronisées automatiquement dans le Cloud ☁️</strong><br>
+      ④ La direction les voit directement depuis son outil<br><br>
+      <strong style="color:var(--text-1)">2. Récupérer le retour de la direction :</strong><br>
+      Les statuts de vos NDF (validée, réglée) se mettent à jour <strong>automatiquement depuis le Cloud ☁️</strong> à chaque ouverture de la page.<br>
+      <em style="color:var(--accent)">💡 Cela ne touche pas vos nouvelles NDF — seules celles concernées sont mises à jour.</em><br><br>
+      <strong style="color:var(--text-1)">3. NDF prestataires :</strong><br>
+      Cliquez <strong>📥 NDF presta</strong> pour importer une NDF envoyée par un prestataire (fichier JSON).<br>
+      <em style="color:var(--text-3)">☁️ Toutes vos données sont synchronisées automatiquement dans le Google Sheet.</em>
+    </div>
+  </div>`;
+
   el.innerHTML=h;
 }
 
@@ -217,6 +304,7 @@ function addNdfLine(){
       <div class="form-row"><label>Fournisseur</label><input class="inp" id="lfour_${_lineIdx}" placeholder="SNCF, Amazon..."></div>
       <div class="form-row"><label>Description</label><input class="inp" id="ldesc_${_lineIdx}" placeholder="Billet train Paris-Hyères"></div>
       <div class="form-row"><label>Montant TTC</label><input class="inp" id="lamt_${_lineIdx}" type="number" step="0.01" placeholder="0.00" style="font-family:var(--mono)"></div>
+      <div class="form-row"><label>Type de dépense</label><select class="inp" id="ltype_${_lineIdx}">${expTypeOptions()}</select></div>
       <div class="form-row"><label>Code projet</label><select class="inp" id="lcode_${_lineIdx}">${codeOptions()}</select></div>
       <div class="form-row"><label>Justificatif <span style="color:var(--red)">*</span></label>
         <div class="drop-zone" id="dz_${_lineIdx}" onclick="$('lfile_'+${_lineIdx}).click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${_lineIdx})">📎 Glissez ou cliquez</div>
@@ -237,7 +325,7 @@ function addIkLine(){
       <div class="form-row"><label>Motif</label><input class="inp" id="ldesc_${_lineIdx}" placeholder="Réunion inter-sites"></div>
       <div class="form-row"><label>Adresse départ</label><input class="inp" id="ldepart_${_lineIdx}" placeholder="12 rue de la Gare, Hyères"></div>
       <div class="form-row"><label>Adresse arrivée</label><input class="inp" id="larrivee_${_lineIdx}" placeholder="45 avenue Foch, Toulon"></div>
-      <div class="form-row"><label>Aller-retour ?</label><select class="inp" id="lar_${_lineIdx}" onchange="previewIK(${_lineIdx})"><option value="1">Aller simple</option><option value="2" selected>Aller-retour</option></select></div>
+      <div class="form-row"><label>Aller-retour ?</label><select class="inp" id="lar_${_lineIdx}" onchange="previewIK(${_lineIdx})"><option value="1" selected>Aller simple</option><option value="2">Aller-retour</option></select></div>
       <div class="form-row"><label style="display:flex;gap:6px;align-items:center">Km <button class="b bp" style="font-size:9px;padding:2px 8px" onclick="calcDistance(${_lineIdx})">📍 Calculer</button></label>
         <input class="inp" id="lkm_${_lineIdx}" type="number" step="1" placeholder="0" style="font-family:var(--mono)" oninput="previewIK(${_lineIdx})">
         <div id="lkm_info_${_lineIdx}" style="font-size:10px;color:var(--text-3);margin-top:2px"></div></div>
@@ -366,7 +454,7 @@ function saveNDF(status){
     } else {const amt=parseFloat($("lamt_"+i)?.value)||0;if(!amt)continue;
       let fileName=meta._fileName||"",fileData=meta._fileData||"",fileType=meta._fileType||"";
       if(!fileData&&window._ndfEditExisting){const el=window._ndfEditExisting[window._ndfEditLines.indexOf(meta)];if(el){fileName=el.fileName||"";fileData=el.fileData||"";fileType=el.fileType||""}}
-      lines.push({type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",fileName,fileData,fileType})
+      lines.push({type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",expType:$("ltype_"+i)?.value||"",fileName,fileData,fileType})
     }
   }
   if(!lines.length){alert("Ajoutez au moins une ligne");return}
@@ -393,7 +481,7 @@ function editNDF(id){
   window._ndfEditLines=[];_lineIdx=0;
   n.lines.forEach(l=>{
     if(l.type==="ik"){addIkLine();const i=_lineIdx;if($("ldate_"+i))$("ldate_"+i).value=l.date||"";if($("ldesc_"+i))$("ldesc_"+i).value=l.desc||"";if($("lkm_"+i))$("lkm_"+i).value=l.km||"";if($("lcv_"+i))$("lcv_"+i).value=l.cv||D.cv;if($("lcode_"+i))$("lcode_"+i).value=l.code||"";previewIK(i)}
-    else{addNdfLine();const i=_lineIdx;if($("ldate_"+i))$("ldate_"+i).value=l.date||"";if($("lfour_"+i))$("lfour_"+i).value=l.four||"";if($("ldesc_"+i))$("ldesc_"+i).value=l.desc||"";if($("lamt_"+i))$("lamt_"+i).value=l.amount||"";if($("lcode_"+i))$("lcode_"+i).value=l.code||"";
+    else{addNdfLine();const i=_lineIdx;if($("ldate_"+i))$("ldate_"+i).value=l.date||"";if($("lfour_"+i))$("lfour_"+i).value=l.four||"";if($("ldesc_"+i))$("ldesc_"+i).value=l.desc||"";if($("lamt_"+i))$("lamt_"+i).value=l.amount||"";if($("ltype_"+i))$("ltype_"+i).value=l.expType||"";if($("lcode_"+i))$("lcode_"+i).value=l.code||"";
       if(l.fileName){const p=$("fprev_"+i);const dz=$("dz_"+i);if(p&&l.fileData&&(l.fileType||"").startsWith("image/"))p.innerHTML=`<div class="file-item"><img src="${l.fileData}" style="max-width:100px;max-height:60px;border-radius:4px"> ${l.fileName}</div>`;else if(p&&l.fileData)p.innerHTML=`<div class="file-item">📄 ${l.fileName}</div>`;if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+l.fileName}}}
   });
 }
@@ -422,34 +510,56 @@ function exportJSON(){
   if(!exportNdfs.length){alert("Aucune NDF prête. Passez vos brouillons au statut « prête ».");return}
   const noCode=exportNdfs.flatMap(n=>n.lines).filter(l=>!l.code).length;
   if(noCode&&!confirm("⚠️ "+noCode+" ligne(s) sans code projet.\nExporter quand même ?"))return;
-  const data={salarie:D.salarie,cv:D.cv,ndfs:exportNdfs,exportDate:new Date().toISOString().split("T")[0]};
-  const fn="NDF_"+D.salarie.replace(/\s+/g,"_")+"_"+data.exportDate+".json";
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=fn;a.click();
-  alert("✅ "+exportNdfs.length+" NDF exportées\n📁 "+fn+"\n\n📂 Déposez dans : Lit uP - Equipe > Comptabilité 2026 > Exports NDF");
+  const today=new Date();const dateStr=today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
+  const nom=D.salarie.split(" ").pop().toUpperCase();
+  const data={salarie:D.salarie,cv:D.cv,ndfs:exportNdfs,exportDate:today.toISOString().split("T")[0]};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  // Fichier 1 : pour la direction
+  const fn1=nom+"_Nouvelles_NdF_à_traiter_"+dateStr+".json";
+  const a1=document.createElement("a");a1.href=URL.createObjectURL(blob);a1.download=fn1;a1.click();
+  // Fichier 2 : sauvegarde perso (petit délai pour que le navigateur gère les 2 téléchargements)
+  const fn2=nom+"_Sauvegarde_NdF_"+dateStr+".json";
+  setTimeout(()=>{const a2=document.createElement("a");a2.href=URL.createObjectURL(blob);a2.download=fn2;a2.click()},500);
+  D._lastBackup=today.toISOString().split("T")[0];save();render();
+  alert("✅ "+exportNdfs.length+" NDF exportées — 2 fichiers téléchargés :\n\n📁 "+fn1+"\n→ À déposer dans le Drive : \"Nouvelles notes de frais à traiter\"\n\n📁 "+fn2+"\n→ À conserver pour vous (sauvegarde personnelle)");
 }
 
-function importJSON(){
-  const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.multiple=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
+function handleImportJSON(inp){
+  if(!inp.files||!inp.files.length)return;
+  Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
     // Retour direction
-    if(d.type==="litup-ndf-retour"){let u=0;const ch=[];(d.updates||[]).forEach(x=>{const n=D.ndfs.find(z=>z.ref===x.ref);if(n&&n.status!==x.status){ch.push("📬 "+n.ref+" : "+n.status+" → "+x.status+(x.statusDate?" ("+x.statusDate+")":""));n.status=x.status;n.statusDate=x.statusDate;u++}});
-      save();render();alert(u?("📬 "+u+" NDF mise(s) à jour :\n\n"+ch.join("\n")):"Aucune mise à jour.");D._lastRetour=d.date;save();render();return}
+    if(d.type==="litup-ndf-retour"){let u=0;const ch=[];const notFound=[];
+      (d.updates||[]).forEach(x=>{
+        const xref=(x.ref||"").trim();
+        const n=D.ndfs.find(z=>(z.ref||"").trim().toLowerCase()===xref.toLowerCase());
+        if(!n){notFound.push(xref);return}
+        if(n.status!==x.status||x.paymentDate){
+          ch.push("📬 "+n.ref+" : "+n.status+" → "+x.status+(x.paymentDate?" (réglée le "+x.paymentDate+")":x.statusDate?" ("+x.statusDate+")":""));
+          n.status=x.status;n.statusDate=x.statusDate;
+          if(x.paymentDate)n.paymentDate=x.paymentDate;u++}
+      });
+      save();render();
+      let msg="";
+      if(u)msg="📬 "+u+" NDF mise(s) à jour :\n\n"+ch.join("\n");
+      else msg="Aucune NDF mise à jour.";
+      if(notFound.length)msg+="\n\n⚠️ "+notFound.length+" NDF du retour non trouvées dans vos données :\n"+notFound.join(", ")+"\n\n(Vos NDF : "+D.ndfs.map(n=>n.ref).join(", ")+")";
+      alert(msg);D._lastRetour=d.date;save();render();inp.value="";return}
     // Regular NDF
     if(d.salarie&&d.ndfs){d.ndfs.forEach(n=>{const ex=D.ndfs.find(x=>x.ref===n.ref);if(ex)Object.assign(ex,n);else D.ndfs.push(n)});save();render();alert("Import : "+d.ndfs.length+" NDF de "+d.salarie)}
     if(d.ndfBuffer)alert("Ce fichier est un export comptable, pas un export NDF.")
-  }catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)})};inp.click();
+  }catch(err){alert("Erreur: "+err.message)}inp.value=""};rd.readAsText(f)});
 }
 
-function importPresta(){
-  const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.multiple=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
-    if(d.type!=="litup-ndf-prestataire"){alert("Ce fichier n'est pas une NDF prestataire.");return}
+function handleImportPresta(inp){
+  if(!inp.files||!inp.files.length)return;
+  Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
+    if(d.type!=="litup-ndf-prestataire"){alert("Ce fichier n'est pas une NDF prestataire.");inp.value="";return}
     const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"à valider",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
     const ex=D.ndfs.find(n=>n.ref===ndf.ref);if(ex){if(!confirm(ndf.ref+" existe déjà. Écraser ?"))return;Object.assign(ex,ndf)}else D.ndfs.push(ndf);
     save();render();
     const total=ndf.lines.reduce((s,l)=>s+(l.amount||0),0);const noCode=ndf.lines.some(l=>!l.code);
     alert("✅ NDF presta importée :\n• "+d.salarie+"\n• "+ndf.lines.length+" ligne(s), "+fmt(total)+"\n"+(d.comment?"• Commentaire : "+d.comment+"\n":"")+(noCode?"\n⚠️ Codes projets à compléter":""));
-  }catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)})};inp.click();
+  }catch(err){alert("Erreur: "+err.message)}inp.value=""};rd.readAsText(f)});
 }
 
 // ─── SETTINGS ───
@@ -463,15 +573,16 @@ function showSettings(){
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">Gratuit — <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:var(--accent)">openrouteservice.org</a></div></div>
     <div class="form-row" style="margin-bottom:12px"><label>Clé API Anthropic (lecture auto des justificatifs)</label><input class="inp" id="s_anth" value="${D.anthropicKey||localStorage.getItem("litup_anthropic_key")||""}" placeholder="sk-ant-...">
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">🤖 Quand une photo est déposée, Claude lit automatiquement la date, le montant et le fournisseur</div></div>
-    <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">${CODES.length} codes projets chargés <button class="b bd" style="font-size:10px;padding:3px 8px;margin-left:6px" onclick="importCodes();closeM()">📥 MAJ codes</button></div>
+    <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">${CODES.length} codes projets chargés <label class="b bd" for="fi_codes" style="font-size:10px;padding:3px 8px;margin-left:6px;cursor:pointer" onclick="closeM()">📥 MAJ codes</label></div>
     <div style="display:flex;gap:6px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button>
       <button class="b bp" onclick="D.salarie=$('s_name').value.trim()||D.salarie;D.cv=parseInt($('s_cv').value)||5;const k=$('s_ors').value.trim();if(k){D.orsKey=k;localStorage.setItem('litup_ors_key',k)}const ak=$('s_anth').value.trim();if(ak){D.anthropicKey=ak;localStorage.setItem('litup_anthropic_key',ak)}save();closeM();render()">💾 Enregistrer</button></div>
   </div></div>`;
 }
-function importCodes(){
-  const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);let nc=[];
+function handleImportCodes(inp){
+  if(!inp.files||!inp.files.length)return;
+  const f=inp.files[0];const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);let nc=[];
     if(Array.isArray(d))nc=d;else if(d.codes)nc=d.codes;else if(d.acts)nc=d.acts.map(a=>typeof a==="string"?a:a.l||"");
-    if(!nc.length){alert("Aucun code trouvé.");return}CODES=nc.filter(c=>c);saveCodes();alert("✅ "+CODES.length+" codes mis à jour");render()}catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)};inp.click();
+    if(!nc.length){alert("Aucun code trouvé.");inp.value="";return}CODES=nc.filter(c=>c);saveCodes();alert("✅ "+CODES.length+" codes mis à jour");render()}catch(err){alert("Erreur: "+err.message)}inp.value=""};rd.readAsText(f);
 }
 
 // ─── BACKUP / RESTORE ───
@@ -480,11 +591,11 @@ function backupData(){
   const fn="SAUVEGARDE_NDF_"+D.salarie.replace(/\s+/g,"_")+"_"+backup.date+".json";
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:"application/json"}));a.download=fn;a.click();
   D._lastBackup=backup.date;save();
-  alert("💾 Sauvegarde téléchargée !\n\n📁 "+fn+"\n\nGardez ce fichier pour retrouver vos données sur un autre appareil.\nUtilisez 📂 Récupérer pour les réimporter.");
+  alert("💾 Sauvegarde téléchargée !\n\n📁 "+fn+"\n\nCopie de sécurité locale.\nVos données sont aussi synchronisées dans le Google Sheet ☁️");
 }
-function restoreData(){
-  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
-  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{
+function handleRestore(inp){
+  if(!inp.files||!inp.files.length)return;
+  const f=inp.files[0];const rd=new FileReader();rd.onload=ev=>{try{
     const d=JSON.parse(ev.target.result);
     if(d.type==="litup-ndf-backup"&&d.data){
       if(!confirm("Restaurer les données de "+d.salarie+" du "+d.date+" ?\n\nCela remplacera toutes vos données actuelles."))return;
@@ -492,8 +603,8 @@ function restoreData(){
       if(d.codes&&d.codes.length){CODES=d.codes;saveCodes()}
       render();
       alert("✅ Données restaurées !\n• "+D.ndfs.length+" NDF retrouvées\n• Profil : "+D.salarie);
-    } else {alert("Ce fichier n'est pas une sauvegarde NDF.")}
-  }catch(err){alert("Erreur: "+err.message)}};rd.readAsText(f)};inp.click();
+    } else {alert("Ce fichier n'est pas une sauvegarde NDF.\nUtilisez un fichier SAUVEGARDE_NDF_*.json")}
+  }catch(err){alert("Erreur: "+err.message)}inp.value=""};rd.readAsText(f);
 }
 
 // ─── INIT (sandbox detection) ───
@@ -505,7 +616,7 @@ function restoreData(){
     document.body.appendChild(warn);
   }
 }catch(e){}})();
-initSalarie();if(D.salarie)render();
+initSalarie();if(D.salarie){render();syncFromSheet()}
 </script>
 </body>
 </html>
