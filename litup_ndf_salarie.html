@@ -75,6 +75,7 @@ tr:hover{background:rgba(91,99,224,.02)}
     <input type="file" id="fi_presta" accept=".json" multiple style="display:none" onchange="handleImportPresta(this)">
   </div>
   <div class="btn-group">
+    <button class="b bd" onclick="manualSync()" id="btnSync" title="Recharger mes NDF depuis le Cloud">☁️</button>
     <button class="b bd" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
     <button class="b bd" onclick="showSettings()">⚙️</button>
     <button class="b bd" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button>
@@ -179,6 +180,13 @@ async function loadCodesFromSheet(){
       if(nc&&nc.length){CODES=nc;saveCodes();render();console.log("Codes loaded from Sheet: "+nc.length)}
     }
   }catch(e){console.warn("Load codes error:",e)}
+}
+async function manualSync(){
+  const btn=$("btnSync");btn.disabled=true;btn.textContent="⏳";
+  try{
+    await syncFromSheet();
+    btn.textContent="✅";setTimeout(()=>{btn.textContent="☁️";btn.disabled=false},2000);
+  }catch(e){btn.textContent="⚠️";setTimeout(()=>{btn.textContent="☁️";btn.disabled=false},2000)}
 }
 async function majCodes(){
   const btn=$("btnMaj"),st=$("majStatus");
