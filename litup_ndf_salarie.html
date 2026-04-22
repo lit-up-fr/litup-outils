@@ -203,7 +203,6 @@ const EXPENSE_TYPES=[
   {l:"Missions et réceptions",c:"62560000 - Missions / Séjours / Séminaires"},
   {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
 function expTypeOptions(){return'<option value="">— Type de dépense —</option>'+EXPENSE_TYPES.map(t=>`<option value="${t.c}">${t.l}</option>`).join("")}
-function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
 const SALARIES=["Clémentine CLAUDON","Laetitia DE BORDE","Pauline GIRAUDO","Philippe DA PIEDADE","Claire SALEM","Laura BOURIGAULT"];
 const IK_BAREME={3:[{max:5000,coef:0.529,add:0},{max:20000,coef:0.316,add:1065},{max:Infinity,coef:0.370,add:0}],4:[{max:5000,coef:0.606,add:0},{max:20000,coef:0.340,add:1330},{max:Infinity,coef:0.407,add:0}],5:[{max:5000,coef:0.636,add:0},{max:20000,coef:0.357,add:1395},{max:Infinity,coef:0.427,add:0}],6:[{max:5000,coef:0.665,add:0},{max:20000,coef:0.374,add:1457},{max:Infinity,coef:0.447,add:0}],7:[{max:5000,coef:0.697,add:0},{max:20000,coef:0.394,add:1515},{max:Infinity,coef:0.470,add:0}]};
 function calcIK(km,cv){const bar=IK_BAREME[Math.min(Math.max(cv||5,3),7)];for(const t of bar){if(km<=t.max)return Math.round((km*t.coef+t.add)*100)/100}return 0}
@@ -256,8 +255,8 @@ function render(){
   }
   if(!ndfs.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong></p></div>`;el.innerHTML=h;return}
   h+=`<div style="overflow-x:auto"><table><thead><tr><th>N° NDF</th><th>Date</th><th>Lignes</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Statut</th><th>Justif.</th><th></th></tr></thead><tbody>`;
-  const statusEmoji={"brouillon":"📝",,"à valider":"📨","validée":"✅","réglée":"💸"};
-  const statusBadge={"brouillon":"badge-draft",,"à valider":"badge-wait","validée":"badge-ok","réglée":"badge-paid"};
+  const statusEmoji={"brouillon":"📝","à valider":"📨","validée":"✅","réglée":"💸"};
+  const statusBadge={"brouillon":"badge-draft","à valider":"badge-wait","validée":"badge-ok","réglée":"badge-paid"};
   ndfs.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
