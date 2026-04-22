@@ -161,7 +161,13 @@ async function syncFromSheet(){
 const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
-function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat([...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c=>`<option>${c}</option>`)).join("")}
+function codeOptions(){
+  const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const all=[...CODES_FIXES,...autres];
+  return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>',
+    '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option>${c}</option>`).join("")+'</optgroup>',
+    '<optgroup label="Parcours">'+autres.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'].join("")
+}
 function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
 async function loadCodesFromSheet(){
   try{
@@ -503,11 +509,17 @@ async function ocrJustificatif(idx,dataUrl,fileType,apiKey){
 }
 
 // ─── SAVE NDF ───
+function nomenclatureFileName(ndfRef, lineIdx, four, originalName){
+  const ext=originalName.includes(".")?originalName.split(".").pop():"pdf";
+  const fournisseur=(four||"").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20)||"JUSTIF";
+  return ndfRef+"_"+String(lineIdx).padStart(2,"0")+"_"+fournisseur+"."+ext;
+}
 async function uploadJustifToDrive(ndfRef, line, lineIdx){
-  if(!line.fileData||line.driveUrl)return; // skip if no file or already uploaded
+  if(!line.fileData||line.driveUrl)return;
   try{
-    const res=await sheetAPI("uploadJustif",{ndfRef,fileName:line.fileName||"justif_"+lineIdx,fileData:line.fileData});
-    if(res.ok&&res.fileUrl){line.driveUrl=res.fileUrl;line.driveFileId=res.fileId;console.log("Uploaded: "+line.fileName+" → "+res.fileUrl)}
+    const nomFichier=nomenclatureFileName(ndfRef, lineIdx, line.four, line.fileName||"justif.pdf");
+    const res=await sheetAPI("uploadJustif",{ndfRef,fileName:nomFichier,fileData:line.fileData});
+    if(res.ok&&res.fileUrl){line.driveUrl=res.fileUrl;line.driveFileId=res.fileId;line.fileName=nomFichier;console.log("Uploaded: "+nomFichier+" → "+res.fileUrl)}
   }catch(e){console.warn("Upload justif error:",e)}
 }
 

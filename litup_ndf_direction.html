@@ -79,7 +79,12 @@ async function loadCodesFromSheet(){
     }
   }catch(e){console.warn("Load codes error:",e)}
 }
-function codeOptions(current){return'<option value="">—</option><option value="_inconnu">?</option>'+[...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")}
+function codeOptions(current){
+  const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  return'<option value="">—</option><option value="_inconnu">?</option>'+
+    '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")+'</optgroup>'+
+    '<optgroup label="Parcours">'+autres.map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")+'</optgroup>'
+}
 let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
 function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
