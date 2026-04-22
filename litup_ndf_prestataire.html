@@ -69,7 +69,6 @@ textarea.inp{resize:vertical;min-height:60px}
     <div class="steps">
       <div class="step"><div class="step-text"><strong>Renseignez votre identité</strong> ci-dessous et choisissez votre coordinateur·rice</div></div>
       <div class="step"><div class="step-text"><strong>Ajoutez vos dépenses</strong> une par une avec le justificatif (photo ou scan). Les pièces seront renommées automatiquement.</div></div>
-      <div class="step"><div class="step-text">Pour les <strong>indemnités kilométriques</strong>, cliquez "🚗 Ajouter un trajet" — le montant est calculé selon le barème fiscal</div></div>
       <div class="step"><div class="step-text">Cliquez <strong>"📤 Envoyer ma note de frais"</strong> — un fichier se télécharge. <strong>Envoyez-le par email</strong> à votre coordinateur·rice de territoire.</div></div>
     </div>
     <div class="alert-info" style="margin-top:12px">💡 <strong>Vos données restent sur votre ordinateur</strong> — rien n'est envoyé automatiquement.</div>
@@ -143,7 +142,17 @@ async function loadCodesFromSheet(){
       try{nc=JSON.parse(res.value)}catch(e){
         nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
       }
-      if(nc&&nc.length){CODES=nc;localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));console.log("Codes loaded: "+nc.length)}
+      if(nc&&nc.length){
+        CODES=nc;localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
+        // Update all existing code selects on the page
+        document.querySelectorAll("select[id^='code_']").forEach(sel=>{
+          const val=sel.value;
+          const opts='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+CODES.map(c=>`<option>${c}</option>`).join("");
+          sel.innerHTML=opts;
+          if(val)sel.value=val;
+        });
+        console.log("Codes loaded: "+nc.length);
+      }
     }
   }catch(e){console.warn("Load codes error:",e)}
 }
@@ -239,7 +248,8 @@ function expTypeSelect(idx){
     <option value="61560000 - Maintenance">Maintenance informatique</option>
     <option value="61810000 - Documentation">Documentation</option>
     <option value="62510000 - Voyages et déplacements">Voyages et déplacements</option>
-    <option value="62560000 - Missions / Séjours / Séminaires">Missions et réceptions</option>
+    <option value="62560000 - Missions / Séjours / Séminaires">Missions (séjours, séminaires)</option>
+    <option value="62570000 - Réceptions">Alimentation</option>
     <option value="_autre">Autre</option>
     <option value="_inconnu">Je ne sais pas</option>
   </select>`;

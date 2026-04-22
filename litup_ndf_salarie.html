@@ -208,7 +208,8 @@ const EXPENSE_TYPES=[
   {l:"Maintenance informatique",c:"61560000 - Maintenance"},
   {l:"Documentation",c:"61810000 - Documentation"},
   {l:"Voyages et déplacements",c:"62510000 - Voyages et déplacements"},
-  {l:"Missions et réceptions",c:"62560000 - Missions / Séjours / Séminaires"},
+  {l:"Missions (séjours, séminaires)",c:"62560000 - Missions / Séjours / Séminaires"},
+  {l:"Alimentation",c:"62570000 - Réceptions"},
   {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
 function expTypeOptions(){return'<option value="">— Type de dépense —</option>'+EXPENSE_TYPES.map(t=>`<option value="${t.c}">${t.l}</option>`).join("")}
 const SALARIES=["Clémentine CLAUDON","Laetitia DE BORDE","Pauline GIRAUDO","Philippe DA PIEDADE","Claire SALEM","Laura BOURIGAULT"];
