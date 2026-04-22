@@ -64,7 +64,9 @@ const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 const STATUTS=["brouillon","à valider","validée","réglée"];
 const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à valider":{e:"📨",c:"#d97706"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
-let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||[];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
+function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 async function loadCodesFromSheet(){
   try{
     const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
@@ -73,11 +75,11 @@ async function loadCodesFromSheet(){
       try{nc=JSON.parse(res.value)}catch(e){
         nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
       }
-      if(nc&&nc.length){CODES=nc;localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));console.log("Codes loaded: "+nc.length)}
+      if(nc&&nc.length){CODES=mergeCodes(nc);localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));console.log("Codes loaded: "+CODES.length)}
     }
   }catch(e){console.warn("Load codes error:",e)}
 }
-function codeOptions(current){return'<option value="">—</option><option value="_inconnu">?</option>'+CODES.map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")}
+function codeOptions(current){return'<option value="">—</option><option value="_inconnu">?</option>'+[...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")}
 let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
 function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
@@ -280,7 +282,8 @@ function viewDetail(ni){
       <td style="font-size:10px;color:var(--text-2);max-width:140px;overflow:hidden;text-overflow:ellipsis">${l.expType&&!l.expType.startsWith("_")?l.expType:l.expType==="_autre"?"Autre":l.expType==="_inconnu"?"?":"—"}</td>
       <td style="font-size:10px;max-width:140px"><select class="inp" style="font-size:10px;padding:2px 4px;min-width:120px" onchange="D.ndfs[${ni}].lines[${i}].code=this.value;save()">${codeOptions(l.code)}</select></td>
       <td style="font-size:10px">`;
-    if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a>`;
+    if(l.driveUrl)h+=`<a href="${l.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline">📎 ${l.fileName||"Voir"}</a>`;
+    else if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a>`;
     else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a>`}
     else if(l.fileName)h+=`<span style="color:var(--text-3)">📄 ${l.fileName}</span>`;
     h+=`</td></tr>`;

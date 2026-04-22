@@ -133,7 +133,9 @@ async function sheetAPI(action,body,params){
   const r=await fetch(u,opt);return r.json();
 }
 
-let CODES=JSON.parse(localStorage.getItem("litup_codes_presta")||"null")||[];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+let CODES=JSON.parse(localStorage.getItem("litup_codes_presta")||"null")||CODES_FIXES;
+function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 async function loadCodesFromSheet(){
   try{
     const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
@@ -143,15 +145,16 @@ async function loadCodesFromSheet(){
         nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
       }
       if(nc&&nc.length){
-        CODES=nc;localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
+        CODES=mergeCodes(nc);localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
         // Update all existing code selects on the page
         document.querySelectorAll("select[id^='code_']").forEach(sel=>{
           const val=sel.value;
-          const opts='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+CODES.map(c=>`<option>${c}</option>`).join("");
+          const sorted=[...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+          const opts='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+sorted.map(c=>`<option>${c}</option>`).join("");
           sel.innerHTML=opts;
           if(val)sel.value=val;
         });
-        console.log("Codes loaded: "+nc.length);
+        console.log("Codes loaded: "+CODES.length);
       }
     }
   }catch(e){console.warn("Load codes error:",e)}
@@ -234,7 +237,7 @@ function handleDrop(e,idx){
 }
 
 function codeSelect(idx){
-  const opts=CODES.map(c=>`<option>${c}</option>`).join("");
+  const opts=[...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c=>`<option>${c}</option>`).join("");
   return `<select class="inp" id="code_${idx}">
     <option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>
     ${opts}

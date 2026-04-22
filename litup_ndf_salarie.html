@@ -158,15 +158,10 @@ async function syncFromSheet(){
 }
 
 // ─── CONFIG ───
-let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||[
-  "FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines",
-  "BU92 - MLDS Hyères","BU96 - ML Coudon Gapeau","BU97 - Cité Éducative Paris 18","BU98 - Collège Doucet",
-  "BU99 - Collège Gustave Roux","BU100 - Nouvel Horizon","BU101 - E2C Var 8","BU102 - MIEJ",
-  "EXP15 - ML Coudon Gapeau","EXP16 - ML La Seyne","EXP17 - ML La Seyne","EXP18 - MIEJ",
-  "F2F20 - ML Coudon Gapeau","F2F22 - ML de la Lyr","F2F23 - Fondation Orange",
-  "LU12 - Emmaüs France","LU13 - La Verrière"
-];
-function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat(CODES.map(c=>`<option>${c}</option>`)).join("")}
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
+function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
+function codeOptions(){return['<option value="">— Choisir —</option>','<option value="_inconnu">Code projet inconnu</option>','<option value="_absent">Pas de code projet</option>'].concat([...CODES].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c=>`<option>${c}</option>`)).join("")}
 function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
 async function loadCodesFromSheet(){
   try{
@@ -174,10 +169,9 @@ async function loadCodesFromSheet(){
     if(res.value){
       let nc;
       try{nc=JSON.parse(res.value)}catch(e){
-        // Fallback: comma-separated string from Make
         nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
       }
-      if(nc&&nc.length){CODES=nc;saveCodes();render();console.log("Codes loaded from Sheet: "+nc.length)}
+      if(nc&&nc.length){CODES=mergeCodes(nc);saveCodes();render();console.log("Codes loaded from Sheet: "+CODES.length)}
     }
   }catch(e){console.warn("Load codes error:",e)}
 }
@@ -354,7 +348,11 @@ function addNdfLine(){
       <div class="form-row"><label>Justificatif <span style="color:var(--red)">*</span></label>
         <div class="drop-zone" id="dz_${_lineIdx}" onclick="$('lfile_'+${_lineIdx}).click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${_lineIdx})">📎 Glissez ou cliquez</div>
         <input type="file" id="lfile_${_lineIdx}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="previewFile(${_lineIdx})">
-        <div id="fprev_${_lineIdx}" class="file-list"></div></div>
+        <div id="fprev_${_lineIdx}" class="file-list"></div>
+        <div id="factions_${_lineIdx}" style="display:none;margin-top:4px;gap:6px">
+          <button type="button" class="b bd" style="font-size:10px;padding:3px 8px" onclick="ocrManual(${_lineIdx})">🤖 Lire le justificatif</button>
+          <button type="button" class="b br" style="font-size:10px;padding:3px 8px" onclick="removeFile(${_lineIdx})">✕ Supprimer</button>
+        </div></div>
     </div>`;
   $("ndfLines").appendChild(div);
 }
@@ -388,10 +386,26 @@ function rmLine(idx){window._ndfEditLines=window._ndfEditLines.filter(l=>l.idx!=
 function handleDrop(e,idx){const files=e.dataTransfer?.files;if(!files?.length)return;const dt=new DataTransfer();dt.items.add(files[0]);const inp=$("lfile_"+idx);if(inp){inp.files=dt.files;previewFile(idx)}const dz=$("dz_"+idx);if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+files[0].name}}
 
 function previewFile(idx){const inp=$("lfile_"+idx);const prev=$("fprev_"+idx);if(!inp?.files?.length)return;const f=inp.files[0];const rd=new FileReader();rd.onload=ev=>{const meta=window._ndfEditLines.find(l=>l.idx===idx);if(meta){meta._fileData=ev.target.result;meta._fileName=f.name;meta._fileType=f.type}if(prev){prev.innerHTML=f.type.startsWith("image/")?`<div class="file-item"><img src="${ev.target.result}" style="max-width:100px;max-height:60px;border-radius:4px"> <span class="name">${f.name}</span></div>`:`<div class="file-item">📄 <span class="name">${f.name}</span></div>`}const dz=$("dz_"+idx);if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+f.name}
-  // Auto-OCR if Anthropic key available
-  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
-  if(apiKey&&meta?.type!=="ik"){ocrJustificatif(idx,ev.target.result,f.type,apiKey)}
+  // Show action buttons
+  const actions=$("factions_"+idx);if(actions)actions.style.display="flex";
 };rd.readAsDataURL(f)}
+
+function removeFile(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);
+  if(meta){delete meta._fileData;delete meta._fileName;delete meta._fileType}
+  const inp=$("lfile_"+idx);if(inp)inp.value="";
+  const prev=$("fprev_"+idx);if(prev)prev.innerHTML="";
+  const dz=$("dz_"+idx);if(dz){dz.classList.remove("has-file");dz.innerHTML="📎 Glissez ou cliquez"}
+  const actions=$("factions_"+idx);if(actions)actions.style.display="none";
+}
+
+function ocrManual(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);
+  if(!meta?._fileData){alert("Ajoutez d'abord un justificatif.");return}
+  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
+  if(!apiKey){alert("Clé API non configurée.");return}
+  ocrJustificatif(idx,meta._fileData,meta._fileType||"image/jpeg",apiKey);
+}
 
 async function ocrJustificatif(idx,dataUrl,fileType,apiKey){
   const prev=$("fprev_"+idx);
@@ -489,6 +503,14 @@ async function ocrJustificatif(idx,dataUrl,fileType,apiKey){
 }
 
 // ─── SAVE NDF ───
+async function uploadJustifToDrive(ndfRef, line, lineIdx){
+  if(!line.fileData||line.driveUrl)return; // skip if no file or already uploaded
+  try{
+    const res=await sheetAPI("uploadJustif",{ndfRef,fileName:line.fileName||"justif_"+lineIdx,fileData:line.fileData});
+    if(res.ok&&res.fileUrl){line.driveUrl=res.fileUrl;line.driveFileId=res.fileId;console.log("Uploaded: "+line.fileName+" → "+res.fileUrl)}
+  }catch(e){console.warn("Upload justif error:",e)}
+}
+
 function saveNDF(status){
   const ref=($("ndf_ref")?.value||"").trim();const date=($("ndf_date")?.value||"").trim();
   if(!ref){alert("Numéro requis");return}
@@ -498,18 +520,19 @@ function saveNDF(status){
       lines.push({type:"ik",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",km,cv,amount:calcIK(km,cv),code:$("lcode_"+i)?.value||"",four:"Indemnité kilométrique",fileName:""})
     } else {const amt=parseFloat($("lamt_"+i)?.value)||0;if(!amt)continue;
       let fileName=meta._fileName||"",fileData=meta._fileData||"",fileType=meta._fileType||"";
-      if(!fileData&&window._ndfEditExisting){const el=window._ndfEditExisting[window._ndfEditLines.indexOf(meta)];if(el){fileName=el.fileName||"";fileData=el.fileData||"";fileType=el.fileType||""}}
-      lines.push({type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",expType:$("ltype_"+i)?.value||"",fileName,fileData,fileType})
+      if(!fileData&&window._ndfEditExisting){const el=window._ndfEditExisting[window._ndfEditLines.indexOf(meta)];if(el){fileName=el.fileName||"";fileData=el.fileData||"";fileType=el.fileType||"";}}
+      lines.push({type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",expType:$("ltype_"+i)?.value||"",fileName,fileData,fileType,driveUrl:meta._driveUrl||""})
     }
   }
   if(!lines.length){alert("Ajoutez au moins une ligne");return}
-  // Justificatif obligatoire (hors IK)
   const noFile=lines.filter(l=>l.type!=="ik"&&!l.fileData&&!l.fileName);
   if(noFile.length){alert("⚠️ Justificatif obligatoire !\n"+noFile.length+" ligne(s) sans justificatif.");return}
   const existing=D.ndfs.find(n=>n.ref===ref);
   if(existing){existing.date=date;existing.lines=lines;existing.status=status}
   else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie})}
   save();closeM();render();
+  // Upload justificatifs to Drive in background
+  lines.filter(l=>l.fileData&&!l.driveUrl).forEach((l,i)=>uploadJustifToDrive(ref,l,i+1));
 }
 
 function editNDF(id){
