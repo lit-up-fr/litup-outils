@@ -60,7 +60,7 @@ textarea.inp{resize:vertical;min-height:60px}
     <h1>Note de frais — Facilitateur</h1>
     <p>Exercice 2026</p>
     <button onclick="location.href='index.html'" style="margin-top:10px;padding:6px 14px;background:none;border:1.5px solid #d1d5db;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer" title="Retour page d'accueil">🏠 Accueil</button>
-    <button onclick="majCodes()" id="btnMaj" style="margin-top:10px;margin-left:6px;padding:6px 14px;background:none;border:1.5px solid #d1d5db;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer" title="Mettre à jour les codes projets">🔄 MAJ codes</button><span id="majStatus" style="font-size:10px;margin-left:4px;vertical-align:middle"></span>
+    <button onclick="majCodes()" id="btnMaj" style="margin-top:10px;margin-left:6px;padding:6px 14px;background:none;border:1.5px solid #d1d5db;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer" title="Mettre à jour les codes projets">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:4px;vertical-align:middle"></span>
   </div>
 
   <div class="card">
@@ -179,7 +179,7 @@ async function majCodes(){
     st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
     setTimeout(()=>{st.textContent=""},5000);
   }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
-  btn.disabled=false;btn.textContent="🔄 MAJ codes";
+  btn.disabled=false;btn.textContent="📋 Codes projets";
 }
 const IK={3:[{m:5000,c:.529,a:0},{m:20000,c:.316,a:1065},{m:1e9,c:.370,a:0}],4:[{m:5000,c:.606,a:0},{m:20000,c:.340,a:1330},{m:1e9,c:.407,a:0}],5:[{m:5000,c:.636,a:0},{m:20000,c:.357,a:1395},{m:1e9,c:.427,a:0}],6:[{m:5000,c:.665,a:0},{m:20000,c:.374,a:1457},{m:1e9,c:.447,a:0}],7:[{m:5000,c:.697,a:0},{m:20000,c:.394,a:1515},{m:1e9,c:.470,a:0}]};
 function calcIK(km,cv){for(const t of IK[Math.min(Math.max(cv||5,3),7)]){if(km<=t.m)return Math.round((km*t.c+t.a)*100)/100}return 0}

@@ -44,15 +44,13 @@ tr:hover{background:rgba(91,99,224,.02)}
   <div style="display:flex;align-items:center;gap:8px">
     <div class="logo">DIR</div>
     <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Notes de frais — Direction</div><div style="font-size:9px;color:var(--text-3)">Lit uP · 2026</div></div>
-    <span id="syncStatus" style="font-size:20px;margin-left:8px" title="Synchronisation Cloud">☁️</span>
-    <div style="font-size:8px;color:var(--text-3);margin-left:4px;line-height:1.4">☁️ synchronisé<br>🔄 envoi en cours<br>⚠️ erreur connexion</div>
+    <span id="syncStatus" style="font-size:20px;margin-left:8px;cursor:pointer" title="Cliquer pour recharger depuis le Cloud" onclick="loadFromSheet()">☁️</span>
     <div id="dirLabel" style="font-size:11px;color:var(--text-2);border-left:1px solid var(--border);padding-left:8px;margin-left:4px"></div>
   </div>
   <div style="flex:1"></div>
   <div class="bg-grp">
-    <button class="b b-p" onclick="loadFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ Cloud</button>
     <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
-    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
+    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
   </div>
   <div class="bg-grp"><button class="b b-d" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button></div>
 </div>
@@ -83,6 +81,12 @@ function expTypeOptions(current){
 }
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 async function loadCodesFromSheet(){
+  // Always try localStorage first
+  try{
+    const cached=JSON.parse(localStorage.getItem("litup_codes_dir")||"null");
+    if(cached&&cached.length>4){CODES=cached;console.log("Codes from cache: "+CODES.length)}
+  }catch(e){}
+  // Then try to refresh from Sheet
   try{
     const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
     if(res.value){
@@ -90,9 +94,9 @@ async function loadCodesFromSheet(){
       try{nc=JSON.parse(res.value)}catch(e){
         nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
       }
-      if(nc&&nc.length){CODES=mergeCodes(nc);localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));console.log("Codes loaded: "+CODES.length)}
+      if(nc&&nc.length){CODES=mergeCodes(nc);localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));console.log("Codes refreshed from Sheet: "+CODES.length)}
     }
-  }catch(e){console.warn("Load codes error:",e)}
+  }catch(e){console.warn("Load codes error (using cache):",e)}
 }
 function codeOptions(current){
   const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
@@ -194,11 +198,13 @@ async function majCodes(){
     st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
     setTimeout(()=>{st.textContent=""},5000);
   }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
-  btn.disabled=false;btn.textContent="🔄";
+  btn.disabled=false;btn.textContent="📋 Codes projets";
 }
 
 function render(){
   let ndfs=[...D.ndfs];
+  // Sort by ref ascending by default
+  ndfs.sort((a,b)=>(a.ref||"").localeCompare(b.ref||"",undefined,{numeric:true}));
   // Filters
   if(filtStatus){
     if(filtStatus==="envoyée")ndfs=ndfs.filter(n=>n.status==="envoyée");
