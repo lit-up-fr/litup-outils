@@ -127,10 +127,14 @@ const pad2=n=>String(n).padStart(2,"0");
 
 const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
 async function sheetAPI(action,body,params){
-  let u=BACKEND_URL+"?action="+action;
-  if(params)for(const[k,v]of Object.entries(params))u+="&"+k+"="+encodeURIComponent(v);
-  const opt=body?{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)}:{};
-  const r=await fetch(u,opt);return r.json();
+  try{
+    let u=BACKEND_URL+"?action="+action;
+    if(params)for(const[k,v]of Object.entries(params))u+="&"+k+"="+encodeURIComponent(v);
+    if(!body){const r=await fetch(u,{redirect:"follow"});return r.json()}
+    await fetch(u,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)});
+    await new Promise(r=>setTimeout(r,1500));
+    return{ok:true};
+  }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 
 const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
