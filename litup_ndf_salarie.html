@@ -107,7 +107,10 @@ function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)e
 async function syncToSheet(){
   if(_syncPending||!D.salarie)return;_syncPending=true;setSyncStatus("🔄");
   try{
-    const exportNdfs=D.ndfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
+    // Only sync NDF that have been sent (envoyée, validée, réglée)
+    const sentNdfs=D.ndfs.filter(n=>n.status==="envoyée"||n.status==="validée"||n.status==="réglée");
+    if(!sentNdfs.length){setSyncStatus("☁️");_syncPending=false;return}
+    const exportNdfs=sentNdfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
     const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:exportNdfs,modifiedBy:D.salarie});
     setSyncStatus(res.error?"⚠️":"☁️");
   }catch(e){console.warn("Sync error:",e);setSyncStatus("⚠️")}
@@ -321,16 +324,20 @@ function render(){
     <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-1)">📖 Comment ça marche</h3>
     <div style="font-size:12px;color:var(--text-2);line-height:1.8">
       <strong style="color:var(--text-1)">1. Créer vos notes de frais :</strong><br>
-      ① Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong> pour créer une note de frais<br>
-      ② Remplissez les lignes de dépenses avec justificatifs (glisser-déposer)<br>
-      ③ Vos NDF sont <strong>synchronisées automatiquement dans le Cloud ☁️</strong><br>
-      ④ La direction les voit directement depuis son outil<br><br>
-      <strong style="color:var(--text-1)">2. Récupérer le retour de la direction :</strong><br>
-      Les statuts de vos NDF (validée, réglée) se mettent à jour <strong>automatiquement depuis le Cloud ☁️</strong> à chaque ouverture de la page.<br>
-      <em style="color:var(--accent)">💡 Cela ne touche pas vos nouvelles NDF — seules celles concernées sont mises à jour.</em><br><br>
-      <strong style="color:var(--text-1)">3. NDF prestataires :</strong><br>
-      Cliquez <strong>📥 NDF presta</strong> pour importer une NDF envoyée par un prestataire (fichier JSON).<br>
-      <em style="color:var(--text-3)">☁️ Toutes vos données sont synchronisées automatiquement dans le Google Sheet.</em>
+      ① Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong><br>
+      ② Remplissez les lignes de dépenses avec justificatifs (glisser-déposer ou cliquer)<br>
+      ③ Enregistrez en <strong>💾 Brouillon</strong> (modifiable) ou <strong>📨 Prêt à envoyer</strong><br>
+      ④ Tant que la NDF n'est pas envoyée, vous pouvez la modifier ou la supprimer 🗑<br><br>
+      <strong style="color:var(--text-1)">2. Envoyer à la direction :</strong><br>
+      ① Quand votre NDF est prête, cliquez le bouton <strong>✉️ Envoyer</strong> dans le tableau<br>
+      ② Les justificatifs sont sauvegardés sur le Drive et la NDF est transmise à la direction<br>
+      ③ <em style="color:var(--red)">⚠️ Une fois envoyée, la NDF ne peut plus être modifiée ni supprimée</em><br><br>
+      <strong style="color:var(--text-1)">3. Suivi des statuts :</strong><br>
+      📝 Brouillon → 📨 À envoyer → ✉️ Envoyée → ✅ Validée → 💸 Réglée<br>
+      Les retours de la direction (validation, règlement) se mettent à jour <strong>automatiquement</strong> à chaque ouverture.<br>
+      Vous pouvez aussi cliquer <strong>☁️</strong> pour forcer le rafraîchissement.<br><br>
+      <strong style="color:var(--text-1)">4. NDF prestataires :</strong><br>
+      Cliquez <strong>📥 NDF presta</strong> pour importer une NDF envoyée par un facilitateur (fichier JSON).
     </div>
   </div>`;
 
@@ -590,7 +597,7 @@ async function envoyerNDF(id){
   alert("✅ NDF "+n.ref+" envoyée !\n"+n.lines.filter(l=>l.driveUrl).length+" justificatif(s) sauvegardés sur le Drive.");
 }
 
-async function supprimerNDF(id){
+function supprimerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
   if(n.status!=="brouillon"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
   if(!confirm("Supprimer la NDF "+n.ref+" ?"))return;
