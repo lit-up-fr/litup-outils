@@ -158,9 +158,6 @@ async function syncFromSheet(){
         save();render();
         console.log("Cloud sync: "+added+" imported, "+updated+" updated (from "+myNdfs.length+" NDF matching "+D.salarie+")");
       }
-      // Update ndfCounter from ALL NDF in Sheet (not just mine) to avoid ref conflicts
-      const globalMax=res.ndfs.reduce((mx,n)=>{const m=(n.ref||"").match(/N2026-(\d+)/);return m?Math.max(mx,parseInt(m[1])):mx},0);
-      if(globalMax>=D.ndfCounter){D.ndfCounter=globalMax+1;save();console.log("Counter updated to: "+D.ndfCounter)}
     }
     setSyncStatus("☁️");
   }catch(e){console.warn("Sync from sheet error:",e);setSyncStatus("⚠️")}
@@ -349,12 +346,13 @@ function render(){
 // ─── NEW NDF / IK ───
 let _lineIdx=0;
 function showNewNDF(){
-  D.ndfCounter=(D.ndfCounter||0)+1;
-  const ref="N2026-"+String(D.ndfCounter).padStart(3,"0");
+  const nom=(D.salarie||"").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"")||"X";
   const today=new Date().toISOString().split("T")[0];
+  const dc=today.replace(/-/g,"");
+  const ref="NDF-"+nom+"-"+dc;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
-    <h3>📝 Nouvelle NDF — ${ref}</h3>
-    <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>N° NDF</label><input class="inp" id="ndf_ref" value="${ref}" style="font-family:var(--mono)"></div>
+    <h3>📝 Nouvelle NDF</h3>
+    <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>Réf. provisoire</label><input class="inp" id="ndf_ref" value="${ref}" style="font-family:var(--mono)" readonly></div>
       <div class="form-row"><label>Date</label><input class="inp" id="ndf_date" type="date" value="${today}"></div></div>
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
@@ -364,12 +362,13 @@ function showNewNDF(){
   window._ndfEditLines=[];window._ndfEditExisting=null;addNdfLine();
 }
 function showNewIK(){
-  D.ndfCounter=(D.ndfCounter||0)+1;
-  const ref="N2026-"+String(D.ndfCounter).padStart(3,"0")+"-IK";
+  const nom=(D.salarie||"").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"")||"X";
   const today=new Date().toISOString().split("T")[0];
+  const dc=today.replace(/-/g,"");
+  const ref="IK-"+nom+"-"+dc;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
-    <h3>🚗 Indemnité KM — ${ref}</h3>
-    <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>N° NDF</label><input class="inp" id="ndf_ref" value="${ref}" style="font-family:var(--mono)"></div>
+    <h3>🚗 Indemnité KM</h3>
+    <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>Réf. provisoire</label><input class="inp" id="ndf_ref" value="${ref}" style="font-family:var(--mono)" readonly></div>
       <div class="form-row"><label>Date</label><input class="inp" id="ndf_date" type="date" value="${today}"></div></div>
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b by" onclick="addIkLine()">🚗 + Trajet</button><button class="b bd" onclick="addNdfLine()">+ Dépense</button></div>

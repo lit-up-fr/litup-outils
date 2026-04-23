@@ -245,7 +245,7 @@ function render(){
         <td style="text-align:center">${n.lines.length}</td>
         <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(montant)}</td>
         <td style="text-align:center">${fc?`📎 ${fc}`:""}</td>
-        <td><select class="inp" style="font-size:11px;padding:4px 6px;width:auto;min-width:120px;color:${st.c};font-weight:600;border-color:${st.c}44" onchange="D.ndfs[${ni}].status=this.value;D.ndfs[${ni}].statusDate=new Date().toISOString().split('T')[0];save();render()">
+        <td><select class="inp" style="font-size:11px;padding:4px 6px;width:auto;min-width:120px;color:${st.c};font-weight:600;border-color:${st.c}44" onchange="changeStatus(${ni},this.value)">
           ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
         </select></td>
         <td style="font-size:11px">${n.status==="réglée"?`<input class="inp" type="date" value="${n.paymentDate||n.statusDate||""}" style="font-size:11px;padding:3px 6px;width:auto" onchange="D.ndfs[${ni}].paymentDate=this.value;save()">`:n.statusDate?`<span style="color:var(--text-3)">${n.statusDate}</span>`:""}</td>
@@ -265,7 +265,7 @@ function viewDetail(ni){
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <h3 style="margin:0">👁 ${n.ref} — ${n.salarie||n.source||"?"}${n.isPresta?' <span style="font-size:11px;color:var(--amber)">presta</span>':""}</h3>
-      <select class="inp" style="font-size:11px;width:auto;min-width:130px;color:${st.c};font-weight:600" onchange="D.ndfs[${ni}].status=this.value;D.ndfs[${ni}].statusDate=new Date().toISOString().split('T')[0];save();viewDetail(${ni})">
+      <select class="inp" style="font-size:11px;width:auto;min-width:130px;color:${st.c};font-weight:600" onchange="changeStatusDetail(${ni},this.value)">
         ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
       </select>
     </div>
@@ -300,6 +300,35 @@ function viewDetail(ni){
 }
 
 function showImg(name,dataUrl){const d=document.createElement("div");d.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:900px;text-align:center"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">📎 ${name}</h3><div style="display:flex;gap:6px"><a href="${dataUrl}" download="${name}" class="b b-g" style="text-decoration:none">⬇️</a><button class="b b-d" onclick="this.closest('.modal-bg').remove()">✕</button></div></div><img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px;border:1px solid var(--border)"></div></div>`;document.body.appendChild(d.firstElementChild)}
+
+function getNextOfficialNumber(){
+  const allNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
+  return Math.max(0,...allNums)+1;
+}
+
+function changeStatus(ni,newStatus){
+  const n=D.ndfs[ni];if(!n)return;
+  const oldStatus=n.status;
+  
+  // If changing to "validée" and ref is not official yet → assign official number
+  if(newStatus==="validée"&&!n.ref.match(/^N2026-\d+/)){
+    const num=getNextOfficialNumber();
+    const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
+    const dt=(n.date||new Date().toISOString().split("T")[0]).replace(/-/g,"");
+    const oldRef=n.ref;
+    n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
+    if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
+  }
+  
+  n.status=newStatus;
+  n.statusDate=new Date().toISOString().split("T")[0];
+  save();render();
+}
+
+function changeStatusDetail(ni,newStatus){
+  changeStatus(ni,newStatus);
+  if(D.ndfs[ni])viewDetail(ni);
+}
 
 function handleImportNDF(inp){
   if(!inp.files||!inp.files.length)return;
