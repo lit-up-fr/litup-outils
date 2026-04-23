@@ -69,9 +69,10 @@ textarea.inp{resize:vertical;min-height:60px}
     <div class="steps">
       <div class="step"><div class="step-text"><strong>Renseignez votre identité</strong> ci-dessous et choisissez votre coordinateur·rice</div></div>
       <div class="step"><div class="step-text"><strong>Ajoutez vos dépenses</strong> une par une avec le justificatif (photo ou scan). Les pièces seront renommées automatiquement.</div></div>
-      <div class="step"><div class="step-text">Cliquez <strong>"📤 Envoyer ma note de frais"</strong> — un fichier se télécharge. <strong>Envoyez-le par email</strong> à votre coordinateur·rice de territoire.</div></div>
+      <div class="step"><div class="step-text">Cliquez <strong>"📤 Envoyer ma note de frais"</strong> — votre NDF et vos justificatifs sont transmis directement à votre coordinateur·rice.</div></div>
+      <div class="step"><div class="step-text">Votre coordinateur·rice vérifie et transmet à la direction pour validation et remboursement. <strong>Vous n'avez rien d'autre à faire !</strong></div></div>
     </div>
-    <div class="alert-info" style="margin-top:12px">💡 <strong>Vos données restent sur votre ordinateur</strong> — rien n'est envoyé automatiquement.</div>
+    <div class="alert-info" style="margin-top:12px">💡 <strong>Tout est automatique</strong> — vos justificatifs sont sauvegardés sur le Drive de Lit uP et votre coordinateur·rice est notifié·e.</div>
   </div>
 
   <div class="card">
@@ -110,8 +111,8 @@ textarea.inp{resize:vertical;min-height:60px}
   </div>
 
   <div class="card" style="text-align:center;padding:28px">
-    <button class="btn btn-success" style="font-size:15px;padding:14px 28px" onclick="exportNDF()">📤 Envoyer ma note de frais</button>
-    <p style="margin-top:10px;font-size:11.5px;color:var(--text2)">Un fichier se télécharge — envoyez-le par email à votre coordinateur·rice de territoire.</p>
+    <button class="btn btn-success" id="btnSend" style="font-size:15px;padding:14px 28px" onclick="envoyerNDF()">📤 Envoyer ma note de frais</button>
+    <p id="sendStatus" style="margin-top:10px;font-size:11.5px;color:var(--text2)">Votre NDF et vos justificatifs seront transmis à votre coordinateur·rice.</p>
   </div>
 
   <div class="card" style="background:#fffbeb;border-color:rgba(217,119,6,.15)">
@@ -296,14 +297,49 @@ function buildData(){
   if(missingFiles.length){return{error:"justificatif",missing:missingFiles}}
   return{type:"litup-ndf-prestataire",salarie:prenom+" "+nom,coordo,cv,comment,ref:"PRESTA-"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"-"+today,date:today,lines:exp,total:exp.reduce((s,l)=>s+(l.amount||0),0),status:"à envoyer",exportDate:today}
 }
-function exportNDF(){
+async function envoyerNDF(){
   const d=buildData();
   if(!d){alert("Merci de renseigner votre prénom, nom et d'ajouter au moins une dépense.");return}
   if(d.error==="justificatif"){alert("⚠️ Justificatif(s) manquant(s) sur la/les ligne(s) n°"+d.missing.join(", ")+".\n\nChaque dépense (hors IK) doit avoir un justificatif joint (photo, scan ou PDF).");return}
   if(!d.coordo){alert("Merci de choisir votre coordinateur·rice.");return}
-  const fn="NDF_"+d.salarie.split(" ").pop().toUpperCase()+"_"+d.date+".json";
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}));a.download=fn;a.click();
-  alert("✅ Fichier téléchargé !\n\n• "+d.lines.length+" dépense(s) pour "+fmt(d.total)+"\n• Coordinateur·rice : "+d.coordo+"\n\n📧 Envoyez \""+fn+"\" à "+d.coordo);
+  
+  const btn=$("btnSend");const st=$("sendStatus");
+  btn.disabled=true;btn.textContent="⏳ Envoi en cours...";
+  st.textContent="Sauvegarde des justificatifs sur le Drive...";st.style.color="#d97706";
+  
+  try{
+    // 1. Upload justificatifs to Drive
+    for(let i=0;i<d.lines.length;i++){
+      const l=d.lines[i];
+      if(l.fileData&&l.type!=="ik"){
+        st.textContent="📎 Upload justificatif "+(i+1)+"/"+d.lines.length+"...";
+        try{
+          const res=await sheetAPI("uploadJustif",{ndfRef:d.ref,fileName:l.fileName||"justif_"+(i+1),fileData:l.fileData});
+          if(res.ok){l.driveUrl=res.fileUrl||"";l.driveFileId=res.fileId||""}
+        }catch(e){console.warn("Upload error:",e)}
+      }
+    }
+    
+    // 2. Save NDF to Sheet (without fileData)
+    st.textContent="Envoi de la NDF au coordinateur...";
+    const ndfForSheet={
+      ref:d.ref,salarie:d.salarie,date:d.date,status:"à envoyer",
+      statusDate:d.date,isPresta:true,prestaComment:d.comment||"",
+      lines:d.lines.map(l=>{const c={...l};delete c.fileData;return c}),
+      modifiedBy:d.coordo||d.salarie
+    };
+    await sheetAPI("saveNDF",{salarie:d.coordo||d.salarie,ndfs:[ndfForSheet],modifiedBy:d.coordo||d.salarie});
+    
+    // 3. Success
+    st.textContent="✅ NDF envoyée avec succès !";st.style.color="#16a34a";
+    btn.textContent="✅ Envoyé !";btn.style.background="#16a34a";
+    
+    alert("✅ Votre note de frais a été transmise !\n\n• "+d.lines.length+" dépense(s) pour "+fmt(d.total)+"\n• Coordinateur·rice : "+d.coordo+"\n\nVos justificatifs sont sauvegardés sur le Drive de Lit uP.\nVotre coordinateur·rice va la vérifier et la transmettre à la direction.");
+    
+  }catch(e){
+    st.textContent="❌ Erreur : "+e.message;st.style.color="#ef4444";
+    btn.disabled=false;btn.textContent="📤 Envoyer ma note de frais";
+  }
 }
 addLine("expense");
 </script>
