@@ -127,7 +127,8 @@ async function syncFromSheet(){
       const myNdfs=res.ndfs.filter(sn=>{
         const s=(sn.salarie||"").toLowerCase();
         const m=(sn.modifiedBy||"").toLowerCase();
-        return s===sal||m===sal;
+        const c=(sn.coordo||"").toLowerCase();
+        return s===sal||m===sal||c===sal;
       });
       let updated=0,added=0;
       myNdfs.forEach(sn=>{
@@ -148,6 +149,7 @@ async function syncFromSheet(){
             statusDate:sn.statusDate||"",
             paymentDate:sn.paymentDate||"",
             salarie:sn.salarie||D.salarie,
+            coordo:sn.coordo||"",
             isPresta:sn.isPresta===true||sn.isPresta==="TRUE",
             prestaComment:sn.comment||""
           });

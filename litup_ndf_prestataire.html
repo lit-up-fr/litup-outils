@@ -325,10 +325,11 @@ async function envoyerNDF(){
     const ndfForSheet={
       ref:d.ref,salarie:d.salarie,date:d.date,status:"à envoyer",
       statusDate:d.date,isPresta:true,prestaComment:d.comment||"",
+      coordo:d.coordo||"",
       lines:d.lines.map(l=>{const c={...l};delete c.fileData;return c}),
       modifiedBy:d.coordo||d.salarie
     };
-    await sheetAPI("saveNDF",{salarie:d.coordo||d.salarie,ndfs:[ndfForSheet],modifiedBy:d.coordo||d.salarie});
+    await sheetAPI("saveNDF",{salarie:d.coordo||d.salarie,ndfs:[ndfForSheet],modifiedBy:d.coordo||d.salarie,coordo:d.coordo||""});
     
     // 3. Success
     st.textContent="✅ NDF envoyée avec succès !";st.style.color="#16a34a";

@@ -66,6 +66,16 @@ const STATUTS=["brouillon","à envoyer","envoyée","validée","réglée"];
 const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
 const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
+const EXPENSE_TYPES=[
+  {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
+  {l:"Fournitures administratives",c:"60640000 - Fournitures administratives"},
+  {l:"Maintenance informatique",c:"61560000 - Maintenance"},
+  {l:"Documentation",c:"61810000 - Documentation"},
+  {l:"Voyages et déplacements",c:"62510000 - Voyages et déplacements"},
+  {l:"Missions (séjours, séminaires)",c:"62560000 - Missions / Séjours / Séminaires"},
+  {l:"Alimentation",c:"62570000 - Réceptions"},
+  {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
+function expTypeOptions(current){return'<option value="">—</option>'+EXPENSE_TYPES.map(t=>`<option value="${t.c}"${t.c===current?" selected":""}>${t.l}</option>`).join("")}
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 async function loadCodesFromSheet(){
   try{
@@ -285,16 +295,26 @@ function viewDetail(ni){
       <td style="font-size:11px">${l.desc||"—"}${ik?` <span style="color:var(--text-3);font-size:10px">(${l.km||0} km, ${l.cv||5} CV)</span>`:""}</td>
       <td style="font-size:11px;color:var(--text-2)">${l.four||""}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red);font-size:11px">${fmt(l.amount)}</td>
-      <td style="font-size:10px;color:var(--text-2);max-width:140px;overflow:hidden;text-overflow:ellipsis">${l.expType&&!l.expType.startsWith("_")?l.expType:l.expType==="_autre"?"Autre":l.expType==="_inconnu"?"?":"—"}</td>
+      <td style="font-size:10px;max-width:140px"><select class="inp" style="font-size:10px;padding:2px 4px;min-width:100px" onchange="D.ndfs[${ni}].lines[${i}].expType=this.value;save()">${expTypeOptions(l.expType)}</select></td>
       <td style="font-size:10px;max-width:140px"><select class="inp" style="font-size:10px;padding:2px 4px;min-width:120px" onchange="D.ndfs[${ni}].lines[${i}].code=this.value;save()">${codeOptions(l.code)}</select></td>
       <td style="font-size:10px">`;
-    if(l.driveUrl)h+=`<a href="${l.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline">📎 ${l.fileName||"Voir"}</a>`;
-    else if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a>`;
-    else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a>`}
-    else if(l.fileName)h+=`<span style="color:var(--text-3)">📄 ${l.fileName}</span>`;
+    if(l.driveUrl)h+=`<a href="${l.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline">📎 ${l.fileName||"Voir"}</a> `;
+    else if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a> `;
+    else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a> `}
+    else if(l.fileName)h+=`<span style="color:var(--text-3)">📄 ${l.fileName}</span> `;
+    h+=`<label style="cursor:pointer;font-size:9px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--text-3)" title="Ajouter/remplacer le justificatif">📤<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadPJ(${ni},${i},this)"></label>`;
     h+=`</td></tr>`;
   });
   h+=`<tr style="border-top:2px solid var(--border);font-weight:700"><td></td><td></td><td></td><td></td><td>TOTAL</td><td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(total)}</td><td></td><td></td><td></td></tr></tbody></table></div>`;
+  // Admin: edit ref
+  h+=`<div style="margin-top:12px;padding:10px 14px;background:var(--card-alt);border-radius:8px;border:1px solid var(--border)">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:11px;font-weight:600;color:var(--text-3)">Réf :</label>
+      <input class="inp" id="editRef_${ni}" value="${n.ref}" style="font-size:11px;width:280px;font-family:var(--mono);padding:4px 8px">
+      <button class="b b-p" style="font-size:10px;padding:4px 10px" onclick="updateRef(${ni})">💾 Renommer</button>
+      <button class="b b-v" style="font-size:10px;padding:4px 10px" onclick="resyncNDF(${ni})">☁️ Re-sauvegarder au Sheet</button>
+    </div>
+  </div>`;
   h+=`<div style="display:flex;gap:6px;margin-top:16px;justify-content:flex-end"><button class="b b-d" onclick="closeM()">Fermer</button></div></div></div>`;
   $("modalC").innerHTML=h;
 }
@@ -304,6 +324,61 @@ function showImg(name,dataUrl){const d=document.createElement("div");d.innerHTML
 function getNextOfficialNumber(){
   const allNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
   return Math.max(0,...allNums)+1;
+}
+
+function updateRef(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const newRef=document.getElementById("editRef_"+ni)?.value?.trim();
+  if(!newRef){alert("Réf vide");return}
+  if(newRef===n.ref)return;
+  const oldRef=n.ref;
+  n.ref=newRef;
+  save();render();
+  alert("Réf modifiée : "+oldRef+" → "+newRef);
+}
+
+async function resyncNDF(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const btn=event.target;btn.disabled=true;btn.textContent="⏳";
+  try{
+    const ndfForSheet={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+    await sheetAPI("saveNDF",{salarie:n.salarie||n.source||"",ndfs:[ndfForSheet],modifiedBy:D.director||"Direction",coordo:n.coordo||""});
+    btn.textContent="✅";setTimeout(()=>{btn.textContent="☁️ Re-sauvegarder au Sheet";btn.disabled=false},2000);
+  }catch(e){btn.textContent="❌";setTimeout(()=>{btn.textContent="☁️ Re-sauvegarder au Sheet";btn.disabled=false},2000)}
+}
+
+async function uploadPJ(ni,li,inp){
+  if(!inp.files||!inp.files.length)return;
+  const n=D.ndfs[ni];if(!n)return;
+  const l=n.lines[li];if(!l)return;
+  const f=inp.files[0];
+  const label=inp.parentElement;
+  label.textContent="⏳";
+  
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    const fileData=ev.target.result;
+    const ext=f.name.includes(".")?f.name.split(".").pop():"pdf";
+    const fournisseur=(l.four||"").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20)||"JUSTIF";
+    const nomFichier=n.ref+"_"+String(li+1).padStart(2,"0")+"_"+fournisseur+"."+ext;
+    
+    try{
+      const res=await sheetAPI("uploadJustif",{ndfRef:n.ref,fileName:nomFichier,fileData:fileData});
+      if(res.ok){
+        l.driveUrl=res.fileUrl||"";
+        l.driveFileId=res.fileId||"";
+        l.fileName=nomFichier;
+        l.fileType=f.type;
+        save();
+        label.innerHTML='✅';
+        setTimeout(()=>viewDetail(ni),1000);
+      }else{label.innerHTML='❌'}
+    }catch(e){
+      console.warn("Upload PJ error:",e);
+      label.innerHTML='❌';
+    }
+  };
+  rd.readAsDataURL(f);
 }
 
 function changeStatus(ni,newStatus){
