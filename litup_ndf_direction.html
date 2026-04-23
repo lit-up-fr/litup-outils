@@ -75,7 +75,12 @@ const EXPENSE_TYPES=[
   {l:"Missions (séjours, séminaires)",c:"62560000 - Missions / Séjours / Séminaires"},
   {l:"Alimentation",c:"62570000 - Réceptions"},
   {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
-function expTypeOptions(current){return'<option value="">—</option>'+EXPENSE_TYPES.map(t=>`<option value="${t.c}"${t.c===current?" selected":""}>${t.l}</option>`).join("")}
+function expTypeOptions(current){
+  let found=false;
+  const opts=EXPENSE_TYPES.map(t=>{const s=t.c===current||(current&&t.c&&t.c.trim()===current.trim());if(s)found=true;return`<option value="${t.c}"${s?" selected":""}>${t.l}</option>`}).join("");
+  const extra=current&&!found&&!current.startsWith("_")?`<option value="${current}" selected>${current}</option>`:"";
+  return'<option value="">—</option>'+opts+extra;
+}
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 async function loadCodesFromSheet(){
   try{
@@ -91,9 +96,15 @@ async function loadCodesFromSheet(){
 }
 function codeOptions(current){
   const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  return'<option value="">—</option><option value="_inconnu">?</option>'+
-    '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")+'</optgroup>'+
-    '<optgroup label="Parcours">'+autres.map(c=>`<option${c===current?" selected":""}>${c}</option>`).join("")+'</optgroup>'
+  const isSel=(c,cur)=>c===cur||(cur&&c&&c.trim()===cur.trim());
+  let found=false;
+  const fixOpts=CODES_FIXES.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const autreOpts=autres.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  // If current value not found in list, add it as-is
+  const extra=current&&!found&&current!=="_inconnu"&&current!=="_absent"?`<option selected>${current}</option>`:"";
+  return'<option value="">—</option><option value="_inconnu"'+(current==="_inconnu"?' selected':'')+'>?</option>'+
+    '<optgroup label="Transversal">'+fixOpts+'</optgroup>'+
+    '<optgroup label="Parcours">'+autreOpts+extra+'</optgroup>'
 }
 let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
 function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
@@ -465,7 +476,10 @@ function exportCompta(){
 }
 
 initDirector();
-if(D.director){render();loadFromSheet();loadCodesFromSheet()}
+if(D.director){
+  // Load codes first, then render and sync
+  loadCodesFromSheet().then(()=>{render();loadFromSheet()});
+}
 </script>
 </body>
 </html>

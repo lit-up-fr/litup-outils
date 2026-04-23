@@ -763,7 +763,7 @@ function handleRestore(inp){
     document.body.appendChild(warn);
   }
 }catch(e){}})();
-initSalarie();if(D.salarie){render();syncFromSheet();loadCodesFromSheet()}
+initSalarie();if(D.salarie){loadCodesFromSheet().then(()=>{render();syncFromSheet()})}
 </script>
 </body>
 </html>
