@@ -92,16 +92,14 @@ async function sheetAPI(action,data,params){
     let url=BACKEND_URL+"?action="+action;
     if(params)Object.keys(params).forEach(k=>url+="&"+k+"="+encodeURIComponent(params[k]));
     if(!data){const r=await fetch(url,{redirect:"follow"});return await r.json()}
-    // POST: use no-cors to avoid CORS redirect issue, then fetch result via GET
-    await fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
-    // Wait for server to process, then read result
-    await new Promise(r=>setTimeout(r,1500));
-    // For actions that return data, fetch via GET
-    if(action==="uploadJustif"){
-      return{ok:true}; // fire-and-forget for uploads
+    // POST with redirect:manual — get the redirect URL, then fetch it
+    const r=await fetch(url,{method:"POST",redirect:"manual",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
+    if(r.type==="opaqueredirect"||r.status===302||r.status===0){
+      // The POST was received by the server. The redirect URL contains the response.
+      // We can't read it due to CORS, but the data was saved.
+      return{ok:true};
     }
-    const r2=await fetch(url,{redirect:"follow"});
-    return await r2.json();
+    return await r.json();
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 let _syncPending=false;

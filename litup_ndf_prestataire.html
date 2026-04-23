@@ -131,9 +131,9 @@ async function sheetAPI(action,body,params){
     let u=BACKEND_URL+"?action="+action;
     if(params)for(const[k,v]of Object.entries(params))u+="&"+k+"="+encodeURIComponent(v);
     if(!body){const r=await fetch(u,{redirect:"follow"});return r.json()}
-    await fetch(u,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)});
-    await new Promise(r=>setTimeout(r,1500));
-    return{ok:true};
+    const r=await fetch(u,{method:"POST",redirect:"manual",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)});
+    if(r.type==="opaqueredirect"||r.status===302||r.status===0){return{ok:true}}
+    return await r.json();
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 

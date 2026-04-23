@@ -96,9 +96,9 @@ async function sheetAPI(action,data,params){
     let url=BACKEND_URL+"?action="+action;
     if(params)Object.keys(params).forEach(k=>url+="&"+k+"="+encodeURIComponent(params[k]));
     if(!data){const r=await fetch(url,{redirect:"follow"});return await r.json()}
-    await fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
-    await new Promise(r=>setTimeout(r,1500));
-    return{ok:true};
+    const r=await fetch(url,{method:"POST",redirect:"manual",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
+    if(r.type==="opaqueredirect"||r.status===302||r.status===0){return{ok:true}}
+    return await r.json();
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
