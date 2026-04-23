@@ -152,12 +152,12 @@ async function syncFromSheet(){
         }
       });
       if(updated||added){
-        // Update ndfCounter to avoid ref conflicts
-        const maxNum=D.ndfs.reduce((mx,n)=>{const m=n.ref.match(/N2026-(\d+)/);return m?Math.max(mx,parseInt(m[1])):mx},0);
-        if(maxNum>=D.ndfCounter)D.ndfCounter=maxNum+1;
         save();render();
         console.log("Cloud sync: "+added+" imported, "+updated+" updated (from "+myNdfs.length+" NDF matching "+D.salarie+")");
       }
+      // Update ndfCounter from ALL NDF in Sheet (not just mine) to avoid ref conflicts
+      const globalMax=res.ndfs.reduce((mx,n)=>{const m=(n.ref||"").match(/N2026-(\d+)/);return m?Math.max(mx,parseInt(m[1])):mx},0);
+      if(globalMax>=D.ndfCounter){D.ndfCounter=globalMax+1;save();console.log("Counter updated to: "+D.ndfCounter)}
     }
     setSyncStatus("☁️");
   }catch(e){console.warn("Sync from sheet error:",e);setSyncStatus("⚠️")}
