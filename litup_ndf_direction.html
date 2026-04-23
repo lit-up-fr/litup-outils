@@ -131,13 +131,19 @@ async function loadFromSheet(){
         const ex=D.ndfs.find(n=>n.ref===sn.ref);
         if(!ex){
           D.ndfs.push({ref:sn.ref,salarie:sn.salarie,source:sn.salarie,date:sn.date,status:sn.status||"envoyée",
-            statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE"});
+            statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE",coordo:sn.coordo||""});
           added++;
         } else {
-          if((!ex.lines||!ex.lines.length)&&sn.lines&&sn.lines.length)ex.lines=sn.lines;
+          // Always update lines from Sheet (source of truth after resync)
+          if(sn.lines&&sn.lines.length)ex.lines=sn.lines;
+          if(sn.status)ex.status=sn.status;
+          if(sn.statusDate)ex.statusDate=sn.statusDate;
+          if(sn.paymentDate)ex.paymentDate=sn.paymentDate;
+          if(sn.coordo)ex.coordo=sn.coordo;
         }
       });
-      if(added){save();render();console.log("Loaded "+added+" NDF from Sheet")}
+      save();render();
+      if(added)console.log("Loaded "+added+" NDF from Sheet");
     }
     setSyncStatus("☁️");
   }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️")}
