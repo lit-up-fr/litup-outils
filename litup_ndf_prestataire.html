@@ -294,7 +294,7 @@ function buildData(){
       exp.push({type:"expense",date:$("dt_"+l.idx)?.value||today,desc:$("desc_"+l.idx)?.value||"",four:$("four_"+l.idx)?.value||"",amount:amt,code:lineCode,expType:$("exptype_"+l.idx)?.value||"",fileName:fn+"."+ext,fileData:m?._fd||"",fileType:m?._ft||"",nomenclature:fn})}});
   if(!exp.length)return null;
   if(missingFiles.length){return{error:"justificatif",missing:missingFiles}}
-  return{type:"litup-ndf-prestataire",salarie:prenom+" "+nom,coordo,cv,comment,ref:"PRESTA-"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"-"+today,date:today,lines:exp,total:exp.reduce((s,l)=>s+(l.amount||0),0),status:"à valider",exportDate:today}
+  return{type:"litup-ndf-prestataire",salarie:prenom+" "+nom,coordo,cv,comment,ref:"PRESTA-"+nom.toUpperCase().replace(/[^A-Z]/g,"")+"-"+today,date:today,lines:exp,total:exp.reduce((s,l)=>s+(l.amount||0),0),status:"à envoyer",exportDate:today}
 }
 function exportNDF(){
   const d=buildData();

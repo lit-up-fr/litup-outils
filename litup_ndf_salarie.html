@@ -41,7 +41,7 @@ th{background:var(--card-alt);padding:9px 10px;text-align:left;border-bottom:2px
 td{padding:8px 10px;border-bottom:1px solid #f0f2f5;vertical-align:middle}
 tr:hover{background:rgba(91,99,224,.02)}
 .badge{display:inline-flex;padding:4px 10px;border-radius:12px;font-size:10.5px;font-weight:600}
-.badge-draft{background:#f0f2f5;color:var(--text-3)}.badge-wait{background:var(--amber-bg);color:var(--amber)}.badge-ok{background:var(--green-bg);color:var(--green)}.badge-paid{background:var(--accent-bg);color:var(--accent)}
+.badge-draft{background:#f0f2f5;color:var(--text-3)}.badge-wait{background:var(--amber-bg);color:var(--amber)}.badge-sent{background:#dbeafe;color:#2563eb}.badge-ok{background:var(--green-bg);color:var(--green)}.badge-paid{background:var(--accent-bg);color:var(--accent)}
 .ik-preview{background:var(--card-alt);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px}
 .ik-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--amber)}
 .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -141,7 +141,7 @@ async function syncFromSheet(){
             ref:sn.ref,
             date:sn.date||"",
             lines:sn.lines||[],
-            status:sn.status||"à valider",
+            status:sn.status||"à envoyer",
             statusDate:sn.statusDate||"",
             paymentDate:sn.paymentDate||"",
             salarie:sn.salarie||D.salarie,
@@ -253,25 +253,51 @@ function render(){
   // Stats
   const totAmt=ndfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
   const totIK=ndfs.reduce((s,n)=>s+n.lines.filter(l=>l.type==="ik").reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const presta=ndfs.filter(n=>n.isPresta&&(n.status==="à valider"||n.status==="à valider"));
+  const presta=ndfs.filter(n=>n.isPresta&&(n.status==="brouillon"||n.status==="à envoyer"));
   const drafts=ndfs.filter(n=>n.status==="brouillon");
+  const aEnvoyer=ndfs.filter(n=>n.status==="à envoyer");
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(totAmt)}</div><div class="stat-l">Total déclaré</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--amber)">${fmt(totIK)}</div><div class="stat-l">Dont IK</div></div>
-    <div class="stat-card"><div class="stat-v">${ndfs.filter(n=>n.status==="à valider").length}</div><div class="stat-l">À valider</div></div>
+    <div class="stat-card"><div class="stat-v">${ndfs.filter(n=>n.status==="envoyée").length}</div><div class="stat-l">Envoyées</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--green)">${ndfs.filter(n=>n.status==="validée"||n.status==="réglée").length}</div><div class="stat-l">Validées/Réglées</div></div>
   </div>`;
   // Alerts
-  if(presta.length||drafts.length){
+  if(presta.length||drafts.length||aEnvoyer.length){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">`;
     if(presta.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--amber-bg);color:var(--amber)">📥 ${presta.length} NDF prestataire(s) à compléter</div>`;
     if(drafts.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--accent-bg);color:var(--accent)">📝 ${drafts.length} brouillon(s)</div>`;
+    if(aEnvoyer.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--green-bg);color:var(--green)">📨 ${aEnvoyer.length} NDF prête(s) à envoyer</div>`;
     h+=`</div>`;
   }
   if(!ndfs.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong></p></div>`;el.innerHTML=h;return}
-  h+=`<div style="overflow-x:auto"><table><thead><tr><th>N° NDF</th><th>Date</th><th>Lignes</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Statut</th><th>Justif.</th><th></th></tr></thead><tbody>`;
-  const statusEmoji={"brouillon":"📝","à valider":"📨","validée":"✅","réglée":"💸"};
-  const statusBadge={"brouillon":"badge-draft","à valider":"badge-wait","validée":"badge-ok","réglée":"badge-paid"};
+  // Sort
+  if(window._sortCol){
+    const col=window._sortCol,dir=window._sortDir||1;
+    ndfs.sort((a,b)=>{
+      let va,vb;
+      if(col==="ref"){va=a.ref||"";vb=b.ref||""}
+      else if(col==="date"){va=a.date||"";vb=b.date||""}
+      else if(col==="lines"){va=a.lines.length;vb=b.lines.length}
+      else if(col==="amount"){va=a.lines.reduce((s,l)=>s+(l.amount||0),0);vb=b.lines.reduce((s,l)=>s+(l.amount||0),0)}
+      else if(col==="code"){va=(a.lines[0]||{}).code||"";vb=(b.lines[0]||{}).code||""}
+      else if(col==="status"){va=a.status||"";vb=b.status||""}
+      else{va=0;vb=0}
+      if(typeof va==="string")return dir*va.localeCompare(vb,undefined,{numeric:true});
+      return dir*(va-vb);
+    });
+  }
+  const arrow=c=>window._sortCol===c?(window._sortDir===1?" ▲":" ▼"):"";
+  h+=`<div style="overflow-x:auto"><table><thead><tr>
+    <th style="cursor:pointer" onclick="toggleSort('ref')">N° NDF${arrow("ref")}</th>
+    <th style="cursor:pointer" onclick="toggleSort('date')">Date${arrow("date")}</th>
+    <th style="cursor:pointer" onclick="toggleSort('lines')">Lignes${arrow("lines")}</th>
+    <th style="cursor:pointer;text-align:right" onclick="toggleSort('amount')">Montant${arrow("amount")}</th>
+    <th style="cursor:pointer" onclick="toggleSort('code')">Code projet${arrow("code")}</th>
+    <th style="cursor:pointer" onclick="toggleSort('status')">Statut${arrow("status")}</th>
+    <th>Justif.</th><th></th></tr></thead><tbody>`;
+  const statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸"};
+  const statusBadge={"brouillon":"badge-draft","à envoyer":"badge-wait","envoyée":"badge-sent","validée":"badge-ok","réglée":"badge-paid"};
   ndfs.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
@@ -284,8 +310,8 @@ function render(){
       <td style="font-size:10px;color:var(--text-2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${codes.join(", ")||"—"}</td>
       <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${n.paymentDate||n.statusDate||"?"}</span>`:""}</td>
       <td style="text-align:center">${hasFiles?"📎":""}</td>
-      <td>${n.status==="réglée"||n.status==="validée"?"":
-        `<button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();if(confirm('Supprimer ?')){D.ndfs=D.ndfs.filter(x=>x.id!==${n.id});save();render()}">🗑</button>`}</td></tr>`;
+      <td style="white-space:nowrap">${n.status==="à envoyer"?`<button class="b bp" style="font-size:9px;padding:3px 8px" onclick="event.stopPropagation();envoyerNDF(${n.id})">✉️ Envoyer</button> `:""}${n.status==="brouillon"||n.status==="à envoyer"?
+        `<button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();supprimerNDF(${n.id})">🗑</button>`:""}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
   // Status update notification
@@ -324,7 +350,7 @@ function showNewNDF(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addNdfLine();
 }
@@ -339,7 +365,7 @@ function showNewIK(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b by" onclick="addIkLine()">🚗 + Trajet</button><button class="b bd" onclick="addNdfLine()">+ Dépense</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addIkLine();
 }
@@ -549,8 +575,33 @@ function saveNDF(status){
   if(existing){existing.date=date;existing.lines=lines;existing.status=status}
   else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie})}
   save();closeM();render();
-  // Upload justificatifs to Drive in background
-  lines.filter(l=>l.fileData&&!l.driveUrl).forEach((l,i)=>uploadJustifToDrive(ref,l,i+1));
+}
+
+async function envoyerNDF(id){
+  const n=D.ndfs.find(x=>x.id===id);if(!n)return;
+  if(!confirm("Envoyer cette NDF à la direction ?\nLes justificatifs seront sauvegardés sur le Drive."))return;
+  n.status="envoyée";n.statusDate=new Date().toISOString().split("T")[0];
+  save();render();
+  // Upload justificatifs to Drive
+  for(let i=0;i<n.lines.length;i++){
+    await uploadJustifToDrive(n.ref,n.lines[i],i+1);
+  }
+  save();
+  alert("✅ NDF "+n.ref+" envoyée !\n"+n.lines.filter(l=>l.driveUrl).length+" justificatif(s) sauvegardés sur le Drive.");
+}
+
+async function supprimerNDF(id){
+  const n=D.ndfs.find(x=>x.id===id);if(!n)return;
+  if(n.status!=="brouillon"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
+  if(!confirm("Supprimer la NDF "+n.ref+" ?"))return;
+  D.ndfs=D.ndfs.filter(x=>x.id!==id);
+  save();render();
+}
+
+function toggleSort(col){
+  if(window._sortCol===col)window._sortDir=(window._sortDir||1)*-1;
+  else{window._sortCol=col;window._sortDir=1}
+  render();
 }
 
 function editNDF(id){
@@ -562,7 +613,7 @@ function editNDF(id){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à valider')">✅ À valider</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];_lineIdx=0;
   n.lines.forEach(l=>{
@@ -593,7 +644,7 @@ async function calcDistance(idx){
 // ─── EXPORT / IMPORT ───
 function exportJSON(){
   const exportNdfs=D.ndfs.filter(n=>n.status!=="brouillon");
-  if(!exportNdfs.length){alert("Aucune NDF à valider. Passez vos brouillons au statut « à valider ».");return}
+  if(!exportNdfs.length){alert("Aucune NDF à envoyer. Passez vos brouillons au statut « à envoyer ».");return}
   const noCode=exportNdfs.flatMap(n=>n.lines).filter(l=>!l.code).length;
   if(noCode&&!confirm("⚠️ "+noCode+" ligne(s) sans code projet.\nExporter quand même ?"))return;
   const today=new Date();const dateStr=today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
@@ -640,7 +691,7 @@ function handleImportPresta(inp){
   if(!inp.files||!inp.files.length)return;
   Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
     if(d.type!=="litup-ndf-prestataire"){alert("Ce fichier n'est pas une NDF prestataire.");inp.value="";return}
-    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"à valider",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
+    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"à envoyer",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
     const ex=D.ndfs.find(n=>n.ref===ndf.ref);if(ex){if(!confirm(ndf.ref+" existe déjà. Écraser ?"))return;Object.assign(ex,ndf)}else D.ndfs.push(ndf);
     save();render();
     const total=ndf.lines.reduce((s,l)=>s+(l.amount||0),0);const noCode=ndf.lines.some(l=>!l.code);

@@ -62,8 +62,8 @@ tr:hover{background:rgba(91,99,224,.02)}
 <script>
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-const STATUTS=["brouillon","à valider","validée","réglée"];
-const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à valider":{e:"📨",c:"#d97706"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
+const STATUTS=["brouillon","à envoyer","envoyée","validée","réglée"];
+const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
 const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
@@ -120,7 +120,7 @@ async function loadFromSheet(){
       res.ndfs.forEach(sn=>{
         const ex=D.ndfs.find(n=>n.ref===sn.ref);
         if(!ex){
-          D.ndfs.push({ref:sn.ref,salarie:sn.salarie,source:sn.salarie,date:sn.date,status:sn.status||"à valider",
+          D.ndfs.push({ref:sn.ref,salarie:sn.salarie,source:sn.salarie,date:sn.date,status:sn.status||"envoyée",
             statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE"});
           added++;
         } else {
@@ -174,14 +174,14 @@ function render(){
   let ndfs=[...D.ndfs];
   // Filters
   if(filtStatus){
-    if(filtStatus==="à valider")ndfs=ndfs.filter(n=>n.status==="à valider");
+    if(filtStatus==="envoyée")ndfs=ndfs.filter(n=>n.status==="envoyée");
     else ndfs=ndfs.filter(n=>n.status===filtStatus);
   }
   if(filtSalarie)ndfs=ndfs.filter(n=>(n.source||n.salarie||"")=== filtSalarie);
   // Stats (on all data, not filtered)
   const allNdfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);allNdfs.forEach(n=>byS[n.status]=(byS[n.status]||0)+1);
   const tot=allNdfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const aValider=(byS["à valider"]||0);
+  const aValider=(byS["envoyée"]||0);
   // Director info
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <div><strong style="font-size:15px">${D.director||"Direction"}</strong> <span style="color:var(--text-3);font-size:11px">· ${allNdfs.length} NDF</span></div>
@@ -192,7 +192,7 @@ function render(){
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v">${allNdfs.length}</div><div class="stat-l">NDF totales</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(tot)}</div><div class="stat-l">Montant total</div></div>
-    <div class="stat-card" style="${cardStyle(filtStatus==="à valider")}" onclick="toggleStatusFilter('à valider')"><div class="stat-v" style="color:var(--amber)">${aValider}</div><div class="stat-l">À valider${filtStatus==="à valider"?" ✕":""}</div></div>
+    <div class="stat-card" style="${cardStyle(filtStatus==="envoyée")}" onclick="toggleStatusFilter('envoyée')"><div class="stat-v" style="color:var(--amber)">${aValider}</div><div class="stat-l">Envoyées${filtStatus==="envoyée"?" ✕":""}</div></div>
     <div class="stat-card" style="${cardStyle(filtStatus==="validée")}" onclick="toggleStatusFilter('validée')"><div class="stat-v" style="color:var(--green)">${byS["validée"]||0}</div><div class="stat-l">Validées${filtStatus==="validée"?" ✕":""}</div></div>
     <div class="stat-card" style="${cardStyle(filtStatus==="réglée")}" onclick="toggleStatusFilter('réglée')"><div class="stat-v" style="color:var(--violet)">${byS["réglée"]||0}</div><div class="stat-l">Réglées${filtStatus==="réglée"?" ✕":""}</div></div>
   </div>`;
