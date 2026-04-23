@@ -312,7 +312,7 @@ function viewDetail(ni){
       <label style="font-size:11px;font-weight:600;color:var(--text-3)">Réf :</label>
       <input class="inp" id="editRef_${ni}" value="${n.ref}" style="font-size:11px;width:280px;font-family:var(--mono);padding:4px 8px">
       <button class="b b-p" style="font-size:10px;padding:4px 10px" onclick="updateRef(${ni})">💾 Renommer</button>
-      <button class="b b-v" style="font-size:10px;padding:4px 10px" onclick="resyncNDF(${ni})">☁️ Re-sauvegarder au Sheet</button>
+      <button class="b b-v" style="font-size:10px;padding:4px 10px" onclick="resyncNDF(${ni})">☁️ Sauvegarder</button>
     </div>
   </div>`;
   h+=`<div style="display:flex;gap:6px;margin-top:16px;justify-content:flex-end"><button class="b b-d" onclick="closeM()">Fermer</button></div></div></div>`;
@@ -339,12 +339,16 @@ function updateRef(ni){
 
 async function resyncNDF(ni){
   const n=D.ndfs[ni];if(!n)return;
-  const btn=event.target;btn.disabled=true;btn.textContent="⏳";
+  const btn=event.target;btn.disabled=true;btn.textContent="⏳ Sauvegarde...";
   try{
     const ndfForSheet={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
     await sheetAPI("saveNDF",{salarie:n.salarie||n.source||"",ndfs:[ndfForSheet],modifiedBy:D.director||"Direction",coordo:n.coordo||""});
-    btn.textContent="✅";setTimeout(()=>{btn.textContent="☁️ Re-sauvegarder au Sheet";btn.disabled=false},2000);
-  }catch(e){btn.textContent="❌";setTimeout(()=>{btn.textContent="☁️ Re-sauvegarder au Sheet";btn.disabled=false},2000)}
+    btn.textContent="✅ Sauvegardé !";btn.style.color="var(--green)";
+    setTimeout(()=>{btn.textContent="☁️ Sauvegarder";btn.style.color="";btn.disabled=false},2000);
+  }catch(e){
+    btn.textContent="❌ Erreur";btn.style.color="var(--red)";
+    setTimeout(()=>{btn.textContent="☁️ Sauvegarder";btn.style.color="";btn.disabled=false},2000);
+  }
 }
 
 async function uploadPJ(ni,li,inp){
