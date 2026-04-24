@@ -124,9 +124,8 @@ async function syncFromSheet(){
       const sal=D.salarie.toLowerCase();
       const myNdfs=res.ndfs.filter(sn=>{
         const s=(sn.salarie||"").toLowerCase();
-        const m=(sn.modifiedBy||"").toLowerCase();
         const c=(sn.coordo||"").toLowerCase();
-        return s===sal||m===sal||c===sal;
+        return s===sal||c===sal;
       });
       let updated=0,added=0;
       myNdfs.forEach(sn=>{
@@ -308,8 +307,8 @@ function render(){
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
     const hasFiles=n.lines.some(l=>l.fileName||l.fileData);
-    h+=`<tr style="cursor:pointer${n.isPresta?";background:var(--amber-bg)":""}" onclick="editNDF(${n.id})">
-      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${n.isPresta?' <span style="font-size:9px;color:var(--amber)">presta</span>':""}</td>
+    h+=`<tr style="cursor:pointer${n.isPresta?";background:#fff7ed;border-left:3px solid var(--amber)":""}" onclick="editNDF(${n.id})">
+      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${n.isPresta?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:var(--amber);color:white;font-weight:600">👤 '+(n.salarie||"Prestataire")+'</span>':""}</td>
       <td style="font-size:11px;color:var(--text-2)">${n.date||""}</td>
       <td style="text-align:center">${n.lines.length}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(total)}</td>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lit uP · Dépenses Lit uP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--sans:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--bg:#f8f9fb;--card:#fff;--card-alt:#f3f4f6;--border:#e5e7eb;--shadow:0 1px 3px rgba(0,0,0,.06);--text-1:#1e293b;--text-2:#64748b;--text-3:#94a3b8;--accent:#6366f1;--accent-bg:#eef2ff;--red:#ef4444;--red-bg:#fef2f2;--green:#16a34a;--green-bg:#f0fdf4;--amber:#d97706;--amber-bg:#fffbeb;--blue:#2563eb;--blue-bg:#dbeafe}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--text-1);line-height:1.6;min-height:100vh}
+.top{background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:90}
+.top h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+.top h1 img{height:28px}
+.b{padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:.15s}
+.b:hover{background:var(--card-alt)}.bg{background:var(--green);color:#fff;border-color:var(--green)}.bg:hover{opacity:.9}
+.bp{background:var(--accent);color:#fff;border-color:var(--accent)}.bp:hover{opacity:.9}
+.br{background:var(--red-bg);color:var(--red);border-color:var(--red)}.by{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}
+.bd{background:var(--card-alt);color:var(--text-2);border-color:var(--border)}
+.inp{width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--sans);background:var(--card);color:var(--text-1);outline:none}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:600;padding:8px 6px;border-bottom:2px solid var(--border)}
+td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover{background:var(--accent-bg)}
+.stat-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.stat-card{flex:1;min-width:110px;padding:12px 16px;border-radius:12px;background:var(--card);border:1px solid var(--border);text-align:center}
+.stat-v{font-size:22px;font-weight:700;font-family:var(--mono)}.stat-l{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-top:2px}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:600}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--card);border-radius:16px;padding:20px 24px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form-row{display:flex;flex-direction:column;gap:3px}
+.form-row label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em}
+.empty{padding:40px 20px;text-align:center;color:var(--text-3)}
+.dz{border:2px dashed var(--border);border-radius:8px;padding:10px;text-align:center;font-size:10px;color:var(--text-3);cursor:pointer;transition:.2s}
+.dz:hover,.dz.over{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+#mainContent{max-width:1100px;margin:0 auto;padding:16px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1><img src="https://lit-up-fr.github.io/litup-outils/logo.png" alt="Lit uP" onerror="this.style.display='none'"> Dépenses Lit uP</h1>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    
+    <button class="b bp" onclick="showNewDepense()">+ Nouvelle dépense</button>
+    <button class="b bd" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px"></span>
+    <button class="b bd" onclick="showSettings()">⚙️</button>
+    <a href="index.html" class="b bd" style="text-decoration:none">🏠</a>
+  </div>
+</div>
+<div id="mainContent"><div class="empty">Chargement...</div></div>
+<div id="modalC"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+const DRIVE_FOLDER_ID="1P9uk7SdagTkv6nADAN5gUNnnl-w-lwxB"; // Dépenses Lit uP 2026
+
+
+
+// 84 codes comptables Costamagna (charges seulement pour les dépenses carte)
+const CODES_COMPTA=[
+"60630000 - Fournitures entretien et petit outillage","60630100 - Fournitures entretien formation pro","60640000 - Fournitures administratives",
+"61340100 - Location salle formation pro","61341000 - Locations Hyères","61342000 - Locations Paris","61343000 - Locations divers",
+"61500000 - Entretien et réparations","61560000 - Maintenance","61560100 - Maintenance formation pro",
+"61600000 - Primes d'assurance","61810000 - Documentation","61850000 - Frais colloques séminaires",
+"62141000 - Coach en orientation","62142000 - Intervenants pédagogiques","62142010 - Intervenants formation pro",
+"62260700 - Honoraires Qualiopi","62260800 - Honoraires administratif et comptable","62264000 - Honoraires commissaires aux comptes","62265000 - Honoraires cabinet Costamagna",
+"62300000 - Publicité, cadeaux, dons","62510000 - Voyages et déplacements","62510100 - Voyages déplacements formation pro",
+"62511000 - Voyages et déplacements IK","62511010 - Voyages IK formation pro",
+"62560000 - Missions / Séjours / Séminaires","62560100 - Missions / Séjours formation pro",
+"62571000 - Réceptions","62571010 - Réceptions formation pro","62572000 - Séjours",
+"62600000 - Frais postaux et télécom","62601000 - Frais poste formation pro","62700000 - Services bancaires","62810000 - Divers cotisations",
+"63130000 - Participation employeur formation pro","63330000 - Formations du personnel",
+"65800000 - Charges diverses gestion courante","68112000 - Dot. amort. immobilisations corporelles"
+];
+
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+let CODES_PROJETS=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
+
+// Try loading from litup_codes_dir too
+try{const c2=JSON.parse(localStorage.getItem("litup_codes_dir")||"null");if(c2&&c2.length>CODES_PROJETS.length)CODES_PROJETS=c2}catch(e){}
+
+async function sheetAPI(action,data,params){
+  try{
+    let url=BACKEND_URL+"?action="+action;
+    if(params)Object.keys(params).forEach(k=>url+="&"+k+"="+encodeURIComponent(params[k]));
+    if(!data){const r=await fetch(url,{redirect:"follow"});return await r.json()}
+    const r=await fetch(url,{method:"POST",redirect:"manual",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
+    if(r.type==="opaqueredirect"||r.status===302||r.status===0){return{ok:true}}
+    return await r.json();
+  }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
+}
+
+// Data
+let D=JSON.parse(localStorage.getItem("litup_carte")||"null")||{user:"",depenses:[]};
+function save(){try{localStorage.setItem("litup_carte",JSON.stringify(D))}catch(e){}}
+function closeM(){$("modalC").innerHTML=""}
+
+function comptaOptions(current){
+  let found=false;
+  const opts=CODES_COMPTA.map(c=>{const s=c===current;if(s)found=true;return`<option value="${c}"${s?" selected":""}>${c}</option>`}).join("");
+  const extra=current&&!found?`<option value="${current}" selected>${current}</option>`:"";
+  return'<option value="">— Code comptable —</option>'+opts+extra;
+}
+
+function projetOptions(current){
+  const autres=[...CODES_PROJETS].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  let found=false;
+  const fixOpts=CODES_FIXES.map(c=>{const s=c===current;if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const autreOpts=autres.map(c=>{const s=c===current;if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const extra=current&&!found?`<option selected>${current}</option>`:"";
+  return'<option value="">— Code projet —</option>'+
+    '<optgroup label="Transversal">'+fixOpts+'</optgroup>'+
+    '<optgroup label="Parcours">'+autreOpts+extra+'</optgroup>';
+}
+
+// ─── RENDER ───
+function render(){
+  const el=$("mainContent");
+  
+  const deps=[...D.depenses].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  
+  const totalAmt=deps.reduce((s,d)=>s+(d.amount||0),0);
+  const withPJ=deps.filter(d=>d.fileName||d.driveUrl).length;
+  
+  let h=`<div class="stat-row">
+    <div class="stat-card"><div class="stat-v">${deps.length}</div><div class="stat-l">Dépenses</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(totalAmt)}</div><div class="stat-l">Total</div></div>
+    <div class="stat-card"><div class="stat-v">${withPJ}</div><div class="stat-l">Justificatifs</div></div>
+    <div class="stat-card"><div class="stat-v">${deps.filter(d=>!d.code).length}</div><div class="stat-l">Sans code compta</div></div>
+  </div>`;
+  
+  if(!deps.length){h+=`<div class="empty"><h3>Aucune dépense enregistrée</h3><p>Cliquez <strong>+ Nouvelle dépense</strong> pour commencer</p></div>`;
+    h+=helpSection();el.innerHTML=h;return}
+  
+  h+=`<div style="overflow-x:auto"><table><thead><tr>
+    <th style="cursor:pointer" onclick="toggleSort('date')">Date${sortArrow('date')}</th>
+    <th style="cursor:pointer" onclick="toggleSort('mode')">Mode${sortArrow('mode')}</th>
+    <th style="cursor:pointer" onclick="toggleSort('four')">Fournisseur${sortArrow('four')}</th>
+    <th style="cursor:pointer" onclick="toggleSort('desc')">Description${sortArrow('desc')}</th>
+    <th style="cursor:pointer;text-align:right" onclick="toggleSort('amount')">Montant${sortArrow('amount')}</th>
+    <th style="cursor:pointer" onclick="toggleSort('code')">Code comptable${sortArrow('code')}</th>
+    <th style="cursor:pointer" onclick="toggleSort('projet')">Code projet${sortArrow('projet')}</th>
+    <th>PJ</th><th></th>
+  </tr></thead><tbody>`;
+  
+  deps.forEach((d,i)=>{
+    const idx=D.depenses.indexOf(d);
+    h+=`<tr>
+      <td style="font-family:var(--mono);font-size:10px;white-space:nowrap">${d.date||"—"}</td>
+      <td style="font-size:10px">${d.mode==="Carte bancaire"?"💳":d.mode==="Virement émis"?"↗️":d.mode==="Prélèvement"?"🔄":"📝"} ${(d.mode||"").split(" ")[0]||"—"}</td>
+      <td style="font-size:11px">${d.four||"—"}</td>
+      <td style="font-size:11px">${d.desc||"—"}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(d.amount)}</td>
+      <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${d.code||'<span style="color:var(--red)">⚠️ —</span>'}</td>
+      <td style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis">${d.projet||"—"}</td>
+      <td style="text-align:center">${d.driveUrl?`<a href="${d.driveUrl}" target="_blank" style="color:var(--accent)">📎</a>`:d.fileName?"📄":""}</td>
+      <td style="white-space:nowrap">
+        <button class="b bd" style="font-size:9px;padding:2px 6px" onclick="editDepense(${idx})">✏️</button>
+        <button class="b br" style="font-size:9px;padding:2px 6px" onclick="deleteDepense(${idx})">🗑</button>
+      </td>
+    </tr>`;
+  });
+  
+  h+=`<tr style="border-top:2px solid var(--border);font-weight:700"><td></td><td></td><td></td><td>TOTAL</td><td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(totalAmt)}</td><td></td><td></td><td></td><td></td></tr>`;
+  h+=`</tbody></table></div>`;
+  
+  h+=helpSection();
+  el.innerHTML=h;
+}
+
+function helpSection(){
+  return `<div style="margin-top:24px;padding:16px 18px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)">
+    <h3 style="font-size:14px;margin-bottom:10px;color:var(--text-1)">📖 Comment ça marche</h3>
+    <div style="font-size:12px;color:var(--text-2);line-height:1.8">
+      <strong style="color:var(--text-1)">1. Enregistrer une dépense :</strong><br>
+      ① Cliquez <strong>+ Nouvelle dépense</strong><br>
+      ② Renseignez la date, le mode de paiement (carte, virement, prélèvement), le fournisseur, le montant<br>
+      ③ Attribuez le code comptable et le code projet<br>
+      ④ Ajoutez le justificatif (glisser-déposer ou cliquer) — il sera sauvegardé sur le Drive<br>
+      ⑤ Cliquez <strong>💾 Enregistrer</strong><br><br>
+      <strong style="color:var(--text-1)">2. Les justificatifs :</strong><br>
+      Chaque PJ est renommée automatiquement et classée dans le dossier Drive "Dépenses Lit uP 2026".<br><br>
+      <strong style="color:var(--text-1)">3. Rapprochement bancaire :</strong><br>
+      Ces dépenses pourront être rapprochées avec le relevé bancaire dans l'outil <strong>Suivi Comptable</strong>.
+    </div>
+  </div>`;
+}
+
+// ─── SORT ───
+let _sortCol="date",_sortDir=1;
+function sortArrow(c){return _sortCol===c?(_sortDir===1?" ▲":" ▼"):""}
+function toggleSort(col){
+  if(_sortCol===col)_sortDir*=-1;
+  else{_sortCol=col;_sortDir=1}
+  // Sort D.depenses in place
+  D.depenses.sort((a,b)=>{
+    let va,vb;
+    if(col==="date"){va=a.date||"";vb=b.date||""}
+    else if(col==="code"){va=a.code||"";vb=b.code||""}
+    else if(col==="desc"){va=a.desc||"";vb=b.desc||""}
+    else if(col==="four"){va=a.four||"";vb=b.four||""}
+    else if(col==="mode"){va=a.mode||"";vb=b.mode||""}
+    else if(col==="amount"){return _sortDir*((a.amount||0)-(b.amount||0))}
+    else if(col==="projet"){va=a.projet||"";vb=b.projet||""}
+    else{va="";vb=""}
+    return _sortDir*va.localeCompare(vb,undefined,{numeric:true});
+  });
+  render();
+}
+
+// ─── NEW/EDIT ───
+let _editIdx=-1;
+function showNewDepense(){_editIdx=-1;showForm({})}
+function editDepense(idx){_editIdx=idx;showForm(D.depenses[idx]||{})}
+
+function showForm(d){
+  const today=new Date().toISOString().split("T")[0];
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+    <h3>${_editIdx>=0?"✏️ Modifier":"💰 Nouvelle dépense"}</h3>
+    <div class="form-grid" style="margin:14px 0">
+      <div class="form-row"><label>Date</label><input class="inp" id="d_date" type="date" value="${d.date||today}"></div>
+      <div class="form-row"><label>Montant (€)</label><input class="inp" id="d_amt" type="number" step="0.01" value="${d.amount||""}" placeholder="0.00"></div>
+      <div class="form-row"><label>Mode de paiement</label><select class="inp" id="d_mode">
+        <option value="Carte bancaire"${(d.mode||"")==="Carte bancaire"?" selected":""}>💳 Carte bancaire</option>
+        <option value="Virement émis"${(d.mode||"")==="Virement émis"?" selected":""}>↗️ Virement émis</option>
+        <option value="Prélèvement"${(d.mode||"")==="Prélèvement"?" selected":""}>🔄 Prélèvement</option>
+        <option value="Autre"${(d.mode||"")==="Autre"?" selected":""}>📝 Autre</option>
+      </select></div>
+      <div class="form-row"><label>Fournisseur</label><input class="inp" id="d_four" value="${d.four||""}" placeholder="Ex: Amazon, SNCF, MAIF..."></div>
+      <div class="form-row" style="grid-column:1/-1"><label>Code comptable</label><select class="inp" id="d_code">${comptaOptions(d.code)}</select></div>
+      <div class="form-row" style="grid-column:1/-1"><label>Description / Libellé</label><input class="inp" id="d_desc" value="${d.desc||""}" placeholder="Ex: Fournitures bureau, abonnement logiciel..."></div>
+      <div class="form-row" style="grid-column:1/-1"><label>Code projet</label><select class="inp" id="d_projet">${projetOptions(d.projet)}</select></div>
+    </div>
+    <div class="form-row" style="margin-bottom:14px">
+      <label>Justificatif</label>
+      <div class="dz" id="dz_pj" onclick="$('f_pj').click()"
+        ondragover="event.preventDefault();this.classList.add('over')"
+        ondragleave="this.classList.remove('over')"
+        ondrop="event.preventDefault();this.classList.remove('over');handleFileWithOCR(event.dataTransfer.files[0])">
+        ${d.fileName?'📎 '+d.fileName:'📎 Glisser-déposer ou cliquer pour ajouter'}
+      </div>
+      <input type="file" id="f_pj" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileWithOCR(this.files[0])">
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Annuler</button>
+      <button class="b bg" onclick="saveDepense()">💾 Enregistrer</button>
+    </div>
+  </div></div>`;
+}
+
+let _pendingFile=null;
+let _pendingDataUrl=null;
+
+async function saveDepense(){
+  const date=$("d_date")?.value||"";
+  const amount=parseFloat($("d_amt")?.value)||0;
+  const code=$("d_code")?.value||"";
+  const desc=$("d_desc")?.value||"";
+  const four=$("d_four")?.value||"";
+  const projet=$("d_projet")?.value||"";
+  const mode=$("d_mode")?.value||"Carte bancaire";
+  
+  if(!date||!amount){alert("Date et montant sont obligatoires.");return}
+  
+  const dep={date,amount,code,desc,four,projet,mode,fileName:"",fileData:"",fileType:"",driveUrl:"",driveFileId:""};
+  
+  // Handle file
+  if(_pendingFile){
+    const ext=_pendingFile.name.includes(".")?_pendingFile.name.split(".").pop():"pdf";
+    const fournNorm=(four||"DEPENSE").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+    const dateNorm=date.replace(/-/g,"");
+    dep.fileName="DEP-2026_"+dateNorm+"_"+fournNorm+"."+ext;
+    dep.fileType=_pendingFile.type;
+    
+    // Use cached dataUrl or read file
+    const dataUrl=_pendingDataUrl||await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(_pendingFile)});
+    dep.fileData=dataUrl;
+    
+    // Upload to Drive
+    try{
+      const uploadRes=await sheetAPI("uploadJustif",{ndfRef:"CARTE-"+D.user.split(" ").pop().toUpperCase().replace(/[^A-Z]/g,""),fileName:dep.fileName,fileData:dataUrl});
+      if(uploadRes.ok){dep.driveUrl=uploadRes.fileUrl||"";dep.driveFileId=uploadRes.fileId||"";console.log("PJ uploaded: "+dep.fileName)}
+    }catch(e){console.warn("Upload PJ error:",e)}
+  } else if(_editIdx>=0){
+    // Keep existing file info
+    const old=D.depenses[_editIdx];
+    dep.fileName=old.fileName;dep.fileType=old.fileType;dep.driveUrl=old.driveUrl;dep.driveFileId=old.driveFileId;if(!dep.mode)dep.mode=old.mode;
+  }
+  
+  if(_editIdx>=0){D.depenses[_editIdx]=dep}
+  else{D.depenses.push(dep)}
+  
+  _pendingFile=null;_pendingDataUrl=null;
+  save();closeM();render();
+}
+
+function deleteDepense(idx){
+  if(!confirm("Supprimer cette dépense ?"))return;
+  D.depenses.splice(idx,1);
+  save();render();
+}
+
+// ─── MAJ CODES (webhook Make → Airtable) ───
+async function majCodes(){
+  const btn=$("btnMaj"),st=$("majStatus");
+  btn.disabled=true;btn.textContent="⏳";st.textContent="";
+  try{
+    const r=await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source:"carte"})});
+    if(r.ok){st.textContent="✅";st.style.color="var(--green)";
+      // Reload codes from Sheet after delay
+      setTimeout(async()=>{
+        try{const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
+          if(res.value){let nc;try{nc=JSON.parse(res.value)}catch(e){nc=res.value.split(",").map(s=>s.trim()).filter(Boolean)}
+            if(nc&&nc.length){CODES_PROJETS=[...new Set([...CODES_FIXES,...nc])];localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));st.textContent="✅ "+CODES_PROJETS.length+" codes"}
+          }
+        }catch(e){}
+      },3000);
+    } else{st.textContent="⚠️";st.style.color="var(--red)"}
+  }catch(e){st.textContent="⚠️";st.style.color="var(--red)"}
+  btn.disabled=false;btn.textContent="📋 Codes projets";
+}
+
+// ─── SETTINGS ───
+function showSettings(){
+  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+    <h3>⚙️ Paramètres</h3>
+    <div class="form-row" style="margin:14px 0"><label>Clé API Anthropic (lecture auto des justificatifs)</label>
+      <input class="inp" id="s_anth" value="${apiKey}" placeholder="sk-ant-...">
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Annuler</button>
+      <button class="b bp" onclick="const ak=$('s_anth').value.trim();if(ak){D.anthropicKey=ak;localStorage.setItem('litup_anthropic_key',ak)}save();closeM()">💾 Enregistrer</button>
+    </div>
+  </div></div>`;
+}
+
+// ─── OCR ───
+async function ocrFile(file,dataUrl){
+  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
+  if(!apiKey)return null;
+  try{
+    const base64=dataUrl.split(",")[1];
+    if(!base64||base64.length<100)return null;
+    const fileType=file.type||"";
+    const isImage=fileType.startsWith("image/");
+    const isPDF=fileType==="application/pdf";
+    if(!isImage&&!isPDF)return null;
+
+    let content;
+    if(isImage){
+      let mediaType=fileType||"image/jpeg";
+      let imgBase64=base64;
+      const isLarge=base64.length>500000;
+      if(isLarge||!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType)){
+        try{
+          const img=new Image();
+          await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
+          const canvas=document.createElement("canvas");
+          let w=img.naturalWidth,h=img.naturalHeight;const mx=1600;
+          if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
+          canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
+          imgBase64=canvas.toDataURL("image/jpeg",0.80).split(",")[1];mediaType="image/jpeg";
+        }catch(e){}
+      }
+      if(mediaType==="image/jpg")mediaType="image/jpeg";
+      if(!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType))mediaType="image/jpeg";
+      content=[{type:"image",source:{type:"base64",media_type:mediaType,data:imgBase64}},{type:"text",text:"Analyse ce justificatif (facture, ticket, reçu). Extrais et réponds UNIQUEMENT avec un JSON:\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\",\"description\":\"Objet de la dépense\"}\nRègles: date ISO, montant nombre décimal, fournisseur=enseigne. Si illisible: null."}];
+    } else {
+      content=[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Analyse ce justificatif (facture, ticket, reçu). Extrais et réponds UNIQUEMENT avec un JSON:\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\",\"description\":\"Objet de la dépense\"}\nRègles: date ISO, montant nombre décimal, fournisseur=enseigne. Si introuvable: null."}];
+    }
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content}]})});
+    if(!resp.ok)return null;
+    const data=await resp.json();
+    const text=(data.content||[]).map(c=>c.text||"").join("");
+    const m=text.match(/\{[\s\S]*?\}/);if(!m)return null;
+    return JSON.parse(m[0].replace(/```json|```/g,"").trim());
+  }catch(e){console.warn("OCR error:",e);return null}
+}
+
+async function handleFileWithOCR(f){
+  if(!f)return;
+  _pendingFile=f;
+  const dz=$("dz_pj");
+  dz.innerHTML='📎 '+f.name+' <span style="color:var(--accent)">🤖 Lecture...</span>';
+
+  const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+  _pendingDataUrl=dataUrl;
+
+  const ocr=await ocrFile(f,dataUrl);
+  if(ocr){
+    if(ocr.date&&$("d_date"))$("d_date").value=ocr.date;
+    if(ocr.montant&&$("d_amt"))$("d_amt").value=ocr.montant;
+    if(ocr.fournisseur&&$("d_four"))$("d_four").value=ocr.fournisseur;
+    if(ocr.description&&$("d_desc"))$("d_desc").value=ocr.description;
+    dz.innerHTML='📎 '+f.name+' <span style="color:var(--green)">✅ Lecture OK</span> <button style="margin-left:8px;cursor:pointer;border:none;background:none;color:var(--red)" onclick="event.stopPropagation();_pendingFile=null;_pendingDataUrl=null;$(\'dz_pj\').innerHTML=\'📎 Glisser-déposer ou cliquer\'">✕</button>';
+  } else {
+    dz.innerHTML='📎 '+f.name+' <button style="margin-left:8px;cursor:pointer;border:none;background:none;color:var(--red)" onclick="event.stopPropagation();_pendingFile=null;_pendingDataUrl=null;$(\'dz_pj\').innerHTML=\'📎 Glisser-déposer ou cliquer\'">✕</button>';
+  }
+}
+
+// ─── INIT ───
+D.user="Direction";
+render();
+</script>
+</body>
+</html>
