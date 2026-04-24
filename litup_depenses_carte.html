@@ -42,7 +42,8 @@ tr:hover{background:var(--accent-bg)}
 <div class="top">
   <h1><img src="https://lit-up-fr.github.io/litup-outils/logo.png" alt="Lit uP" onerror="this.style.display='none'"> Dépenses Lit uP</h1>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    
+    <span id="syncStatus" style="font-size:16px;cursor:help" title="Statut de synchronisation">☁️</span>
+    <div style="font-size:8px;color:#94a3b8;margin-left:-2px;line-height:1.4">☁️ synchronisé<br>🔄 envoi en cours<br>⚠️ erreur</div>
     <button class="b bp" onclick="showNewDepense()">+ Nouvelle dépense</button>
     <button class="b bd" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px"></span>
     <button class="b bd" onclick="showSettings()">⚙️</button>
@@ -96,8 +97,24 @@ async function sheetAPI(action,data,params){
 
 // Data
 let D=JSON.parse(localStorage.getItem("litup_carte")||"null")||{user:"",depenses:[]};
-function save(){try{localStorage.setItem("litup_carte",JSON.stringify(D))}catch(e){}}
+function setSyncStatus(s){const el=$("syncStatus");if(el)el.textContent=s}
+function save(){try{localStorage.setItem("litup_carte",JSON.stringify(D));setSyncStatus("☁️")}catch(e){setSyncStatus("⚠️")}}
 function closeM(){$("modalC").innerHTML=""}
+
+function showPJ(name,dataUrl){
+  const isImage=dataUrl.startsWith("data:image/");
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:900px;text-align:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0;font-size:14px">📎 ${name}</h3>
+      <div style="display:flex;gap:6px">
+        <a href="${dataUrl}" download="${name}" class="b bg" style="text-decoration:none">⬇️ Télécharger</a>
+        <button class="b bd" onclick="closeM()">✕</button>
+      </div>
+    </div>
+    ${isImage?`<img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px;border:1px solid var(--border)">`
+    :`<iframe src="${dataUrl}" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:8px"></iframe>`}
+  </div></div>`;
+}
 
 function comptaOptions(current){
   let found=false;
@@ -157,7 +174,7 @@ function render(){
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(d.amount)}</td>
       <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${d.code||'<span style="color:var(--red)">⚠️ —</span>'}</td>
       <td style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis">${d.projet||"—"}</td>
-      <td style="text-align:center">${d.driveUrl?`<a href="${d.driveUrl}" target="_blank" style="color:var(--accent)">📎</a>`:d.fileName?"📄":""}</td>
+      <td style="text-align:center;font-size:10px">${d.driveUrl?`<a href="${d.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline" title="Ouvrir sur le Drive">📎 ${d.fileName||"Voir"}</a>`:d.fileData?`<a href="#" onclick="event.stopPropagation();showPJ('${(d.fileName||"").replace(/'/g,"\\'")}','${d.fileData}')" style="color:var(--accent);text-decoration:underline" title="Voir le justificatif">${d.fileName&&d.fileType&&d.fileType.startsWith("image/")?"🖼":"📄"} ${d.fileName||"Voir"}</a>`:d.fileName?`<span style="color:var(--text-3)">📄 ${d.fileName}</span>`:""}</td>
       <td style="white-space:nowrap">
         <button class="b bd" style="font-size:9px;padding:2px 6px" onclick="editDepense(${idx})">✏️</button>
         <button class="b br" style="font-size:9px;padding:2px 6px" onclick="deleteDepense(${idx})">🗑</button>
@@ -273,7 +290,8 @@ async function saveDepense(){
     const ext=_pendingFile.name.includes(".")?_pendingFile.name.split(".").pop():"pdf";
     const fournNorm=(four||"DEPENSE").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
     const dateNorm=date.replace(/-/g,"");
-    dep.fileName="DEP-2026_"+dateNorm+"_"+fournNorm+"."+ext;
+    const montantNorm=String(amount).replace(".",",");
+    dep.fileName=dateNorm+"-"+fournNorm+"-"+montantNorm+"EUR."+ext;
     dep.fileType=_pendingFile.type;
     
     // Use cached dataUrl or read file
@@ -281,6 +299,7 @@ async function saveDepense(){
     dep.fileData=dataUrl;
     
     // Upload to Drive
+    setSyncStatus("🔄");
     try{
       const uploadRes=await sheetAPI("uploadJustif",{ndfRef:"CARTE-"+D.user.split(" ").pop().toUpperCase().replace(/[^A-Z]/g,""),fileName:dep.fileName,fileData:dataUrl});
       if(uploadRes.ok){dep.driveUrl=uploadRes.fileUrl||"";dep.driveFileId=uploadRes.fileId||"";console.log("PJ uploaded: "+dep.fileName)}
