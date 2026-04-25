@@ -135,11 +135,13 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <button class="b bg" onclick="$('fi_bank').click()">📥 Banque</button>
     <button class="b by" onclick="$('fi_ndf_json').click()" title="Import NDF depuis un fichier JSON">📥 NDF</button>
     <button class="b by" onclick="loadNDFFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ NDF Cloud</button>
-    <button class="b by" onclick="autoMatchNDF()" title="Rapprochement automatique banque ↔ NDF">🔗 Rapprocher</button>
+    <button class="b by" onclick="autoMatchNDF()" title="Rapprochement automatique banque ↔ NDF">🔗 Rapprocher NDF</button>
+    <button class="b by" onclick="autoMatchDepenses()" title="Rapprochement automatique banque ↔ dépenses carte">🔗 Rapprocher CB</button>
     <button class="b bb" onclick="$('fi_scan').click()">📎 Justif.</button>
   </div>
   <div class="btn-group">
     <button class="b bp" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
+    <button class="b bd" onclick="batchPromoteNumj()" title="Numéroter définitivement les pièces provisoires (YYYYMMJJ-FOUR-MT → F2026-XXX-...)">🏷️ Numéroter</button>
     <button class="b bd" onclick="undo()" title="Annuler la dernière action">↩️</button>
   </div>
   <div class="btn-group">
@@ -426,8 +428,25 @@ function normActs(){D.acts=D.acts.map(a=>typeof a==="string"?{l:a,t:""}:a)}
 
 function applyRules(lib){if(!lib)return null;const u=lib.toUpperCase();for(const r of D.rules){if(u.includes(r.match.toUpperCase()))return r}return null}
 function detMod(lib){if(!lib)return"";const u=lib.toUpperCase();if(u.includes("PAIEMENT CB")||u.includes("PAIEMENT PSC"))return"Carte bancaire";if(u.startsWith("PRLV"))return"Prélèvement";if(u.startsWith("VIR "))return"Virement émis";if(u.startsWith("FAC "))return"Virement reçu";return""}
+// Nomenclature pièces : provisoire → définitive
+// Provisoire (à l'attachement) : YYYYMMJJ-FOURNISSEUR-MONTANT
+// Définitive (après rapprochement) : F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT
+function tempName(row){
+  const dt=(row.dt||"").replace(/-/g,"");
+  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
+  return dt+"-"+four+"-"+amt;
+}
 function nextN(p){D.ctr[p]=(D.ctr[p]||0)+1;return p+"2026-"+String(D.ctr[p]).padStart(3,"0")}
 function peekN(p){return p+"2026-"+String((D.ctr[p]||0)+1).padStart(3,"0")}
+function promoteN(row){
+  const p=row.cre&&row.cre>0?"S":"F";
+  const seq=nextN(p);
+  const dt=(row.dt||"").replace(/-/g,"");
+  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
+  return seq+"-"+dt+"-"+four+"-"+amt;
+}
 
 // Smart libellé parsing
 function parseFacilitateur(lib){
@@ -891,7 +910,7 @@ function applyJustifMatches(){
   res.matched.forEach((r,i)=>{
     const cb=$("mc_"+i);if(!cb||!cb.checked)return;
     const row=r.match.row;const f=r.file;
-    const nj=nextN(row.cre&&row.cre>0?"S":"F");
+    const nj=tempName(row);
     const ext=f.name.split(".").pop().toLowerCase();
     // Convert dataUrl to ArrayBuffer
     const binary=atob(r.dataUrl.split(",")[1]);const arr=new Uint8Array(binary.length);
@@ -902,7 +921,7 @@ function applyJustifMatches(){
     applied++});
   // Orphaned justifs (no match)
   res.noMatch.forEach(r=>{
-    const nj=nextN("F");const ext=r.file.name.split(".").pop().toLowerCase();
+    const nj="ORPH-"+Date.now().toString(36).toUpperCase();const ext=r.file.name.split(".").pop().toLowerCase();
     const binary=atob(r.dataUrl.split(",")[1]);const arr=new Uint8Array(binary.length);
     for(let j=0;j<binary.length;j++)arr[j]=binary.charCodeAt(j);
     D.att["orph_"+nj]={data:arr.buffer,name:nj+"."+ext,orig:r.file.name,type:r.file.type,ext,nj,
@@ -927,7 +946,7 @@ function attRow(rid){
     <div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button><button class="b bb" onclick="doAttC('${rid}')">✓</button></div></div></div>`;
     $("modalC").innerHTML=h;
   }else{const inp=document.createElement("input");inp.type="file";inp.accept=".pdf,.jpg,.jpeg,.png";
-    inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const nj=nextN("F");const rd=new FileReader();
+    inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const nj=tempName(r);const rd=new FileReader();
       rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();D.att[rid]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
         r.numj=nj;if(!r.stat||r.stat.includes("manquant"))r.stat="Classé - Facture";autoSave();render()};rd.readAsArrayBuffer(f)};inp.click()}}
 function doAttC(rid){const r=D.rows.find(x=>x.id===rid);if(!r)return;const p=$("attPfx")?.value;const c=$("attCust")?.value?.trim();
@@ -1293,6 +1312,23 @@ function getSuggestions(){const freq={};D.rows.forEach(r=>{if(!r.lib)return;
   return Object.entries(freq).filter(([w,n])=>n>=3&&!ruleWords.some(rw=>w.includes(rw)||rw.includes(w))).sort((a,b)=>b[1]-a[1]).slice(0,15)}
 
 // ─── CONFIG ───
+function batchPromoteNumj(){
+  pushUndo();
+  let promoted=0;
+  D.rows.forEach(r=>{
+    if(!r.numj)return; // no justif attached
+    if(r.numj.match(/^[FSP]2026-/)||r.numj.match(/^RF2026-/)||r.numj.match(/^N2026-/))return; // already final
+    if(r.numj.match(/^ORPH-/))return; // orphaned, skip
+    // This is a provisional name (YYYYMMJJ-FOUR-MONTANT) → promote
+    const finalName=promoteN(r);
+    // Also rename in att if exists
+    if(D.att[r.id]){D.att[r.id].name=finalName+"."+D.att[r.id].ext;D.att[r.id].nj=finalName}
+    r.numj=finalName;promoted++;
+  });
+  autoSave();render();
+  alert("🏷️ "+promoted+" pièce(s) numérotée(s) définitivement.\n\nLes noms provisoires (YYYYMMJJ-FOUR-MONTANT)\nont été renommés en F2026-XXX-YYYYMMJJ-FOUR-MONTANT.");
+}
+
 async function syncCodesComptaToCloud(){
   const st=$("syncCodesSt");if(st)st.textContent="⏳ Envoi...";
   try{

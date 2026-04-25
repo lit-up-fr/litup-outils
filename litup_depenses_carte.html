@@ -46,7 +46,6 @@ tr:hover{background:var(--accent-bg)}
     <div style="font-size:8px;color:#94a3b8;margin-left:-2px;line-height:1.4">☁️ synchronisé<br>🔄 envoi en cours<br>⚠️ erreur</div>
     <button class="b bp" onclick="showNewDepense()">+ Nouvelle dépense</button>
     <button class="b bd" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px"></span>
-    <button class="b bd" onclick="showSettings()">⚙️</button>
     <a href="index.html" class="b bd" style="text-decoration:none">🏠</a>
   </div>
 </div>
@@ -288,6 +287,15 @@ function showForm(d){
     </div>
     <div class="form-row" style="margin-bottom:14px">
       <label>Justificatif</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+        <label style="font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="ocr_toggle" ${_ocrEnabled?"checked":""}
+            onchange="_ocrEnabled=this.checked;localStorage.setItem('litup_ocr_on',this.checked?'1':'0')"
+            style="accent-color:var(--accent)">
+          🤖 Lecture auto (OCR)
+        </label>
+        <span id="ocr_status" style="font-size:8px;color:#64748b"></span>
+      </div>
       <div class="dz" id="dz_pj" onclick="$('f_pj').click()"
         ondragover="event.preventDefault();this.classList.add('over')"
         ondragleave="this.classList.remove('over')"
@@ -305,6 +313,7 @@ function showForm(d){
 
 let _pendingFile=null;
 let _pendingDataUrl=null;
+let _ocrEnabled=localStorage.getItem("litup_ocr_on")!=="0";
 
 async function saveDepense(){
   const date=$("d_date")?.value||"";
@@ -335,7 +344,7 @@ async function saveDepense(){
     // Upload to Drive
     setSyncStatus("🔄");
     try{
-      const uploadRes=await sheetAPI("uploadJustif",{ndfRef:"CARTE-"+D.user.split(" ").pop().toUpperCase().replace(/[^A-Z]/g,""),fileName:dep.fileName,fileData:dataUrl});
+      const uploadRes=await sheetAPI("uploadJustif",{ndfRef:"DEP-"+D.user.split(" ").pop().toUpperCase().replace(/[^A-Z]/g,""),fileName:dep.fileName,fileData:dataUrl});
       if(uploadRes.ok){dep.driveUrl=uploadRes.fileUrl||"";dep.driveFileId=uploadRes.fileId||"";console.log("PJ uploaded: "+dep.fileName)}
     }catch(e){console.warn("Upload PJ error:",e)}
   } else if(_editIdx>=0){
@@ -378,35 +387,30 @@ async function majCodes(){
 }
 
 // ─── SETTINGS ───
-function showSettings(){
-  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
-    <h3>⚙️ Paramètres</h3>
-    <p style="font-size:12px;color:var(--text-2);margin:14px 0">La lecture auto des justificatifs utilise l'API Anthropic configurée côté serveur (Apps Script).</p>
-    <div style="display:flex;gap:6px;justify-content:flex-end">
-      <button class="b bp" onclick="closeM()">OK</button>
-    </div>
-  </div></div>`;
-}
-
 // ─── OCR (via serveur) ───
 async function ocrFile(file,dataUrl){
   try{
     const fileType=file.type||"image/jpeg";
-    // Compress large images
     let sendData=dataUrl;
-    if(fileType.startsWith("image/")&&dataUrl.length>500000){
+    const isImage=fileType.startsWith("image/");
+    const isPDF=fileType==="application/pdf";
+    // Reject files >5MB for PDF, compress images
+    if(isPDF&&dataUrl.length>7000000){console.warn("PDF trop volumineux pour OCR");return null}
+    if(isImage&&dataUrl.length>400000){
       try{
         const img=new Image();
         await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
         const canvas=document.createElement("canvas");
-        let w=img.naturalWidth,h=img.naturalHeight;const mx=1200;
+        let w=img.naturalWidth,h=img.naturalHeight;const mx=1000;
         if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
         canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
-        sendData=canvas.toDataURL("image/jpeg",0.70);
-      }catch(e){}
+        sendData=canvas.toDataURL("image/jpeg",0.65);
+      }catch(e){console.warn("Compression échouée:",e)}
     }
+    console.log("OCR: envoi",Math.round(sendData.length/1024)+"ko",fileType);
     const res=await sheetAPI("ocrJustif",{fileData:sendData,fileType});
-    if(res.error||!res.ok||!res.data)return null;
+    if(res.error){console.warn("OCR serveur:",res.error);return null}
+    if(!res.ok||!res.data)return null;
     return res.data;
   }catch(e){console.warn("OCR error:",e);return null}
 }
