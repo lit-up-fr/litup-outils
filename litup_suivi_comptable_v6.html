@@ -781,14 +781,13 @@ $("fi_scan").onchange=function(e){const files=Array.from(e.target.files);if(!fil
 // ─── ATTACHMENTS: auto-match justificatifs via OCR ───
 function closeM(){$("modalC").innerHTML=""}
 async function autoMatchJustifs(files){
-  // API key: try localStorage, then default
-  let apiKey=localStorage.getItem("litup_anthropic_key")||"";
-  if(!apiKey){apiKey="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";localStorage.setItem("litup_anthropic_key",apiKey)}
+  // OCR via server-side endpoint (Apps Script → Anthropic API)
+  const useServerOCR=true;
   const unmatched=D.rows.filter(r=>!D.att[r.id]);
   // Show loading modal
   $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:650px">
     <h3>📎 Analyse de ${files.length} justificatif(s)...</h3>
-    <p style="font-size:10px;color:#94a3b8;margin-bottom:8px">${apiKey?"🤖 OCR via Claude activé":"⚠️ Pas de clé API — extraction depuis le nom du fichier uniquement"}</p>
+    <p style="font-size:10px;color:#94a3b8;margin-bottom:8px">🤖 OCR via serveur (Claude Haiku)</p>
     <div id="scanProgress" style="font-size:11px;color:#94a3b8;line-height:2"></div>
     <div id="scanResults" style="display:none"></div>
   </div></div>`;
@@ -801,44 +800,28 @@ async function autoMatchJustifs(files){
     const ext=f.name.split(".").pop().toLowerCase();
     const isImage=f.type.startsWith("image/")||["jpg","jpeg","png","gif","webp","heic"].includes(ext);
     const isPDF=f.type==="application/pdf"||ext==="pdf";
-    // Try OCR via Anthropic API
-    if(apiKey&&(isImage||isPDF)){
+    // Try OCR via server-side endpoint
+    if(useServerOCR&&(isImage||isPDF)){
       try{
-        const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
-        const base64=dataUrl.split(",")[1];
-        if(!base64||base64.length<100){ocrError="Fichier vide ou trop petit"}
+        let dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
+        if(!dataUrl||dataUrl.length<100){ocrError="Fichier vide ou trop petit"}
         else{
-          let content;
-          if(isImage){
-            let imgB64=base64,mediaType=f.type||"image/jpeg";
-            if(["image/heic","image/heif",""].includes(mediaType))mediaType="image/jpeg";
-            if(!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType))mediaType="image/jpeg";
-            // Compress large images
-            if(base64.length>500000){try{
-              const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=dataUrl});
-              const canvas=document.createElement("canvas");let w=img.naturalWidth,h=img.naturalHeight;
-              const mx=1600;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
-              canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
-              imgB64=canvas.toDataURL("image/jpeg",0.8).split(",")[1];mediaType="image/jpeg";
-            }catch(e){}}
-            content=[{type:"image",source:{type:"base64",media_type:mediaType,data:imgB64}},{type:"text",text:"Analyse ce justificatif (ticket, reçu, facture). Réponds UNIQUEMENT avec un objet JSON sans markdown: {\"montant\":12.50,\"fournisseur\":\"Nom\",\"date\":\"YYYY-MM-DD\"}. montant=nombre décimal sans €, fournisseur=nom enseigne/entreprise, date=format ISO. Si une info est illisible, mets null."}];
-          } else {
-            content=[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Analyse ce justificatif (facture, convention, reçu). Réponds UNIQUEMENT avec un objet JSON sans markdown: {\"montant\":12.50,\"fournisseur\":\"Nom\",\"date\":\"YYYY-MM-DD\"}. montant=nombre décimal TTC sans €, fournisseur=nom enseigne/entreprise, date=format ISO. Si une info est illisible, mets null."}];
-          }
-          const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-            headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-            body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content}]})});
-          if(!resp.ok){const errTxt=await resp.text();ocrError="HTTP "+resp.status;try{const ej=JSON.parse(errTxt);ocrError=ej.error?.message||ocrError}catch(e){}}
-          else{const data=await resp.json();const txt=(data.content||[]).map(c=>c.text||"").join("");
-            const m=txt.match(/\{[\s\S]*?\}/);
-            if(m){try{const p=JSON.parse(m[0]);
-              info.montant=p.montant!=null?parseFloat(p.montant):null;
-              info.four=p.fournisseur||null;info.date=p.date||null;
-            }catch(pe){ocrError="JSON parse: "+pe.message}}
-            else{ocrError="Pas de JSON dans la réponse: "+txt.substring(0,80)}}
+          // Compress large images before sending to server
+          if(isImage&&dataUrl.length>500000){try{
+            const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
+            const canvas=document.createElement("canvas");let w=img.naturalWidth,h=img.naturalHeight;
+            const mx=1200;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
+            canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
+            dataUrl=canvas.toDataURL("image/jpeg",0.70);
+          }catch(e){}}
+          const res=await sheetAPI("ocrJustif",{fileData:dataUrl,fileType:f.type||"image/jpeg"});
+          if(res.error){ocrError=res.error}
+          else if(res.ok&&res.data){const p=res.data;
+            info.montant=p.montant!=null?parseFloat(p.montant):null;
+            info.four=p.fournisseur||null;info.date=p.date||null;
+          }else{ocrError="Pas de données extraites"}
         }
       }catch(e){ocrError=e.message;console.error("OCR error for "+f.name,e)}}
-    else if(!apiKey){ocrError="Pas de clé API"}
     else{ocrError="Type de fichier non supporté ("+f.type+")"}
     // Try extracting from filename as fallback
     if(info.montant==null){const nm=f.name.replace(/\.[^.]+$/,"");const numMatch=nm.match(/(\d+[\.,]\d{2})/);if(numMatch)info.montant=parseFloat(numMatch[1].replace(",","."))}
@@ -1310,6 +1293,15 @@ function getSuggestions(){const freq={};D.rows.forEach(r=>{if(!r.lib)return;
   return Object.entries(freq).filter(([w,n])=>n>=3&&!ruleWords.some(rw=>w.includes(rw)||rw.includes(w))).sort((a,b)=>b[1]-a[1]).slice(0,15)}
 
 // ─── CONFIG ───
+async function syncCodesComptaToCloud(){
+  const st=$("syncCodesSt");if(st)st.textContent="⏳ Envoi...";
+  try{
+    const res=await sheetAPI("setCodesCompta",{cats:D.cats,acts:D.acts.map(a=>typeof a==="string"?{l:a,t:""}:a),rules:D.rules});
+    if(res.error){if(st)st.textContent="❌ "+res.error;return}
+    if(st)st.textContent="✅ "+D.cats.length+" codes + "+D.acts.length+" projets + "+D.rules.length+" règles synchronisés";
+  }catch(e){if(st)st.textContent="❌ "+e.message}
+}
+
 function showConfig(){
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:750px">
   <h3>⚙️ Configuration</h3>
@@ -1355,7 +1347,7 @@ function showCfgTab(tab){
     h+='</div><div style="display:flex;gap:3px;margin-top:4px"><input id="nA" placeholder="Nouveau code projet" style="flex:1;padding:3px 5px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:9px"><select id="nAT" style="width:60px;padding:2px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:8px"><option value="">—</option><option>SUD</option><option>IDF</option><option>NAT</option></select><button class="b bg" onclick="const v=$(\'nA\').value.trim();if(v){D.acts.push({l:v,t:$(\'nAT\').value});autoSave();showCfgTab(\'acts\')}">+</button></div>';
     ct.innerHTML=h;
   }else{
-    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Codes comptables.</p><div style="max-height:280px;overflow:auto">';
+    let h='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Codes comptables.</p><div style="display:flex;gap:4px;margin-bottom:6px"><button class="b bp" onclick="syncCodesComptaToCloud()" style="font-size:9px" title="Envoyer codes, projets et règles vers le Sheet Config (pour synchroniser dépenses et direction)">☁️ Synchroniser vers Cloud</button><span id="syncCodesSt" style="font-size:8px;color:#64748b"></span></div><div style="max-height:280px;overflow:auto">';
     D.cats.forEach((c,i)=>{h+=`<div class="cfg-row"><input value="${c}" onchange="D.cats[${i}]=this.value;autoSave()" style="flex:1"><button class="b br" onclick="D.cats.splice(${i},1);autoSave();showCfgTab('cats')">×</button></div>`});
     h+='</div><div style="display:flex;gap:3px;margin-top:4px"><input id="nC" placeholder="Nouveau" style="flex:1;padding:3px 5px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:9px"><button class="b bg" onclick="const v=$(\'nC\').value.trim();if(v){D.cats.push(v);D.cats.sort();autoSave();showCfgTab(\'cats\')}">+</button></div>';
     ct.innerHTML=h;

@@ -96,10 +96,44 @@ async function sheetAPI(action,data,params){
 }
 
 // Data
-let D=JSON.parse(localStorage.getItem("litup_carte")||"null")||{user:"",depenses:[]};
+let D=JSON.parse(localStorage.getItem("litup_carte")||"null")||{user:"Direction",depenses:[]};
 function setSyncStatus(s){const el=$("syncStatus");if(el)el.textContent=s}
-function save(){try{localStorage.setItem("litup_carte",JSON.stringify(D));setSyncStatus("☁️")}catch(e){setSyncStatus("⚠️")}}
+function save(){try{localStorage.setItem("litup_carte",JSON.stringify(D));setSyncStatus("☁️")}catch(e){setSyncStatus("⚠️")} syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
+
+let _syncPending=false;
+async function syncToSheet(){
+  if(_syncPending)return;_syncPending=true;setSyncStatus("🔄");
+  try{
+    const rows=D.depenses.map(d=>({date:d.date||"",mode:d.mode||"",four:d.four||"",desc:d.desc||"",amount:d.amount||0,
+      code:d.code||"",projet:d.projet||"",fileName:d.fileName||"",driveUrl:d.driveUrl||"",driveFileId:d.driveFileId||"",createdAt:d.createdAt||""}));
+    await sheetAPI("saveDepenses",{rows});
+    setSyncStatus("☁️");
+  }catch(e){console.warn("Sync error:",e);setSyncStatus("⚠️")}
+  _syncPending=false;
+}
+
+async function loadFromSheet(){
+  setSyncStatus("🔄");
+  try{
+    const res=await sheetAPI("getDepenses");
+    if(res.rows&&res.rows.length){
+      D.depenses=res.rows.map(r=>({date:r.date||"",mode:r.mode||"",four:r.four||"",desc:r.desc||"",
+        amount:parseFloat(r.amount)||0,code:r.code||"",projet:r.projet||"",
+        fileName:r.fileName||"",driveUrl:r.driveUrl||"",driveFileId:r.driveFileId||"",createdAt:r.createdAt||""}));
+      save();render();
+      console.log("Loaded "+D.depenses.length+" dépenses from Sheet");
+    }
+    setSyncStatus("☁️");
+  }catch(e){console.warn("Load from Sheet error:",e);setSyncStatus("⚠️")}
+  // Also load codes compta from Cloud if available
+  try{
+    const codes=await sheetAPI("getCodesCompta");
+    if(codes.cats&&codes.cats.length){CODES_COMPTA.length=0;codes.cats.filter(c=>c.match(/^6/)).forEach(c=>CODES_COMPTA.push(c));console.log("Codes compta Cloud: "+CODES_COMPTA.length)}
+    if(codes.acts&&codes.acts.length){CODES_PROJETS=[...new Set([...CODES_FIXES,...codes.acts.map(a=>a.l||a)])];localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));console.log("Codes projets Cloud: "+CODES_PROJETS.length)}
+    render();
+  }catch(e){console.warn("Codes compta load error:",e)}
+}
 
 function showPJ(name,dataUrl){
   const isImage=dataUrl.startsWith("data:image/");
@@ -283,7 +317,7 @@ async function saveDepense(){
   
   if(!date||!amount){alert("Date et montant sont obligatoires.");return}
   
-  const dep={date,amount,code,desc,four,projet,mode,fileName:"",fileData:"",fileType:"",driveUrl:"",driveFileId:""};
+  const dep={date,amount,code,desc,four,projet,mode,fileName:"",fileData:"",fileType:"",driveUrl:"",driveFileId:"",createdAt:new Date().toISOString()};
   
   // Handle file
   if(_pendingFile){
@@ -345,61 +379,35 @@ async function majCodes(){
 
 // ─── SETTINGS ───
 function showSettings(){
-  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
     <h3>⚙️ Paramètres</h3>
-    <div class="form-row" style="margin:14px 0"><label>Clé API Anthropic (lecture auto des justificatifs)</label>
-      <input class="inp" id="s_anth" value="${apiKey}" placeholder="sk-ant-...">
-    </div>
+    <p style="font-size:12px;color:var(--text-2);margin:14px 0">La lecture auto des justificatifs utilise l'API Anthropic configurée côté serveur (Apps Script).</p>
     <div style="display:flex;gap:6px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button>
-      <button class="b bp" onclick="const ak=$('s_anth').value.trim();if(ak){D.anthropicKey=ak;localStorage.setItem('litup_anthropic_key',ak)}save();closeM()">💾 Enregistrer</button>
+      <button class="b bp" onclick="closeM()">OK</button>
     </div>
   </div></div>`;
 }
 
-// ─── OCR ───
+// ─── OCR (via serveur) ───
 async function ocrFile(file,dataUrl){
-  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
-  if(!apiKey)return null;
   try{
-    const base64=dataUrl.split(",")[1];
-    if(!base64||base64.length<100)return null;
-    const fileType=file.type||"";
-    const isImage=fileType.startsWith("image/");
-    const isPDF=fileType==="application/pdf";
-    if(!isImage&&!isPDF)return null;
-
-    let content;
-    if(isImage){
-      let mediaType=fileType||"image/jpeg";
-      let imgBase64=base64;
-      const isLarge=base64.length>500000;
-      if(isLarge||!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType)){
-        try{
-          const img=new Image();
-          await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
-          const canvas=document.createElement("canvas");
-          let w=img.naturalWidth,h=img.naturalHeight;const mx=1600;
-          if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
-          canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
-          imgBase64=canvas.toDataURL("image/jpeg",0.80).split(",")[1];mediaType="image/jpeg";
-        }catch(e){}
-      }
-      if(mediaType==="image/jpg")mediaType="image/jpeg";
-      if(!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType))mediaType="image/jpeg";
-      content=[{type:"image",source:{type:"base64",media_type:mediaType,data:imgBase64}},{type:"text",text:"Analyse ce justificatif (facture, ticket, reçu). Extrais et réponds UNIQUEMENT avec un JSON:\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\",\"description\":\"Objet de la dépense\"}\nRègles: date ISO, montant nombre décimal, fournisseur=enseigne. Si illisible: null."}];
-    } else {
-      content=[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Analyse ce justificatif (facture, ticket, reçu). Extrais et réponds UNIQUEMENT avec un JSON:\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\",\"description\":\"Objet de la dépense\"}\nRègles: date ISO, montant nombre décimal, fournisseur=enseigne. Si introuvable: null."}];
+    const fileType=file.type||"image/jpeg";
+    // Compress large images
+    let sendData=dataUrl;
+    if(fileType.startsWith("image/")&&dataUrl.length>500000){
+      try{
+        const img=new Image();
+        await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
+        const canvas=document.createElement("canvas");
+        let w=img.naturalWidth,h=img.naturalHeight;const mx=1200;
+        if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
+        canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
+        sendData=canvas.toDataURL("image/jpeg",0.70);
+      }catch(e){}
     }
-    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content}]})});
-    if(!resp.ok)return null;
-    const data=await resp.json();
-    const text=(data.content||[]).map(c=>c.text||"").join("");
-    const m=text.match(/\{[\s\S]*?\}/);if(!m)return null;
-    return JSON.parse(m[0].replace(/```json|```/g,"").trim());
+    const res=await sheetAPI("ocrJustif",{fileData:sendData,fileType});
+    if(res.error||!res.ok||!res.data)return null;
+    return res.data;
   }catch(e){console.warn("OCR error:",e);return null}
 }
 
@@ -427,6 +435,7 @@ async function handleFileWithOCR(f){
 // ─── INIT ───
 D.user="Direction";
 render();
+loadFromSheet();
 </script>
 </body>
 </html>

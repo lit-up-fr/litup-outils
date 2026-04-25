@@ -105,10 +105,9 @@ function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)e
 async function syncToSheet(){
   if(_syncPending||!D.salarie)return;_syncPending=true;setSyncStatus("🔄");
   try{
-    // Only sync NDF that have been sent (envoyée, validée, réglée)
-    const sentNdfs=D.ndfs.filter(n=>n.status==="envoyée"||n.status==="validée"||n.status==="réglée");
-    if(!sentNdfs.length){setSyncStatus("☁️");_syncPending=false;return}
-    const exportNdfs=sentNdfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
+    // Sync ALL NDF (including brouillons) so they are accessible from any terminal
+    if(!D.ndfs.length){setSyncStatus("☁️");_syncPending=false;return}
+    const exportNdfs=D.ndfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
     const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:exportNdfs,modifiedBy:D.salarie});
     setSyncStatus(res.error?"⚠️":"☁️");
   }catch(e){console.warn("Sync error:",e);setSyncStatus("⚠️")}
@@ -230,7 +229,6 @@ function calcIK(km,cv){const bar=IK_BAREME[Math.min(Math.max(cv||5,3),7)];for(co
 // ─── STATE ───
 let D=JSON.parse(localStorage.getItem("litup_ndf")||"null")||{salarie:"",cv:5,ndfs:[],ndfCounter:0};
 // Pre-configure API key if not already set
-if(!D.anthropicKey&&!localStorage.getItem("litup_anthropic_key")){D.anthropicKey="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";localStorage.setItem("litup_anthropic_key",D.anthropicKey)}
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 function save(){try{localStorage.setItem("litup_ndf",JSON.stringify(D))}catch(e){} syncToSheet()}
@@ -329,10 +327,11 @@ function render(){
       ① Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong><br>
       ② Remplissez les lignes de dépenses avec justificatifs (glisser-déposer ou cliquer)<br>
       ③ Enregistrez en <strong>💾 Brouillon</strong> (modifiable) ou <strong>📨 Prêt à envoyer</strong><br>
-      ④ Tant que la NDF n'est pas envoyée, vous pouvez la modifier ou la supprimer 🗑<br><br>
+      ④ Vos justificatifs sont sauvegardés sur le Drive et votre NDF est synchronisée dans le Cloud ☁️<br>
+      ⑤ Vous pouvez retrouver vos brouillons <strong>depuis n'importe quel appareil</strong><br><br>
       <strong style="color:var(--text-1)">2. Envoyer à la direction :</strong><br>
       ① Quand votre NDF est prête, cliquez le bouton <strong>✉️ Envoyer</strong> dans le tableau<br>
-      ② Les justificatifs sont sauvegardés sur le Drive et la NDF est transmise à la direction<br>
+      ② La NDF est transmise à la direction pour validation<br>
       ③ <em style="color:var(--red)">⚠️ Une fois envoyée, la NDF ne peut plus être modifiée ni supprimée</em><br><br>
       <strong style="color:var(--text-1)">3. Suivi des statuts :</strong><br>
       📝 Brouillon → 📨 À envoyer → ✉️ Envoyée → ✅ Validée → 💸 Réglée<br>
@@ -451,97 +450,39 @@ function removeFile(idx){
   const actions=$("factions_"+idx);if(actions)actions.style.display="none";
 }
 
+
 function ocrManual(idx){
   const meta=window._ndfEditLines.find(l=>l.idx===idx);
   if(!meta?._fileData){alert("Ajoutez d'abord un justificatif.");return}
-  const apiKey=D.anthropicKey||localStorage.getItem("litup_anthropic_key")||"";
-  if(!apiKey){alert("Clé API non configurée.");return}
-  ocrJustificatif(idx,meta._fileData,meta._fileType||"image/jpeg",apiKey);
+  ocrJustificatif(idx,meta._fileData,meta._fileType||"image/jpeg");
 }
 
-async function ocrJustificatif(idx,dataUrl,fileType,apiKey){
+async function ocrJustificatif(idx,dataUrl,fileType){
   const prev=$("fprev_"+idx);
-  if(prev)prev.innerHTML+='<div id="ocr_'+idx+'" style="padding:6px 10px;border-radius:6px;background:var(--accent-bg);color:var(--accent);font-size:11px;margin-top:4px">🤖 Lecture en cours...</div>';
+  if(prev)prev.innerHTML+='<div id="ocr_'+idx+'" style="padding:6px 10px;border-radius:6px;background:var(--accent-bg);color:var(--accent);font-size:11px;margin-top:4px">🤖 Lecture en cours (via serveur)...</div>';
   try{
-    const base64=dataUrl.split(",")[1];
-    if(!base64||base64.length<100)throw new Error("Fichier trop petit ou vide");
-
-    // Determine content type for API
-    let content;
-    const isImage=fileType.startsWith("image/");
-    const isPDF=fileType==="application/pdf";
-
-    if(isImage){
-      // Normalize MIME type and compress large images (iPhone photos can be 3-8MB)
-      let mediaType=fileType||"image/jpeg";
-      let imgBase64=base64;
-
-      // Always process through canvas for: HEIC, unknown formats, or large images (>500KB base64 ≈ >375KB image)
-      const isLarge=base64.length>500000;
-      const needsConversion=fileType==="image/heic"||fileType==="image/heif"||fileType===""||!fileType;
-      if(needsConversion||isLarge){
-        try{
-          const img=new Image();
-          const loaded=new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("Image illisible"))});
-          img.src=dataUrl;await loaded;
-          const canvas=document.createElement("canvas");
-          // Resize if very large (max 1600px on longest side for OCR — plenty for reading text)
-          let w=img.naturalWidth,h=img.naturalHeight;
-          const maxDim=1600;
-          if(w>maxDim||h>maxDim){const ratio=Math.min(maxDim/w,maxDim/h);w=Math.round(w*ratio);h=Math.round(h*ratio)}
-          canvas.width=w;canvas.height=h;
-          canvas.getContext("2d").drawImage(img,0,0,w,h);
-          imgBase64=canvas.toDataURL("image/jpeg",0.80).split(",")[1];
-          mediaType="image/jpeg";
-        }catch(ce){
-          // If canvas conversion fails, try sending as-is
-          if(needsConversion)throw new Error("Photo au format HEIC non convertible. Prenez la photo en mode JPEG (Réglages > Appareil photo > Formats > Le plus compatible).");
-        }
-      }
-      if(mediaType==="image/jpg")mediaType="image/jpeg";
-      if(!["image/jpeg","image/png","image/gif","image/webp"].includes(mediaType))mediaType="image/jpeg";
-      content=[{type:"image",source:{type:"base64",media_type:mediaType,data:imgBase64}},{type:"text",text:"Analyse ce justificatif de dépense (ticket, reçu, facture). Extrais les informations et réponds UNIQUEMENT avec un objet JSON, sans aucun autre texte ni markdown :\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\"}\nRègles : date en ISO, montant en nombre décimal (pas de €), fournisseur = nom de l'enseigne/entreprise. Si une info est illisible, mets null."}];
-    } else if(isPDF){
-      content=[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Analyse ce justificatif de dépense (facture, billet, reçu). Extrais les informations et réponds UNIQUEMENT avec un objet JSON, sans aucun autre texte ni markdown :\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\"}\nRègles : date en ISO, montant en nombre décimal (pas de €), fournisseur = nom de l'enseigne/entreprise. Si une info est introuvable, mets null."}];
-    } else {
-      throw new Error("Format non supporté ("+fileType+"). Utilisez JPG, PNG ou PDF.");
+    // Compress large images before sending to server
+    let sendData=dataUrl;
+    if(fileType.startsWith("image/")&&dataUrl.length>500000){
+      try{
+        const img=new Image();
+        await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("err"));img.src=dataUrl});
+        const canvas=document.createElement("canvas");
+        let w=img.naturalWidth,h=img.naturalHeight;const mx=1200;
+        if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r)}
+        canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
+        sendData=canvas.toDataURL("image/jpeg",0.70);
+      }catch(e){}
     }
-
-    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content}]})});
-
-    // Handle network/CORS errors
-    let respText;
-    try{respText=await resp.text()}catch(netErr){throw new Error("Erreur réseau : impossible de lire la réponse. Vérifiez votre connexion.")}
-
-    if(!resp.ok){
-      // Try to parse error
-      try{const errJson=JSON.parse(respText);throw new Error((errJson.error?.message)||"HTTP "+resp.status)}
-      catch(pe){if(pe.message.startsWith("HTTP"))throw pe;throw new Error("HTTP "+resp.status+" — "+respText.substring(0,150))}
-    }
-
-    let data;
-    try{data=JSON.parse(respText)}catch(pe){throw new Error("Réponse non-JSON de l'API : "+respText.substring(0,100))}
-
-    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
-    if(!data.content||!data.content.length)throw new Error("Réponse vide de l'API");
-
-    const text=(data.content||[]).map(c=>c.text||"").join("");
-    // Extract JSON from response — handle cases where Claude wraps in markdown or adds text
-    let jsonStr=text;
-    const jsonMatch=text.match(/\{[\s\S]*?\}/);
-    if(jsonMatch)jsonStr=jsonMatch[0];
-    jsonStr=jsonStr.replace(/```json|```/g,"").trim();
-
-    let parsed;
-    try{parsed=JSON.parse(jsonStr)}catch(pe){throw new Error("Réponse non-JSON : "+text.substring(0,100))}
-
-    // Fill fields
+    const res=await sheetAPI("ocrJustif",{fileData:sendData,fileType});
+    if(res.error)throw new Error(res.error);
+    if(!res.ok||!res.data)throw new Error("Pas de données extraites");
+    const parsed=res.data;
     let filled=[];
     if(parsed.date&&$("ldate_"+idx)){$("ldate_"+idx).value=parsed.date;filled.push("📅 "+parsed.date)}
     if(parsed.montant!=null&&!isNaN(parsed.montant)&&$("lamt_"+idx)){$("lamt_"+idx).value=parsed.montant;filled.push("💰 "+parsed.montant+"€")}
     if(parsed.fournisseur&&$("lfour_"+idx)){$("lfour_"+idx).value=parsed.fournisseur;filled.push("🏪 "+parsed.fournisseur)}
+    if(parsed.description&&$("ldesc_"+idx)){$("ldesc_"+idx).value=parsed.description}
     const ocrEl=$("ocr_"+idx);
     if(ocrEl){
       if(filled.length){ocrEl.style.background="var(--green-bg)";ocrEl.style.color="var(--green)";ocrEl.innerHTML="🤖 "+filled.join(" · ")+"<br><span style='font-size:10px;color:var(--text-3)'>Vérifiez et corrigez si besoin</span>"}
@@ -553,6 +494,7 @@ async function ocrJustificatif(idx,dataUrl,fileType,apiKey){
     console.error("OCR error:",e);
   }
 }
+
 
 // ─── SAVE NDF ───
 function nomenclatureFileName(ndfRef, lineIdx, four, originalName){
@@ -589,27 +531,40 @@ function saveNDF(status){
   if(existing){existing.date=date;existing.lines=lines;existing.status=status}
   else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie})}
   save();closeM();render();
+  // Upload PJ to Drive immediately (even for brouillons)
+  for(let i=0;i<lines.length;i++){
+    if(lines[i].fileData&&!lines[i].driveUrl){
+      await uploadJustifToDrive(ref,lines[i],i+1);
+    }
+  }
+  if(lines.some(l=>l.driveUrl))save(); // Re-save with driveUrls
 }
 
 async function envoyerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  if(!confirm("Envoyer cette NDF à la direction ?\nLes justificatifs seront sauvegardés sur le Drive."))return;
+  // Check if all PJ are on Drive
+  const missingPJ=n.lines.filter(l=>l.type!=="ik"&&l.fileData&&!l.driveUrl);
+  if(missingPJ.length){
+    if(!confirm("⚠️ "+missingPJ.length+" justificatif(s) pas encore sur le Drive.\nEnvoyer quand même ? (les PJ seront uploadées maintenant)"))return;
+    for(let i=0;i<n.lines.length;i++){
+      if(n.lines[i].fileData&&!n.lines[i].driveUrl)await uploadJustifToDrive(n.ref,n.lines[i],i+1);
+    }
+  }
+  if(!confirm("Envoyer cette NDF à la direction ?\nElle ne pourra plus être modifiée."))return;
   n.status="envoyée";n.statusDate=new Date().toISOString().split("T")[0];
   save();render();
-  // Upload justificatifs to Drive
-  for(let i=0;i<n.lines.length;i++){
-    await uploadJustifToDrive(n.ref,n.lines[i],i+1);
-  }
-  save();
-  alert("✅ NDF "+n.ref+" envoyée !\n"+n.lines.filter(l=>l.driveUrl).length+" justificatif(s) sauvegardés sur le Drive.");
+  alert("✅ NDF "+n.ref+" envoyée à la direction !");
 }
 
-function supprimerNDF(id){
+async function supprimerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
   if(n.status!=="brouillon"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
-  if(!confirm("Supprimer la NDF "+n.ref+" ?"))return;
+  if(!confirm("Supprimer la NDF "+n.ref+" ?\n(sera aussi supprimée du Cloud)"))return;
+  const ref=n.ref;const salarie=n.salarie||D.salarie;
   D.ndfs=D.ndfs.filter(x=>x.id!==id);
   save();render();
+  // Delete from Sheet
+  try{await sheetAPI("deleteNDF",{ref,salarie})}catch(e){console.warn("Delete from Sheet error:",e)}
 }
 
 function toggleSort(col){
@@ -722,11 +677,11 @@ function showSettings(){
     <div class="form-row" style="margin-bottom:12px"><label>CV fiscaux</label><select class="inp" id="s_cv">${[3,4,5,6,7].map(c=>`<option${c===D.cv?" selected":""}>${c}</option>`).join("")}</select></div>
     <div class="form-row" style="margin-bottom:12px"><label>Clé API OpenRouteService</label><input class="inp" id="s_ors" value="${orsKey}" placeholder="Collez votre clé ici">
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">Gratuit — <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:var(--accent)">openrouteservice.org</a></div></div>
-    <div class="form-row" style="margin-bottom:12px"><label>Clé API Anthropic (lecture auto des justificatifs)</label><input class="inp" id="s_anth" value="${D.anthropicKey||localStorage.getItem("litup_anthropic_key")||""}" placeholder="sk-ant-...">
+    <div class="form-row" style="margin-bottom:12px"><label>
       <div style="font-size:10px;color:var(--text-3);margin-top:4px">🤖 Quand une photo est déposée, Claude lit automatiquement la date, le montant et le fournisseur</div></div>
     <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">${CODES.length} codes projets chargés ☁️ <span style="font-size:9px;color:var(--text-3)">(mis à jour automatiquement)</span></div>
     <div style="display:flex;gap:6px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button>
-      <button class="b bp" onclick="D.salarie=$('s_name').value.trim()||D.salarie;D.cv=parseInt($('s_cv').value)||5;const k=$('s_ors').value.trim();if(k){D.orsKey=k;localStorage.setItem('litup_ors_key',k)}const ak=$('s_anth').value.trim();if(ak){D.anthropicKey=ak;localStorage.setItem('litup_anthropic_key',ak)}save();closeM();render()">💾 Enregistrer</button></div>
+      <button class="b bp" onclick="D.salarie=$('s_name').value.trim()||D.salarie;D.cv=parseInt($('s_cv').value)||5;const k=$('s_ors').value.trim();if(k){D.orsKey=k;localStorage.setItem('litup_ors_key',k)}save();closeM();render()">💾 Enregistrer</button></div>
   </div></div>`;
 }
 function handleImportCodes(inp){

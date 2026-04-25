@@ -142,7 +142,9 @@ async function loadFromSheet(){
     if(res.error){setSyncStatus("⚠️");return}
     if(res.ndfs&&res.ndfs.length){
       let added=0;
-      res.ndfs.forEach(sn=>{
+      // Only show NDF that have been sent (not brouillons)
+      const sentNdfs=res.ndfs.filter(sn=>sn.status==="envoyée"||sn.status==="validée"||sn.status==="réglée");
+      sentNdfs.forEach(sn=>{
         const ex=D.ndfs.find(n=>n.ref===sn.ref);
         if(!ex){
           D.ndfs.push({ref:sn.ref,salarie:sn.salarie,source:sn.salarie,date:sn.date,status:sn.status||"envoyée",
@@ -420,6 +422,11 @@ function changeStatus(ni,newStatus){
     const oldRef=n.ref;
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
     if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
+    // Rename Drive folder from old ref to new official ref
+    sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref}).then(r=>{
+      if(r.error)console.warn("Renommage dossier Drive échoué:",r.error);
+      else console.log("Dossier Drive renommé:",oldRef,"→",n.ref);
+    }).catch(e=>console.warn("Erreur renommage Drive:",e));
   }
   
   n.status=newStatus;
