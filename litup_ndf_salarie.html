@@ -320,8 +320,9 @@ function render(){
     const hasFiles=n.lines.some(l=>l.fileName||l.fileData);
     const isOwn=!n.salarie||n.salarie===D.salarie;
     const isOther=n.salarie&&n.salarie!==D.salarie;
-    const rowBg=isOther?";background:#f0f4ff;border-left:3px solid #6366f1":";background:#f0fdf4;border-left:3px solid #16a34a";
-    const badge=isOther?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#6366f1;color:white;font-weight:600">👤 '+n.salarie+'</span>':'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#16a34a;color:white;font-weight:600">👤 '+D.salarie+'</span>';
+    const needsAction=isOther&&n.status!=="réglée"&&n.status!=="validée";
+    const rowBg=needsAction?";background:#fef2f2;border-left:3px solid var(--red)":isOther?";background:#f0f4ff;border-left:3px solid #6366f1":";background:#f0fdf4;border-left:3px solid #16a34a";
+    const badge=isOther?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:'+(needsAction?"var(--red)":"#6366f1")+';color:white;font-weight:600">👤 '+n.salarie+'</span>':'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#16a34a;color:white;font-weight:600">👤 '+D.salarie+'</span>';
     h+=`<tr style="cursor:pointer${rowBg}" onclick="editNDF(${n.id})">
       <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${badge}</td>
       <td style="font-size:11px;color:var(--text-2)">${(n.date||"").replace(/T.*$/,"")}</td>

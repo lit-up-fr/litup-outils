@@ -130,7 +130,7 @@ function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)e
 async function syncToSheet(){
   if(!D.director)return;setSyncStatus("🔄");
   try{
-    const updates=D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,status:n.status,statusDate:n.statusDate||"",paymentDate:n.paymentDate||""}));
+    const updates=D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,date:(n.date||"").replace(/T.*$/,""),status:n.status,statusDate:n.statusDate||"",paymentDate:n.paymentDate||"",isPresta:!!n.isPresta,prestaName:n.isPresta?(n.salarie||""):"",lines_json:JSON.stringify(n.lines||[]),coordo:n.coordo||""}));
     const res=await sheetAPI("updateStatus",{updates,director:D.director});
     setSyncStatus(res.error?"⚠️":"☁️");
   }catch(e){console.warn("Dir sync error:",e);setSyncStatus("⚠️")}
@@ -423,7 +423,7 @@ function changeStatus(ni,newStatus){
   if(newStatus==="validée"&&!n.ref.match(/^N2026-\d+/)){
     const num=getNextOfficialNumber();
     const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
-    const dt=(n.date||new Date().toISOString().split("T")[0]).replace(/-/g,"");
+    const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
     const oldRef=n.ref;
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
     if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
@@ -457,7 +457,7 @@ async function reglerNDF(ni){
   if(!n.ref.match(/^N2026-\d+/)){
     const num=getNextOfficialNumber();
     const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
-    const dt=(n.date||new Date().toISOString().split("T")[0]).replace(/-/g,"");
+    const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
   }
   n.status="réglée";
