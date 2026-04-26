@@ -376,6 +376,7 @@ let D={
     {match:"HARMONIE",four:"Harmonie Mutuelle",cat:"64520000 - Cotisations Prévoyance/Santé",act:"RH2026 - Ressources humaines"},
     {match:"AG2R",four:"AG2R",cat:"64530000 - Cotisations Retraite",act:"RH2026 - Ressources humaines"},
     {match:"ALLIANZ",four:"Allianz",cat:"64520000 - Cotisations Prévoyance/Santé",act:"RH2026 - Ressources humaines"},
+    {match:"PAS-DSN",four:"PAS DGFIP",cat:"64110000 - Salaires et appointements",act:"RH2026 - Ressources humaines"},
     {match:"AIST83",four:"AIST 83",cat:"64750000 - Médecine du travail",act:"RH2026 - Ressources humaines"},
     {match:"FACILIT",four:"Facilitateur",cat:"62142000 - Intervenants pédagogiques",act:""},
     {match:"SNCF",four:"SNCF",cat:"62510000 - Voyages et déplacements",act:""},
@@ -542,7 +543,7 @@ let D={
   ],
 };
 const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis"];
-const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin salaire","Classé - Reçu fiscal","Justificatif manquant","En attente","À créer","À demander","Absence"];
+const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Justificatif manquant","En attente","À créer","À demander","Absence"];
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
 let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
@@ -577,6 +578,10 @@ function actTerr(label){if(!label)return"";const a=D.acts.find(x=>(typeof x==="s
 function normActs(){D.acts=D.acts.map(a=>typeof a==="string"?{l:a,t:""}:a)}
 
 function applyRules(lib){if(!lib)return null;const u=lib.toUpperCase();for(const r of D.rules){if(u.includes(r.match.toUpperCase()))return r}return null}
+// Salary-related keywords → Classé - Bulletin de salaire
+const SALARY_KW=["SALAIRE","AG2R","PAS-DSN","URSSAF","HARMONIE","ALLIANZ","PREVOYANCE","RETRAITE"];
+function isSalaryLine(lib){if(!lib)return false;const u=lib.toUpperCase();return SALARY_KW.some(k=>u.includes(k))}
+
 function detMod(lib){if(!lib)return"";const u=lib.toUpperCase();if(u.includes("PAIEMENT CB")||u.includes("PAIEMENT PSC"))return"Carte bancaire";if(u.startsWith("PRLV"))return"Prélèvement";if(u.startsWith("VIR "))return"Virement émis";if(u.startsWith("FAC "))return"Virement reçu";return""}
 // Nomenclature pièces : provisoire → définitive
 // Provisoire (à l'attachement) : YYYYMMJJ-FOURNISSEUR-MONTANT
@@ -826,7 +831,7 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
           const rl=applyRules(lib);let four=rl?.four||"",cat=rl?.cat||"",act=rl?.act||"";
           if(!four){const fac=parseFacilitateur(lib);if(fac){four=fac.four;if(!cat)cat="62142000 - Intervenants pédagogiques"}}
           if(!four){const ndf=parseNDF(lib);if(ndf&&ndf.four)four=ndf.four}
-          D.rows.push({id:"b"+i+"_"+Date.now()+"_"+sn.replace(/\s+/g,""),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque",compte});added++}
+          D.rows.push({id:"b"+i+"_"+Date.now()+"_"+sn.replace(/\s+/g,""),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:isSalaryLine(lib)?"Classé - Bulletin de salaire":"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque",compte});added++}
       }
       // Set global solde initial if not already set
       if(D.soldeInitialCC&&!D.soldeInitial){D.soldeInitial=D.soldeInitialCC;D.soldeDate="2026-01-01"}
@@ -841,7 +846,7 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
         const rl=applyRules(lib);let four=rl?.four||"",cat=rl?.cat||"",act=rl?.act||"";
         if(!four){const fac=parseFacilitateur(lib);if(fac){four=fac.four;if(!cat)cat="62142000 - Intervenants pédagogiques"}}
         if(!four){const ndf=parseNDF(lib);if(ndf&&ndf.four)four=ndf.four}
-        D.rows.push({id:"b"+i+"_"+Date.now(),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque"});added++}
+        D.rows.push({id:"b"+i+"_"+Date.now(),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:isSalaryLine(lib)?"Classé - Bulletin de salaire":"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque"});added++}
     }
     autoSave();render();
     const soldeInfo=D.soldeInitialCC?"\n\nSoldes détectés :\n• C/C : "+D.soldeInitialCC.toLocaleString("fr-FR")+" €"+(D.soldeInitialLivret?"\n• Livret : "+D.soldeInitialLivret.toLocaleString("fr-FR")+" €":""):"";
@@ -951,7 +956,7 @@ function addSelectedDups(){
     if(!four){const fac=parseFacilitateur(d.lib);if(fac)four=fac.four}
     if(!four){const ndf=parseNDF(d.lib);if(ndf&&ndf.four)four=ndf.four}
     D.rows.push({id:"dup"+Date.now()+"_"+i,dt:d.dt,yr:yrOf(d.dt),lib:d.lib,four,cat,act,
-      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:"Justificatif manquant",
+      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:isSalaryLine(lib)?"Classé - Bulletin de salaire":"Justificatif manquant",
       resp:d.sal||"",numj:d.numj||"",ndf:d.ndf||"",src:d.src});
     added++;
   });
@@ -1973,7 +1978,7 @@ function render(){
   h+="</tr></thead><tbody>";
   flt.forEach(r=>{const a=D.att[r.id];
     // Row highlighting based on justificatif status
-    const isClasse=(r.stat||"").startsWith("Classé")&&r.numj;
+    const isClasse=(r.stat||"").startsWith("Classé")&&(r.numj||(r.stat||"").includes("Bulletin"));
     const isManquant=(r.stat||"")==="Justificatif manquant"||((r.deb>0||r.cre>0)&&!r.stat&&r.src==="banque");
     const isUnclassed=!isClasse&&!isManquant&&(r.cat||r.act)&&r.stat&&!r.stat.startsWith("Classé");
     const rowBg=isManquant?"background:rgba(251,146,60,.08);border-left:3px solid #f97316":isClasse?"background:rgba(22,163,74,.06);border-left:3px solid #16a34a":isUnclassed?"background:rgba(250,204,21,.08);border-left:3px solid #facc15":"";
@@ -1981,14 +1986,14 @@ function render(){
     h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
     h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")}" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'">${r.lib}</td>`;
     h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.cat?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${r.cat&&!D.cats.includes(r.cat)?`<option selected>${r.cat}</option>`:""}${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:#f87171;width:65px" value="${r.deb||''}" onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button></td>`
-        :`<td><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
-    h+=`<td style="min-width:55px"><select class="ms" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:75px"><select class="ms" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
+        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')"><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
+    h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
@@ -2081,6 +2086,31 @@ function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=
     const m=nj.match(/^(F|P|S|RF)2026-(\d+)$/);if(m){const n=parseInt(m[2]);if(n>=D.ctr[m[1]])D.ctr[m[1]]=n}
     $("mr_"+i).innerHTML=`<span style="color:#22c55e">✓ ${nj}.${ext}</span> <button class="att has" onclick="viewAtt('miss_${nj}')" style="margin-left:3px">👁</button>`;
     autoSave()};rd.readAsArrayBuffer(f)}
+
+// ─── DRAG & DROP JUSTIF ONTO ROW ───
+async function dropJustif(event,rowId){
+  const files=event.dataTransfer.files;if(!files.length)return;
+  const f=files[0];const row=D.rows.find(r=>r.id===rowId);if(!row)return;
+  // Read file as dataURL
+  const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
+  // Build definitive name
+  const nj=promoteN(row);
+  const ext=f.name.split(".").pop().toLowerCase();
+  const fileName=nj+"."+ext;
+  // Attach locally
+  D.att[rowId]={data:await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(f)}),
+    name:fileName,orig:f.name,type:f.type,ext,nj};
+  row.numj=nj;
+  row.stat=row.cre&&row.cre>0?"Classé - Convention":"Classé - Facture";
+  autoSave();render();
+  // Upload to Drive → JUSTIFICATIFS CLASSÉS
+  try{
+    const res=await sheetAPI("uploadJustif",{folderId:"1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx",ndfRef:"",fileName,fileData:dataUrl});
+    if(res.ok||res.fileUrl){row.driveUrl=res.fileUrl||"";row.driveFileId=res.fileId||"";autoSave();
+      console.log("📎 "+fileName+" uploadé dans JUSTIFICATIFS CLASSÉS")}
+    else console.warn("Upload échoué:",res.error);
+  }catch(e){console.warn("Upload Drive error:",e)}
+}
 
 // ─── COLUMN RESIZE ───
 function startResize(e){
