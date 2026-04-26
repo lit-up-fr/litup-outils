@@ -198,7 +198,7 @@ async function loadNDFFromSheet(){
         const ref=n.ref;
         const lines=n.lines.map((l,i)=>({
           dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||l.deb||0,
-          cat:l.expType||"",act:l.code||"",expType:l.expType||"",
+          cat:matchCat((l.expType||"").replace("62570000","62571000")),act:matchAct(l.code||""),expType:(l.expType||"").replace("62570000","62571000"),
           resp:sal,numj:ref+"_"+String(i+1).padStart(2,"0"),ndf:ref,lineNum:i+1
         }));
         if(lines.length){D.ndfBuffer[ref]=lines;imported+=lines.length;ndfCount++}
@@ -551,6 +551,26 @@ let openDD=null;
 
 // Helper: get act labels array (for dropdowns, backward compat)
 function actLabels(){return D.acts.map(a=>typeof a==="string"?a:a.l)}
+// Match NDF code to compta list by prefix (e.g. "BU85 - MIEJ MIEJ-9" → find "BU85" in actLabels)
+function matchAct(ndfCode){
+  if(!ndfCode)return"";
+  const labels=actLabels();
+  // Exact match first
+  if(labels.includes(ndfCode))return ndfCode;
+  // Prefix match: extract code before " - " and find in list
+  const prefix=(ndfCode.split(" - ")[0]||"").trim();
+  if(!prefix)return ndfCode;
+  const found=labels.find(l=>(l.split(" - ")[0]||"").trim()===prefix);
+  return found||ndfCode;
+}
+function matchCat(ndfCat){
+  if(!ndfCat)return"";
+  if(D.cats.includes(ndfCat))return ndfCat;
+  const prefix=(ndfCat.split(" - ")[0]||"").trim();
+  if(!prefix)return ndfCat;
+  const found=D.cats.find(c=>(c.split(" - ")[0]||"").trim()===prefix);
+  return found||ndfCat;
+}
 // Helper: get territory for an act label
 function actTerr(label){if(!label)return"";const a=D.acts.find(x=>(typeof x==="string"?x:x.l)===label);return a?(typeof a==="string"?"":a.t||""):""}
 // Helper: normalize acts (support old string format from saves)
@@ -1295,7 +1315,7 @@ function execAutoMatch(matchList){
       const parts=["NDF "+m.ndfRef];if(salName)parts.push(salName);if(nr.desc)parts.push(nr.desc);
       D.rows.splice(bankIdx+j,0,{
         id:"am"+Date.now()+"_"+bankIdx+"_"+j+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,lib:parts.join(" - "),
-        four:nr.four||"",cat:nr.cat||nr.expType||"",act:nr.act||"",deb:nr.deb,cre:null,
+        four:nr.four||"",cat:matchCat(nr.cat||nr.expType||""),act:matchAct(nr.act||""),deb:nr.deb,cre:null,
         modal:"Virement émis",stat:"Classé - Facture",resp:nr.resp||"",
         numj:m.ndfRef+"_"+String(j+1).padStart(2,"0"),ndf:m.ndfRef,src:"ndf-split"
       });
@@ -1377,7 +1397,7 @@ function splitNDF(bankId){
     const numj=ndfRef+"_"+String(i+1).padStart(2,"0");
     D.rows.splice(bankIdx+i,0,{
       id:"ns"+Date.now()+"_"+i+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,
-      lib,four:nr.four||"",cat:nr.cat||nr.expType||"",act:nr.act||"",
+      lib,four:nr.four||"",cat:matchCat(nr.cat||nr.expType||""),act:matchAct(nr.act||""),
       deb:nr.deb,cre:null,modal:"Virement émis",
       stat:"Classé - Facture",resp:nr.resp||"",
       numj,ndf:ndfRef,src:"ndf-split"
