@@ -360,7 +360,19 @@ function viewDetail(ni){
 
 function showImg(name,dataUrl){const d=document.createElement("div");d.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:900px;text-align:center"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">📎 ${name}</h3><div style="display:flex;gap:6px"><a href="${dataUrl}" download="${name}" class="b b-g" style="text-decoration:none">⬇️</a><button class="b b-d" onclick="this.closest('.modal-bg').remove()">✕</button></div></div><img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px;border:1px solid var(--border)"></div></div>`;document.body.appendChild(d.firstElementChild)}
 
-function getNextOfficialNumber(){
+async function getNextOfficialNumber(){
+  // Query Sheet for the real last number (source of truth)
+  try{
+    const res=await sheetAPI("getLastNDFNumber");
+    if(res.lastNumber!==undefined){
+      const sheetMax=res.lastNumber;
+      // Also check local in case we just assigned a number not yet synced
+      const localNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
+      const localMax=Math.max(0,...localNums);
+      return Math.max(sheetMax,localMax)+1;
+    }
+  }catch(e){console.warn("getLastNDFNumber error, falling back to local:",e)}
+  // Fallback: local only
   const allNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
   return Math.max(0,...allNums)+1;
 }
@@ -424,7 +436,7 @@ async function uploadPJ(ni,li,inp){
   rd.readAsDataURL(f);
 }
 
-function changeStatus(ni,newStatus){
+async function changeStatus(ni,newStatus){
   const n=D.ndfs[ni];if(!n)return;
   // Map old statuses
   if(newStatus==="envoyée")newStatus="à traiter";
@@ -432,7 +444,7 @@ function changeStatus(ni,newStatus){
   if(newStatus==="réglée"){alert("Utilisez le bouton 💸 Régler avec une date de règlement.");render();return}
   // Validate → assign official N° if needed
   if(newStatus==="validée"&&!n.ref.match(/^N2026-\d+/)){
-    const num=getNextOfficialNumber();
+    const num=await getNextOfficialNumber();
     const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
     const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
     const oldRef=n.ref;
@@ -466,7 +478,7 @@ async function reglerNDF(ni){
   // Assign official N° if not already done
   const oldRef=n.ref;
   if(!n.ref.match(/^N2026-\d+/)){
-    const num=getNextOfficialNumber();
+    const num=await getNextOfficialNumber();
     const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
     const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
