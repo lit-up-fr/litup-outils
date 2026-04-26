@@ -1071,17 +1071,18 @@ async function applyJustifMatches(){
     if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext}...</div>`;
     try{
       const uploadRes=await sheetAPI("uploadJustif",{
-        ndfRef:"DEP-DIRECTION",
+        folderId:"1P9uk7SdagTkv6nADAN5gUNnnl-w-lwxB",
+        ndfRef:"COMPTA",
         fileName:nj+"."+ext,
         fileData:r.dataUrl
       });
-      if(uploadRes.url){
-        row.driveUrl=uploadRes.url;
+      if(uploadRes.ok||uploadRes.fileUrl){
+        row.driveUrl=uploadRes.fileUrl||"";
         row.driveFileId=uploadRes.fileId||"";
         uploaded++;
         if(prog)prog.innerHTML+=`<div style="color:#22c55e">✅ ${nj}.${ext}</div>`;
       }else{
-        if(prog)prog.innerHTML+=`<div style="color:#f59e0b">⚠️ ${nj}.${ext} — ${uploadRes.error||"erreur"}</div>`;
+        if(prog)prog.innerHTML+=`<div style="color:#f59e0b">⚠️ ${nj}.${ext} — ${uploadRes.error||"erreur inconnue"}</div>`;
       }
     }catch(e){
       console.warn("Upload Drive error:",e);
@@ -1096,7 +1097,7 @@ async function applyJustifMatches(){
     const prog=$("uploadProg");
     if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext} (orphelin)...</div>`;
     try{
-      await sheetAPI("uploadJustif",{ndfRef:"DEP-DIRECTION",fileName:nj+"."+ext,fileData:r.dataUrl});
+      await sheetAPI("uploadJustif",{folderId:"1P9uk7SdagTkv6nADAN5gUNnnl-w-lwxB",ndfRef:"COMPTA",fileName:nj+"."+ext,fileData:r.dataUrl});
     }catch(e){}
     orphaned++;
   }
@@ -1104,7 +1105,7 @@ async function applyJustifMatches(){
   // Close and show results
   closeM();render();
   let msg="✅ "+applied+" justificatif(s) rapproché(s)";
-  if(uploaded)msg+="\n📤 "+uploaded+" uploadé(s) dans le Drive (DEP-DIRECTION)";
+  if(uploaded)msg+="\n📤 "+uploaded+" uploadé(s) dans le Drive (Dépenses Lit uP / COMPTA)";
   if(orphaned)msg+="\n\n⚠️ "+orphaned+" justificatif(s) sans correspondance — uploadé(s) comme orphelins";
   msg+="\n\n💡 Pensez à cliquer ☁️ Sauvegarder pour enregistrer dans le Sheet.";
   alert(msg);
