@@ -209,14 +209,14 @@ function render(){
   ndfs.sort((a,b)=>(a.ref||"").localeCompare(b.ref||"",undefined,{numeric:true}));
   // Filters
   if(filtStatus){
-    if(filtStatus==="envoyée")ndfs=ndfs.filter(n=>n.status==="envoyée");
+    if(filtStatus==="à traiter")ndfs=ndfs.filter(n=>n.status==="envoyée"||n.status==="à traiter");
     else ndfs=ndfs.filter(n=>n.status===filtStatus);
   }
   if(filtSalarie)ndfs=ndfs.filter(n=>(n.source||n.salarie||"")=== filtSalarie);
   // Stats (on all data, not filtered)
-  const allNdfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);allNdfs.forEach(n=>byS[n.status]=(byS[n.status]||0)+1);
+  const allNdfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);allNdfs.forEach(n=>{const es=n.status==="envoyée"?"à traiter":n.status;byS[es]=(byS[es]||0)+1});
   const tot=allNdfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const aValider=(byS["envoyée"]||0);
+  const aValider=(byS["à traiter"]||0);
   // Director info
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <div><strong style="font-size:15px">${D.director||"Direction"}</strong> <span style="color:var(--text-3);font-size:11px">· ${allNdfs.length} NDF</span></div>
@@ -427,6 +427,8 @@ function changeStatus(ni,newStatus){
     const oldRef=n.ref;
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
     if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
+    // Delete old Sheet entry + rename Drive folder
+    sheetAPI("deleteNDF",{ref:oldRef}).then(()=>console.log("Ancienne entrée supprimée:",oldRef)).catch(e=>console.warn(e));
     sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref}).then(r=>{
       if(r.error)console.warn("Renommage dossier:",r.error);
       else console.log("Dossier renommé:",oldRef,"→",n.ref);
@@ -449,6 +451,7 @@ async function reglerNDF(ni){
   const payDate=dateInput?dateInput.value:"";
   if(!payDate){alert("Indiquez d'abord la date de règlement.");return}
   if(!confirm("Confirmer le règlement de "+n.ref+" ?\n\nDate : "+payDate+"\nMontant : "+fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0)))){return}
+  setSyncStatus("🔄");
   // Assign official N° if not already done
   const oldRef=n.ref;
   if(!n.ref.match(/^N2026-\d+/)){
@@ -460,10 +463,13 @@ async function reglerNDF(ni){
   n.status="réglée";
   n.paymentDate=payDate;
   n.statusDate=new Date().toISOString().split("T")[0];
-  // Rename Drive folder
+  // If ref changed: delete old entry from Sheet first, then rename Drive folder
   if(oldRef!==n.ref){
     try{
-      setSyncStatus("🔄");
+      await sheetAPI("deleteNDF",{ref:oldRef});
+      console.log("Ancienne entrée Sheet supprimée:",oldRef);
+    }catch(e){console.warn("Erreur suppression ancienne entrée:",e)}
+    try{
       const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
       if(r.error)console.warn("Renommage dossier:",r.error);
       else console.log("Dossier renommé:",oldRef,"→",n.ref);
