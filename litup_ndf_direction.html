@@ -500,7 +500,18 @@ async function reglerNDF(ni){
   }
   save();render();
   setSyncStatus("☁️");
-  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate);
+  // Generate PDF recap in NDF Drive folder
+  try{
+    const pdfRes=await sheetAPI("generateNDFPDF",{
+      ref:n.ref,salarie:n.salarie||n.source,date:n.date,
+      lines:n.lines,status:n.status,paymentDate:n.paymentDate,
+      statusDate:n.statusDate,director:D.director,
+      isPresta:!!n.isPresta,prestaComment:n.prestaComment||""
+    });
+    if(pdfRes.ok)console.log("📄 PDF récap généré:",pdfRes.fileName);
+    else console.warn("PDF erreur:",pdfRes.error);
+  }catch(e){console.warn("PDF generation error:",e)}
+  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate+"\n📄 PDF récapitulatif généré dans le Drive");
 }
 
 function changeStatusDetail(ni,newStatus){

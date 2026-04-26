@@ -68,6 +68,9 @@ table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600;position:relative}
 th .col-resize{position:absolute;right:0;top:0;bottom:0;width:4px;cursor:col-resize;background:transparent;z-index:11}
 th .col-resize:hover{background:rgba(99,102,241,.5)}
+.filter-row td{padding:2px 3px;background:var(--bg-1)}
+.cf{width:100%;padding:2px 4px;font-size:8px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--text-1);outline:none}
+.cf:focus{border-color:var(--accent)}
 td{padding:5px 8px;border-bottom:1px solid rgba(37,45,63,.4);vertical-align:middle}
 tr:hover{background:rgba(99,102,241,.03)}
 tr.ndf{background:rgba(251,191,36,.04)}
@@ -587,7 +590,7 @@ function detMod(lib){if(!lib)return"";const u=lib.toUpperCase();if(u.includes("P
 // Provisoire (à l'attachement) : YYYYMMJJ-FOURNISSEUR-MONTANT
 // Définitive (après rapprochement) : F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT
 function tempName(row){
-  const dt=(row.dt||"").replace(/-/g,"");
+  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
   const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
   const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
   return dt+"-"+four+"-"+amt;
@@ -597,7 +600,7 @@ function peekN(p){return p+"2026-"+String((D.ctr[p]||0)+1).padStart(3,"0")}
 function promoteN(row){
   const p=row.cre&&row.cre>0?"S":"F";
   const seq=nextN(p);
-  const dt=(row.dt||"").replace(/-/g,"");
+  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
   const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
   const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
   return seq+"-"+dt+"-"+four+"-"+amt;
@@ -1492,11 +1495,17 @@ function rRH(el){
 }
 function switchTab(t){curTab=t;render()}
 function tglF(el){curFilt=curFilt===el.dataset.f?"":el.dataset.f;render()}
-function getFilt(){const q=($("si")?.value||"").toLowerCase();return D.rows.filter(r=>{
+if(!window._colFilters)window._colFilters={};
+function setColFilter(key,val){window._colFilters[key]=val.toLowerCase();render()}
+
+function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};return D.rows.filter(r=>{
   if(curFilt==="uncl"&&r.cat&&r.act)return false;if(curFilt==="cl"&&(!r.cat||!r.act))return false;
   if(curFilt==="bank"&&r.src!=="banque")return false;if(curFilt==="ndf"&&r.src!=="ndf")return false;
   if(curFilt==="noatt"&&D.att[r.id])return false;
-  if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q))return false;return true})}
+  if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q))return false;
+  // Column filters
+  for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(v))return false}
+  return true})}
 
 // ─── SEARCH SELECT ───
 document.addEventListener("click",e=>{if(openDD&&!openDD.contains(e.target)){const x=openDD.querySelector(".ss-dd");if(x)x.remove();openDD=null}});
@@ -1974,7 +1983,14 @@ function render(){
   // Classement tab
   if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
   let h='<div style="overflow-x:auto"><table><thead><tr>';
-  ["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""].forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)"></div></th>`);
+  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""];
+  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","modal","stat","resp","numj",""];
+  cols.forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)"></div></th>`);
+  h+="</tr><tr class='filter-row'>";
+  colKeys.forEach((k,i)=>{
+    if(!k||k==="deb"||k==="cre"){h+="<td></td>"}
+    else{h+=`<td><input class="cf" id="cf_${k}" value="${window._colFilters?.[k]||""}" placeholder="🔍" oninput="setColFilter('${k}',this.value)"></td>`}
+  });
   h+="</tr></thead><tbody>";
   flt.forEach(r=>{const a=D.att[r.id];
     // Row highlighting based on justificatif status
