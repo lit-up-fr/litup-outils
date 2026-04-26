@@ -248,6 +248,7 @@ function initSalarie(){
 
 // ─── RENDER ───
 function render(){
+  if(!D.salarie){initSalarie();return}
   const el=$("mainContent");const ndfs=[...D.ndfs];
   // Default sort: ref ascending
   if(!window._sortCol){window._sortCol="ref";window._sortDir=1}
@@ -723,7 +724,9 @@ function handleRestore(inp){
     document.body.appendChild(warn);
   }
 }catch(e){}})();
-initSalarie();if(D.salarie){loadCodesFromSheet().then(()=>{render();syncFromSheet()})}
+initSalarie();
+if(D.salarie){loadCodesFromSheet().then(()=>{render();syncFromSheet()})}
+else{render()} // Force render even if no salarie selected (will show empty state)
 </script>
 </body>
 </html>
