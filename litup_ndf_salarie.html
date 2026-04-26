@@ -116,26 +116,27 @@ async function syncToSheet(){
 async function syncFromSheet(){
   if(!D.salarie)return;setSyncStatus("🔄");
   try{
-    // Use getAllNDF and filter client-side (salarie field OR modifiedBy field matches)
     const res=await sheetAPI("getAllNDF");
-    if(res.error){setSyncStatus("⚠️");return}
+    if(res.error){setSyncStatus("⚠️");console.warn("getAllNDF error:",res.error);return}
     if(res.ndfs&&res.ndfs.length){
-      const sal=D.salarie.toLowerCase();
+      const norm=s=>(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
+      const sal=norm(D.salarie);
+      console.log("Sync: cherche '"+sal+"' parmi "+res.ndfs.length+" NDF");
       const myNdfs=res.ndfs.filter(sn=>{
-        const s=(sn.salarie||"").toLowerCase();
-        const c=(sn.coordo||"").toLowerCase();
+        const s=norm(sn.salarie);
+        const c=norm(sn.coordo);
         return s===sal||c===sal;
       });
+      console.log("Sync: "+myNdfs.length+" NDF trouvées pour "+D.salarie);
+      if(!myNdfs.length&&res.ndfs.length){console.log("Noms uniques dans le Sheet:",[...new Set(res.ndfs.map(n=>(n.salarie||"").trim()))].join(", "))}
       let updated=0,added=0;
       myNdfs.forEach(sn=>{
         const local=D.ndfs.find(n=>n.ref===sn.ref);
         if(local){
-          // Update status if changed
           if(sn.status!==local.status||sn.paymentDate!==local.paymentDate){
             local.status=sn.status;local.statusDate=sn.statusDate;
             if(sn.paymentDate)local.paymentDate=sn.paymentDate;updated++}
         } else {
-          // NDF not in local — import from Sheet
           D.ndfs.push({
             id:Date.now()+Math.random(),
             ref:sn.ref,
