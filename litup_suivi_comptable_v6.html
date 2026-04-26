@@ -146,13 +146,13 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <button class="b bd" onclick="exportCSV()">📤 CSV</button>
     <button class="b bd" onclick="exportFEC()" title="Export FEC pour l'expert-comptable">📤 FEC</button>
     <button class="b bd" onclick="exportZIP()">📦 ZIP</button>
-    <button class="b bd" onclick="exportJustifsZIP()" title="Justificatifs renommés (classés + à traiter)">📦 Justif.</button>
-    <button class="b bd" onclick="saveAll()">💾</button>
-    <button class="b bd" onclick="loadAll()">📂</button>
+    <button class="b bd" onclick="saveAll()" title="Sauvegarder en JSON (backup local)">💾 JSON</button>
+    <button class="b bd" onclick="loadAll()" title="Charger un backup JSON">📂 JSON</button>
   </div>
   <div class="btn-group">
     <button class="b by" onclick="importAirtable()" title="Importer données Airtable (JSON)">📥 AT</button>
-    <button class="b bd" onclick="syncComptaToSheet().then(()=>alert('☁️ Lignes classées synchronisées vers Google Sheet'))" title="Synchroniser vers Google Sheet">☁️</button>
+    <button class="b bg" onclick="saveComptaToSheet()" title="Sauvegarder tout vers Google Sheet (lignes + métadonnées)">☁️ Sauvegarder</button>
+    <button class="b bg" onclick="loadComptaFromSheet()" title="Charger depuis Google Sheet (écrase le local)">☁️ Charger</button>
     <button class="b br" onclick="clearData()" title="Effacer des données">🧹</button>
   </div>
   <button class="b bd" onclick="toggleTheme()" id="themeBtn" title="Changer de thème">🌙</button>
@@ -704,7 +704,60 @@ function saveAll(){
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
   inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
-    rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);Object.assign(D,d);render()}catch(e){alert("Erreur: "+e.message)}};rd.readAsText(f)};inp.click()}
+    rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);Object.assign(D,d);autoSave();render();alert("✅ Backup JSON chargé : "+D.rows.length+" lignes")}catch(e){alert("Erreur: "+e.message)}};rd.readAsText(f)};inp.click()}
+
+// ─── GOOGLE SHEET SYNC (source de vérité partagée) ───
+async function saveComptaToSheet(){
+  if(!D.rows.length){alert("Rien à sauvegarder.");return}
+  if(!confirm("☁️ Sauvegarder "+D.rows.length+" lignes vers Google Sheet ?\n\nCela remplace la version précédente dans le Sheet.\nLes métadonnées (compteurs, buffers, règles) sont aussi sauvegardées.")){return}
+  try{
+    const meta={ctr:D.ctr,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,
+      soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,
+      airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
+      rhAlloc:D.rhAlloc,savedBy:prompt("Votre nom (pour le suivi) :","Direction")||"?",
+      savedAt:new Date().toISOString()};
+    const res=await sheetAPI("saveCompta",{rows:D.rows,meta});
+    if(res.error){alert("❌ Erreur : "+res.error);return}
+    alert("✅ Sauvegardé vers Google Sheet !\n\n"+res.saved+" lignes\nPar : "+meta.savedBy+"\nDate : "+new Date().toLocaleString("fr-FR"));
+  }catch(e){alert("❌ Erreur réseau : "+e.message)}
+}
+
+async function loadComptaFromSheet(){
+  if(D.rows.length&&!confirm("☁️ Charger depuis Google Sheet ?\n\n⚠️ Cela remplace vos données locales ("+D.rows.length+" lignes) par la version du Sheet.\n\nConseil : faites d'abord un export JSON (💾) en backup.")){return}
+  try{
+    const res=await sheetAPI("getCompta");
+    if(res.error){alert("❌ Erreur : "+res.error);return}
+    if(!res.rows||!res.rows.length){alert("☁️ Aucune donnée dans le Sheet Compta.");return}
+    // Load rows
+    D.rows=res.rows.map(r=>({
+      id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
+      dt:r.dt||"",yr:r.yr||"",lib:r.lib||"",four:r.four||"",
+      cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
+      modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
+      src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||""
+    }));
+    // Load metadata
+    if(res.meta){
+      const m=res.meta;
+      if(m.ctr)D.ctr=m.ctr;
+      if(m.ndfBuffer)D.ndfBuffer=m.ndfBuffer;
+      if(m.depBuffer)D.depBuffer=m.depBuffer;
+      if(m.soldeInitial)D.soldeInitial=m.soldeInitial;
+      if(m.soldeDate)D.soldeDate=m.soldeDate;
+      if(m.soldeInitialCC)D.soldeInitialCC=m.soldeInitialCC;
+      if(m.soldeInitialLivret)D.soldeInitialLivret=m.soldeInitialLivret;
+      if(m.soldeLivret)D.soldeLivret=m.soldeLivret;
+      if(m.airtableSync)D.airtableSync=m.airtableSync;
+      if(m.airtableSubs)D.airtableSubs=m.airtableSubs;
+      if(m.airtablePrestas)D.airtablePrestas=m.airtablePrestas;
+      if(m.rhAlloc)D.rhAlloc=m.rhAlloc;
+    }
+    autoSave();render();
+    const info=res.meta?.savedBy?" (sauvé par "+res.meta.savedBy+" le "+(res.meta.savedAt||"?").split("T")[0]+")":"";
+    alert("✅ Chargé depuis Google Sheet !\n\n"+D.rows.length+" lignes"+info);
+  }catch(e){alert("❌ Erreur réseau : "+e.message)}
+}
 
 // ─── IMPORTS with dedup + smart parsing ───
 $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();
@@ -750,7 +803,7 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
           const rl=applyRules(lib);let four=rl?.four||"",cat=rl?.cat||"",act=rl?.act||"";
           if(!four){const fac=parseFacilitateur(lib);if(fac){four=fac.four;if(!cat)cat="62142000 - Intervenants pédagogiques"}}
           if(!four){const ndf=parseNDF(lib);if(ndf&&ndf.four)four=ndf.four}
-          D.rows.push({id:"b"+i+"_"+Date.now()+"_"+sn.replace(/\s+/g,""),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:rl?"Justificatif manquant":"",resp:"",numj:"",ndf:"",src:"banque",compte});added++}
+          D.rows.push({id:"b"+i+"_"+Date.now()+"_"+sn.replace(/\s+/g,""),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque",compte});added++}
       }
       // Set global solde initial if not already set
       if(D.soldeInitialCC&&!D.soldeInitial){D.soldeInitial=D.soldeInitialCC;D.soldeDate="2026-01-01"}
@@ -765,7 +818,7 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
         const rl=applyRules(lib);let four=rl?.four||"",cat=rl?.cat||"",act=rl?.act||"";
         if(!four){const fac=parseFacilitateur(lib);if(fac){four=fac.four;if(!cat)cat="62142000 - Intervenants pédagogiques"}}
         if(!four){const ndf=parseNDF(lib);if(ndf&&ndf.four)four=ndf.four}
-        D.rows.push({id:"b"+i+"_"+Date.now(),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:rl?"Justificatif manquant":"",resp:"",numj:"",ndf:"",src:"banque"});added++}
+        D.rows.push({id:"b"+i+"_"+Date.now(),dt,yr:yrOf(dt),lib,four,cat,act,deb:deb||null,cre:cre||null,modal:detMod(lib),stat:"Justificatif manquant",resp:"",numj:"",ndf:"",src:"banque"});added++}
     }
     autoSave();render();
     const soldeInfo=D.soldeInitialCC?"\n\nSoldes détectés :\n• C/C : "+D.soldeInitialCC.toLocaleString("fr-FR")+" €"+(D.soldeInitialLivret?"\n• Livret : "+D.soldeInitialLivret.toLocaleString("fr-FR")+" €":""):"";
@@ -875,7 +928,7 @@ function addSelectedDups(){
     if(!four){const fac=parseFacilitateur(d.lib);if(fac)four=fac.four}
     if(!four){const ndf=parseNDF(d.lib);if(ndf&&ndf.four)four=ndf.four}
     D.rows.push({id:"dup"+Date.now()+"_"+i,dt:d.dt,yr:yrOf(d.dt),lib:d.lib,four,cat,act,
-      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:rl?"Justificatif manquant":"",
+      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:"Justificatif manquant",
       resp:d.sal||"",numj:d.numj||"",ndf:d.ndf||"",src:d.src});
     added++;
   });
@@ -1856,7 +1909,7 @@ function render(){
   flt.forEach(r=>{const a=D.att[r.id];
     // Row highlighting based on justificatif status
     const isClasse=(r.stat||"").startsWith("Classé")&&r.numj;
-    const isManquant=(r.stat||"")==="Justificatif manquant";
+    const isManquant=(r.stat||"")==="Justificatif manquant"||((r.deb>0||r.cre>0)&&!r.stat&&r.src==="banque");
     const isUnclassed=!isClasse&&!isManquant&&(r.cat||r.act)&&r.stat&&!r.stat.startsWith("Classé");
     const rowBg=isManquant?"background:rgba(251,146,60,.08);border-left:3px solid #f97316":isClasse?"background:rgba(22,163,74,.06);border-left:3px solid #16a34a":isUnclassed?"background:rgba(250,204,21,.08);border-left:3px solid #facc15":"";
     h+=`<tr${r.src==="ndf"?' class="ndf"':(r.src==="ndf-split"?' class="ndf-split"':"")} style="${rowBg}">`;    h+=`<td style="white-space:nowrap;font-size:10px;color:#5c6a80;min-width:65px">${r.dt}</td>`;
@@ -1958,38 +2011,33 @@ render();
   <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende des boutons</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
     <div><strong style="color:var(--t1)">📥 Banque</strong> — Importer le relevé bancaire (.xlsx Crédit Mutuel)</div>
-    <div><strong style="color:var(--t1)">📥 NDF</strong> — Importer les notes de frais depuis un fichier JSON</div>
-    <div><strong style="color:var(--t1)">☁️ NDF Cloud</strong> — Charger les NDF directement depuis le Google Sheet (synchronisation automatique)</div>
-    <div><strong style="color:var(--t1)">🔗 Rapprocher</strong> — Rapprochement automatique entre les virements NDF en banque et les sous-lignes NDF importées</div>
-    <div><strong style="color:var(--t1)">📎 Justif.</strong> — Importer des justificatifs en masse (PDF, images) avec lecture OCR et rapprochement automatique par montant</div>
-    <div><strong style="color:var(--t1)">🔄 Règles</strong> — Appliquer les règles de reconnaissance automatique aux lignes non classées</div>
-    <div><strong style="color:var(--t1)">↩️</strong> — Annuler la dernière action (jusqu'à 30 niveaux)</div>
-    <div><strong style="color:var(--t1)">📤 CSV</strong> — Exporter toutes les lignes en fichier CSV</div>
-    <div><strong style="color:var(--t1)">📤 FEC</strong> — Exporter le Fichier des Écritures Comptables (format réglementaire pour l'expert-comptable)</div>
-    <div><strong style="color:var(--t1)">📦 ZIP</strong> — Exporter un ZIP avec le CSV + tous les justificatifs classés par mois</div>
-    <div><strong style="color:var(--t1)">📦 Justif.</strong> — Exporter un ZIP avec 2 dossiers : factures classées (renommées AAAAMMJJ_FOURNISSEUR_MONTANT) et factures à traiter</div>
-    <div><strong style="color:var(--t1)">💾</strong> — Sauvegarder toutes les données dans un fichier JSON (sauvegarde complète)</div>
-    <div><strong style="color:var(--t1)">📂</strong> — Charger une sauvegarde JSON (restaure toutes les données)</div>
-    <div><strong style="color:var(--t1)">📥 AT</strong> — Importer les données Airtable (subventions et prestations en JSON)</div>
-    <div><strong style="color:var(--t1)">☁️</strong> — Synchroniser les lignes classées vers Google Sheet (base de données partagée)</div>
-    <div><strong style="color:var(--t1)">🧹</strong> — Effacer des données (lignes bancaires, NDF buffer, justificatifs…)</div>
-    <div><strong style="color:var(--t1)">🌙 / ☀️</strong> — Basculer entre le thème sombre et le thème clair</div>
+    <div><strong style="color:var(--t1)">☁️ NDF Cloud</strong> — Charger les NDF depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">☁️ Dépenses Cloud</strong> — Charger les dépenses depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">🔗 Rapprocher NDF</strong> — Rapprochement banque ↔ virements NDF</div>
+    <div><strong style="color:var(--t1)">🔗 Rapprocher dépenses</strong> — Rapprochement banque ↔ dépenses (carte, virements, prélèvements)</div>
+    <div><strong style="color:var(--t1)">🔄 Règles</strong> — Appliquer les règles de reconnaissance automatique</div>
+    <div><strong style="color:var(--t1)">🏷️ Numéroter</strong> — Attribuer les N° définitifs aux pièces provisoires</div>
+    <div><strong style="color:var(--t1)">📤 CSV / FEC / ZIP</strong> — Exports pour l'expert-comptable</div>
+    <div><strong style="color:var(--t1)">💾 JSON</strong> — Sauvegarder en fichier JSON (backup local)</div>
+    <div><strong style="color:var(--t1)">📂 JSON</strong> — Charger un backup JSON</div>
+    <div><strong style="color:var(--t1)">☁️ Sauvegarder</strong> — Tout sauvegarder vers Google Sheet (source de vérité partagée)</div>
+    <div><strong style="color:var(--t1)">☁️ Charger</strong> — Charger tout depuis Google Sheet (remplace le local)</div>
+    <div><strong style="color:var(--t1)">📥 AT</strong> — Importer les données Airtable (subventions et prestations)</div>
   </div>
-  <div style="margin-top:12px;font-size:10px;color:var(--t3);border-top:1px solid var(--bd);padding-top:8px">
-    <strong>Onglets :</strong>
-    📋 Classement (saisie et classement des lignes) ·
-    📊 Synthèse (résumé par catégorie) ·
-    📈 Suivi codes (suivi par code projet) ·
-    📋 Budget prévi. (budget prévisionnel avec saisonnalité) ·
-    ⚖️ Prévi. vs Réalisé (comparaison budget/réel) ·
-    💰 Trésorerie (plan de trésorerie mensuel C/C + Livret) ·
-    👥 RH (ventilation salaires par projet) ·
-    ⚠️ Justif. (justificatifs manquants et orphelins) ·
-    ⚙️ Config (règles auto, codes projets, codes comptables)
+  <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(99,102,241,.06);font-size:10px;color:var(--t2)">
+    <strong>💡 Travail à deux :</strong> Après vos modifications, cliquez <strong>☁️ Sauvegarder</strong> pour enregistrer dans le Sheet.
+    Quand l'autre personne ouvre l'outil, elle clique <strong>☁️ Charger</strong> pour récupérer la dernière version.
+    Le nom de la personne et la date de la dernière sauvegarde sont enregistrés.
+  </div>
+  <div style="margin-top:8px;padding:8px 10px;border-radius:6px;font-size:10px;color:var(--t3);border:1px solid var(--bd)">
+    <strong>Code couleur des lignes :</strong>
+    <span style="color:#f97316">🟠 Orange</span> = justificatif manquant ·
+    <span style="color:#facc15">🟡 Jaune</span> = pas encore classé ·
+    <span style="color:#16a34a">🟢 Vert</span> = classé et nommé
   </div>
   <div style="margin-top:6px;font-size:10px;color:var(--t3)">
-    <strong>Workflow type :</strong>
-    ① 📥 Banque → ② 🔄 Règles → ③ 📥 NDF + 🔗 Rapprocher → ④ ✂️ Éclater les virements NDF → ⑤ 📎 Justif. → ⑥ Compléter catégories/projets → ⑦ 📤 FEC pour l'expert-comptable
+    <strong>Workflow :</strong>
+    ① 📥 Banque → ② 🔄 Règles → ③ ☁️ NDF + Dépenses → ④ 🔗 Rapprocher → ⑤ ✂️ Éclater NDF → ⑥ Compléter → ⑦ ☁️ Sauvegarder → ⑧ 📤 FEC
   </div>
 </div>
 </body>
