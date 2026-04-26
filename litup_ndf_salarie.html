@@ -515,7 +515,7 @@ async function uploadJustifToDrive(ndfRef, line, lineIdx){
   }catch(e){console.warn("Upload justif error:",e)}
 }
 
-function saveNDF(status){
+async function saveNDF(status){
   const ref=($("ndf_ref")?.value||"").trim();const date=($("ndf_date")?.value||"").trim();
   if(!ref){alert("Numéro requis");return}
   const lines=[];
