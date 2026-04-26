@@ -128,12 +128,27 @@ async function syncFromSheet(){
       });
       console.log("Sync: "+myNdfs.length+" NDF trouvées pour "+D.salarie);
       if(!myNdfs.length&&res.ndfs.length){console.log("Noms uniques dans le Sheet:",[...new Set(res.ndfs.map(n=>(n.salarie||"").trim()))].join(", "))}
-      let updated=0,added=0;
+      let updated=0,added=0,removed=0;
+      const sheetRefs=new Set(myNdfs.map(sn=>sn.ref));
+      // Remove local NDF that no longer exist in Sheet (renamed or deleted by direction)
+      // Only remove if they were synced from Sheet (status envoyée/validée/réglée/refusée)
+      D.ndfs=D.ndfs.filter(n=>{
+        if(sheetRefs.has(n.ref))return true; // Still in Sheet
+        if(n.status==="brouillon"||n.status==="à envoyer")return true; // Local only, keep
+        // Check if this NDF was replaced by a renamed version (same salarie, same amount, different ref)
+        const amt=n.lines.reduce((s,l)=>s+(l.amount||0),0);
+        const replacement=myNdfs.find(sn=>sn.ref!==n.ref&&Math.abs((sn.lines||[]).reduce((s2,l)=>s2+(l.amount||0),0)-amt)<0.01);
+        if(replacement){console.log("NDF locale "+n.ref+" remplacée par "+replacement.ref);removed++;return false}
+        // If not in Sheet but was sent, it may have been deleted by direction
+        if(!sheetRefs.has(n.ref)&&(n.status==="envoyée"||n.status==="réglée"||n.status==="validée"||n.status==="refusée")){
+          console.log("NDF locale "+n.ref+" supprimée (absente du Sheet)");removed++;return false}
+        return true;
+      });
       myNdfs.forEach(sn=>{
         const local=D.ndfs.find(n=>n.ref===sn.ref);
         if(local){
-          if(sn.status!==local.status||sn.paymentDate!==local.paymentDate){
-            local.status=sn.status;local.statusDate=sn.statusDate;
+          if(sn.status!==local.status||sn.paymentDate!==local.paymentDate||sn.ref!==local.ref){
+            local.status=sn.status;local.statusDate=sn.statusDate;local.ref=sn.ref;
             if(sn.paymentDate)local.paymentDate=sn.paymentDate;updated++}
         } else {
           D.ndfs.push({
@@ -152,9 +167,9 @@ async function syncFromSheet(){
           added++;
         }
       });
-      if(updated||added){
+      if(updated||added||removed){
         save();render();
-        console.log("Cloud sync: "+added+" imported, "+updated+" updated (from "+myNdfs.length+" NDF matching "+D.salarie+")");
+        console.log("Cloud sync: "+added+" imported, "+updated+" updated, "+removed+" removed (from "+myNdfs.length+" NDF matching "+D.salarie+")");
       }
     }
     setSyncStatus("☁️");
@@ -253,7 +268,7 @@ function render(){
   if($("userName"))$("userName").textContent=D.salarie;
   const el=$("mainContent");const ndfs=[...D.ndfs];
   // Default sort: ref ascending
-  if(!window._sortCol){window._sortCol="ref";window._sortDir=1}
+  if(!window._sortCol){window._sortCol="ref";window._sortDir=-1}
   if(window._ndfFilter===undefined)window._ndfFilter="all";
   const filt=window._ndfFilter;
   const myNdfs=ndfs.filter(n=>!n.salarie||n.salarie===D.salarie);
@@ -324,7 +339,7 @@ function render(){
     const rowBg=needsAction?";background:#fef2f2;border-left:3px solid var(--red)":isOther?";background:#f0f4ff;border-left:3px solid #6366f1":";background:#f0fdf4;border-left:3px solid #16a34a";
     const badge=isOther?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:'+(needsAction?"var(--red)":"#6366f1")+';color:white;font-weight:600">👤 '+n.salarie+'</span>':'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#16a34a;color:white;font-weight:600">👤 '+D.salarie+'</span>';
     h+=`<tr style="cursor:pointer${rowBg}" onclick="editNDF(${n.id})">
-      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${badge}</td>
+      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${badge}${n.prestaComment?'<br><span style="font-size:9px;color:var(--amber)" title="'+n.prestaComment.replace(/"/g,"&quot;")+'">💬 commentaire</span>':""}</td>
       <td style="font-size:11px;color:var(--text-2)">${(n.date||"").replace(/T.*$/,"")}</td>
       <td style="text-align:center">${n.lines.length}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(total)}</td>
@@ -597,7 +612,8 @@ function toggleSort(col){
 function editNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;window._ndfEditExisting=n.lines;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
-    <h3>📝 Modifier — ${n.ref}${n.isPresta?' <span style="font-size:11px;color:var(--amber);font-weight:400">presta</span>':""}${n.prestaComment?' <span style="font-size:10px;color:var(--text-3);font-weight:400">💬 '+n.prestaComment+'</span>':""}</h3>
+    <h3>📝 Modifier — ${n.ref}${n.isPresta?' <span style="font-size:11px;color:var(--amber);font-weight:400">presta</span>':""}</h3>
+    ${n.prestaComment?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2)"><div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">💬 Commentaire du prestataire</div><div style="font-size:13px;color:var(--text-1);line-height:1.5">${n.prestaComment}</div></div>`:""}
     <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>N° NDF</label><input class="inp" id="ndf_ref" value="${n.ref}" style="font-family:var(--mono)"></div>
       <div class="form-row"><label>Date</label><input class="inp" id="ndf_date" type="date" value="${n.date||""}"></div></div>
     <div id="ndfLines"></div>

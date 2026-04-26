@@ -141,9 +141,15 @@ async function loadFromSheet(){
     const res=await sheetAPI("getAllNDF");
     if(res.error){setSyncStatus("⚠️");return}
     if(res.ndfs&&res.ndfs.length){
-      let added=0;
-      // Only show NDF that have been sent (not brouillons)
-      const sentNdfs=res.ndfs.filter(sn=>sn.status==="envoyée"||sn.status==="validée"||sn.status==="réglée");
+      let added=0,updated=0;
+      // Show all NDF that have been sent (not brouillons/à envoyer from salarie)
+      const sentNdfs=res.ndfs.filter(sn=>sn.status!=="brouillon"&&sn.status!=="à envoyer");
+      const sheetRefs=new Set(sentNdfs.map(sn=>sn.ref));
+      // Remove local NDF that no longer exist in Sheet
+      const before=D.ndfs.length;
+      D.ndfs=D.ndfs.filter(n=>sheetRefs.has(n.ref));
+      const removed=before-D.ndfs.length;
+      if(removed)console.log("Removed "+removed+" orphaned local NDF");
       sentNdfs.forEach(sn=>{
         const ex=D.ndfs.find(n=>n.ref===sn.ref);
         if(!ex){
@@ -151,16 +157,16 @@ async function loadFromSheet(){
             statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE",coordo:sn.coordo||""});
           added++;
         } else {
-          // Always update lines from Sheet (source of truth after resync)
           if(sn.lines&&sn.lines.length)ex.lines=sn.lines;
           if(sn.status)ex.status=sn.status;
           if(sn.statusDate)ex.statusDate=sn.statusDate;
           if(sn.paymentDate)ex.paymentDate=sn.paymentDate;
           if(sn.coordo)ex.coordo=sn.coordo;
+          updated++;
         }
       });
       save();render();
-      if(added)console.log("Loaded "+added+" NDF from Sheet");
+      if(added||removed)console.log("Loaded "+added+" new, updated "+updated+", removed "+removed);
     }
     setSyncStatus("☁️");
   }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️")}
@@ -177,7 +183,7 @@ function initDirector(){
   </div></div>`;
 }
 
-let sortCol="date",sortDir=-1,filtStatus="",filtSalarie="";
+let sortCol="ref",sortDir=-1,filtStatus="",filtSalarie="";
 
 function toggleStatusFilter(s){
   if(filtStatus===s)filtStatus="";else filtStatus=s;
@@ -205,8 +211,13 @@ async function majCodes(){
 
 function render(){
   let ndfs=[...D.ndfs];
-  // Sort by ref ascending by default
-  ndfs.sort((a,b)=>(a.ref||"").localeCompare(b.ref||"",undefined,{numeric:true}));
+  // Sort: à traiter/envoyée first, then by ref descending
+  ndfs.sort((a,b)=>{
+    const aTraiter=(a.status==="envoyée"||a.status==="à traiter")?0:1;
+    const bTraiter=(b.status==="envoyée"||b.status==="à traiter")?0:1;
+    if(aTraiter!==bTraiter)return aTraiter-bTraiter;
+    return (b.ref||"").localeCompare(a.ref||"",undefined,{numeric:true});
+  });
   // Filters
   if(filtStatus){
     if(filtStatus==="à traiter")ndfs=ndfs.filter(n=>n.status==="envoyée"||n.status==="à traiter");
