@@ -64,8 +64,10 @@ a{color:var(--accent-l);text-decoration:none}
 .si{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:11px;width:170px;outline:none;font-family:var(--sans);transition:border .2s}.si:focus{border-color:var(--accent)}
 
 /* ─── TABLE ─── */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
+th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600;position:relative}
+th .col-resize{position:absolute;right:0;top:0;bottom:0;width:4px;cursor:col-resize;background:transparent;z-index:11}
+th .col-resize:hover{background:rgba(99,102,241,.5)}
 td{padding:5px 8px;border-bottom:1px solid rgba(37,45,63,.4);vertical-align:middle}
 tr:hover{background:rgba(99,102,241,.03)}
 tr.ndf{background:rgba(251,191,36,.04)}
@@ -136,6 +138,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <button class="b by" onclick="loadDepensesFromSheet()" title="Charger les dépenses depuis Google Sheet">☁️ Dépenses Cloud</button>
     <button class="b by" onclick="autoMatchNDF()" title="Rapprochement automatique banque ↔ NDF">🔗 Rapprocher NDF</button>
     <button class="b by" onclick="autoMatchDepenses()" title="Rapprochement automatique banque ↔ dépenses">🔗 Rapprocher dépenses</button>
+    <button class="b bb" onclick="$('fi_scan').click()" title="Importer des justificatifs (PDF, images) avec OCR et rapprochement auto">📎 Justif.</button>
   </div>
   <div class="btn-group">
     <button class="b bp" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
@@ -301,8 +304,8 @@ async function execMatchDepenses(){
     const br=D.rows.find(r=>r.id===m.bankId);if(!br)continue;
     // Priority: bank date, dep data for everything else
     br.four=m.depFour;
-    if(m.depCode)br.cat=m.depCode;
-    if(m.depProjet)br.act=m.depProjet;
+    br.cat=m.depCode||br.cat;
+    br.act=m.depProjet||br.act;
     if(m.depDesc&&!br.lib.includes(m.depDesc))br.lib+=" - "+m.depDesc;
     br.modal=m.dep.mode||br.modal||"";
     // Date: keep bank date (already in br.dt)
@@ -1046,32 +1049,64 @@ function showMatchResults(results,unmatched){
   window._justifResults={matched,noMatch};
 }
 
-function applyJustifMatches(){
+async function applyJustifMatches(){
   const res=window._justifResults;if(!res)return;
-  let applied=0,orphaned=0;
-  res.matched.forEach((r,i)=>{
-    const cb=$("mc_"+i);if(!cb||!cb.checked)return;
+  let applied=0,orphaned=0,uploaded=0;
+  closeM();
+  // Show progress
+  $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:400px">
+    <h3>📎 Enregistrement en cours...</h3>
+    <div id="uploadProg" style="font-size:11px;color:#94a3b8;line-height:2"></div>
+  </div></div>`;
+  for(let i=0;i<res.matched.length;i++){
+    const r=res.matched[i];
+    const cb=$("mc_"+i);if(!cb||!cb.checked)continue;
     const row=r.match.row;const f=r.file;
     const nj=tempName(row);
     const ext=f.name.split(".").pop().toLowerCase();
-    // Convert dataUrl to ArrayBuffer
-    const binary=atob(r.dataUrl.split(",")[1]);const arr=new Uint8Array(binary.length);
-    for(let j=0;j<binary.length;j++)arr[j]=binary.charCodeAt(j);
-    D.att[row.id]={data:arr.buffer,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
     row.numj=nj;
     if(!row.stat||row.stat.includes("manquant"))row.stat=row.cre&&row.cre>0?"Classé - Convention":"Classé - Facture";
-    applied++});
-  // Orphaned justifs (no match)
-  res.noMatch.forEach(r=>{
-    const nj="ORPH-"+Date.now().toString(36).toUpperCase();const ext=r.file.name.split(".").pop().toLowerCase();
-    const binary=atob(r.dataUrl.split(",")[1]);const arr=new Uint8Array(binary.length);
-    for(let j=0;j<binary.length;j++)arr[j]=binary.charCodeAt(j);
-    D.att["orph_"+nj]={data:arr.buffer,name:nj+"."+ext,orig:r.file.name,type:r.file.type,ext,nj,
-      ocrInfo:r.info,unmatched:true};
-    orphaned++});
-  autoSave();closeM();render();
-  let msg="✅ "+applied+" justificatif(s) rapproché(s) et attaché(s)";
-  if(orphaned)msg+="\n\n⚠️ "+orphaned+" justificatif(s) sans correspondance — stocké(s) en attente (visibles dans l'onglet ⚠️ Justif.)";
+    // Upload to Drive
+    const prog=$("uploadProg");
+    if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext}...</div>`;
+    try{
+      const uploadRes=await sheetAPI("uploadJustif",{
+        ndfRef:"DEP-DIRECTION",
+        fileName:nj+"."+ext,
+        fileData:r.dataUrl
+      });
+      if(uploadRes.url){
+        row.driveUrl=uploadRes.url;
+        row.driveFileId=uploadRes.fileId||"";
+        uploaded++;
+        if(prog)prog.innerHTML+=`<div style="color:#22c55e">✅ ${nj}.${ext}</div>`;
+      }else{
+        if(prog)prog.innerHTML+=`<div style="color:#f59e0b">⚠️ ${nj}.${ext} — ${uploadRes.error||"erreur"}</div>`;
+      }
+    }catch(e){
+      console.warn("Upload Drive error:",e);
+      if(prog)prog.innerHTML+=`<div style="color:#ef4444">❌ ${nj}.${ext} — ${e.message}</div>`;
+    }
+    applied++;
+  }
+  // Orphaned justifs
+  for(const r of res.noMatch){
+    const nj="ORPH-"+Date.now().toString(36).toUpperCase();
+    const ext=r.file.name.split(".").pop().toLowerCase();
+    const prog=$("uploadProg");
+    if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext} (orphelin)...</div>`;
+    try{
+      await sheetAPI("uploadJustif",{ndfRef:"DEP-DIRECTION",fileName:nj+"."+ext,fileData:r.dataUrl});
+    }catch(e){}
+    orphaned++;
+  }
+  autoSave();
+  // Close and show results
+  closeM();render();
+  let msg="✅ "+applied+" justificatif(s) rapproché(s)";
+  if(uploaded)msg+="\n📤 "+uploaded+" uploadé(s) dans le Drive (DEP-DIRECTION)";
+  if(orphaned)msg+="\n\n⚠️ "+orphaned+" justificatif(s) sans correspondance — uploadé(s) comme orphelins";
+  msg+="\n\n💡 Pensez à cliquer ☁️ Sauvegarder pour enregistrer dans le Sheet.";
   alert(msg);
 }
 
@@ -1258,7 +1293,7 @@ function execAutoMatch(matchList){
       D.rows.splice(bankIdx+j,0,{
         id:"am"+Date.now()+"_"+bankIdx+"_"+j+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,lib:parts.join(" - "),
         four:nr.four||"",cat:nr.cat||"",act:nr.act||"",deb:nr.deb,cre:null,
-        modal:"Virement émis",stat:"Justificatif manquant",resp:nr.resp||"",
+        modal:"Virement émis",stat:"Classé - Facture",resp:nr.resp||"",
         numj:m.ndfRef+"_"+String(j+1).padStart(2,"0"),ndf:m.ndfRef,src:"ndf-split"
       });
     });
@@ -1341,7 +1376,7 @@ function splitNDF(bankId){
       id:"ns"+Date.now()+"_"+i+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,
       lib,four:nr.four||"",cat:nr.cat||nr.expType||"",act:nr.act||"",
       deb:nr.deb,cre:null,modal:"Virement émis",
-      stat:"Justificatif manquant",resp:nr.resp||"",
+      stat:"Classé - Facture",resp:nr.resp||"",
       numj,ndf:ndfRef,src:"ndf-split"
     });
   });
@@ -1904,7 +1939,7 @@ function render(){
   // Classement tab
   if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
   let h='<div style="overflow-x:auto"><table><thead><tr>';
-  ["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""].forEach(x=>h+=`<th>${x}</th>`);
+  ["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""].forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)"></div></th>`);
   h+="</tr></thead><tbody>";
   flt.forEach(r=>{const a=D.att[r.id];
     // Row highlighting based on justificatif status
@@ -1997,6 +2032,18 @@ function rMissing(el){
   if(noA.length){h+=`<h3 style="font-size:12px;margin:12px 0 8px">📎 ${noA.length} sans justificatif</h3><table><thead><tr><th>Date</th><th>Libellé</th><th>Montant</th><th></th></tr></thead><tbody>`;
     noA.slice(0,30).forEach(r=>{h+=`<tr><td style="font-size:8px;color:#64748b">${r.dt}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.lib}</td><td class="${r.deb?"deb":"cre"}">${r.deb?fmt(r.deb):fmt(r.cre)}</td><td><button class="b bb" style="font-size:7px" onclick="attRow('${r.id}')">📎</button></td></tr>`});
     h+='</tbody></table>'}
+  // Dépenses non rapprochées (en attente d'apparition sur le compte)
+  const depBuf=D.depBuffer||{};
+  const depKeys=Object.keys(depBuf);
+  if(depKeys.length){
+    h+=`<h3 style="font-size:12px;margin:16px 0 8px">📋 Dépenses non rapprochées (${depKeys.length})</h3>`;
+    h+='<p style="font-size:9px;color:#94a3b8;margin-bottom:6px">Ces dépenses ont été saisies mais ne correspondent à aucune ligne bancaire. Elles seront disponibles pour le prochain rapprochement.</p>';
+    h+='<table><thead><tr><th>Date</th><th>Fournisseur</th><th>Description</th><th style="text-align:right">Montant</th><th>Mode</th><th>Catégorie</th><th>Projet</th><th>Justif.</th></tr></thead><tbody>';
+    depKeys.forEach(k=>{const d=depBuf[k];
+      h+=`<tr><td style="font-size:9px">${d.dt||""}</td><td style="font-weight:600;font-size:10px">${d.four||""}</td><td style="font-size:9px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.desc||""}</td><td style="text-align:right;font-family:var(--mono);color:#f87171">${fmt(d.deb||0)}</td><td style="font-size:8px">${d.mode||""}</td><td style="font-size:8px">${d.code||"—"}</td><td style="font-size:8px">${d.projet||"—"}</td><td style="font-size:8px">${d.fileName?"📎":"—"}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
   h+='</div>';el.innerHTML=h}
 
 function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=fi.files[0];const rd=new FileReader();
@@ -2004,6 +2051,28 @@ function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=
     const m=nj.match(/^(F|P|S|RF)2026-(\d+)$/);if(m){const n=parseInt(m[2]);if(n>=D.ctr[m[1]])D.ctr[m[1]]=n}
     $("mr_"+i).innerHTML=`<span style="color:#22c55e">✓ ${nj}.${ext}</span> <button class="att has" onclick="viewAtt('miss_${nj}')" style="margin-left:3px">👁</button>`;
     autoSave()};rd.readAsArrayBuffer(f)}
+
+// ─── COLUMN RESIZE ───
+function startResize(e){
+  e.preventDefault();
+  const th=e.target.parentElement;
+  const startX=e.pageX;
+  const startW=th.offsetWidth;
+  const handle=th.querySelector('.col-resize');
+  if(handle)handle.style.background='rgba(99,102,241,.5)';
+  const table=th.closest('table');
+  if(table)table.style.tableLayout='fixed';
+  const ths=table?table.querySelectorAll('th'):[];
+  ths.forEach(t=>{if(!t.style.width)t.style.width=t.offsetWidth+'px'});
+  function onMove(ev){th.style.width=Math.max(30,startW+(ev.pageX-startX))+'px'}
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    if(handle)handle.style.background='';
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
 
 render();
 </script>
