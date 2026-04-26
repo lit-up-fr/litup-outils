@@ -1052,6 +1052,8 @@ function showMatchResults(results,unmatched){
 async function applyJustifMatches(){
   const res=window._justifResults;if(!res)return;
   let applied=0,orphaned=0,uploaded=0;
+  // Read checkbox states BEFORE closing the modal
+  const checkedStates=res.matched.map((_,i)=>{const cb=$("mc_"+i);return cb?cb.checked:false});
   closeM();
   // Show progress
   $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:400px">
@@ -1060,7 +1062,7 @@ async function applyJustifMatches(){
   </div></div>`;
   for(let i=0;i<res.matched.length;i++){
     const r=res.matched[i];
-    const cb=$("mc_"+i);if(!cb||!cb.checked)continue;
+    if(!checkedStates[i])continue;
     const row=r.match.row;const f=r.file;
     const nj=tempName(row);
     const ext=f.name.split(".").pop().toLowerCase();
@@ -1293,7 +1295,7 @@ function execAutoMatch(matchList){
       const parts=["NDF "+m.ndfRef];if(salName)parts.push(salName);if(nr.desc)parts.push(nr.desc);
       D.rows.splice(bankIdx+j,0,{
         id:"am"+Date.now()+"_"+bankIdx+"_"+j+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,lib:parts.join(" - "),
-        four:nr.four||"",cat:nr.cat||"",act:nr.act||"",deb:nr.deb,cre:null,
+        four:nr.four||"",cat:nr.cat||nr.expType||"",act:nr.act||"",deb:nr.deb,cre:null,
         modal:"Virement émis",stat:"Classé - Facture",resp:nr.resp||"",
         numj:m.ndfRef+"_"+String(j+1).padStart(2,"0"),ndf:m.ndfRef,src:"ndf-split"
       });
