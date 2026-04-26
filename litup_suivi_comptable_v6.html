@@ -1042,11 +1042,13 @@ function showMatchResults(results,unmatched){
     h+=`<div style="max-height:300px;overflow-y:auto">`;
     matched.forEach((r,i)=>{
       const row=r.match.row;const amt=row.deb||row.cre||0;
+      const fourSuggestion=r.info.four||row.four||"";
       h+=`<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:#0f1117;margin-bottom:4px;font-size:10px">
         <input type="checkbox" id="mc_${i}" checked style="flex-shrink:0">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${r.file.name}</div>
-          <div style="color:#94a3b8">OCR: ${r.info.montant!=null?fmt(r.info.montant):""} ${r.info.four||""} ${r.info.date||""}</div>
+          <div style="color:#94a3b8">OCR: ${r.info.montant!=null?fmt(r.info.montant):""} ${r.info.four||"?"} ${r.info.date||""}</div>
+          <div style="margin-top:3px"><input class="inp" id="mf_${i}" value="${fourSuggestion}" placeholder="Fournisseur" style="font-size:10px;padding:2px 6px;width:160px" title="Nom du fournisseur (pour le nom de la PJ)"></div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="color:#818cf8">→ ${row.dt} | ${row.lib.substring(0,30)}</div>
@@ -1072,8 +1074,9 @@ function showMatchResults(results,unmatched){
 async function applyJustifMatches(){
   const res=window._justifResults;if(!res)return;
   let applied=0,orphaned=0,uploaded=0;
-  // Read checkbox states BEFORE closing the modal
+  // Read checkbox states AND fournisseur inputs BEFORE closing the modal
   const checkedStates=res.matched.map((_,i)=>{const cb=$("mc_"+i);return cb?cb.checked:false});
+  const fourInputs=res.matched.map((_,i)=>{const inp=$("mf_"+i);return inp?inp.value.trim():""});
   closeM();
   // Show progress
   $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:400px">
@@ -1084,17 +1087,21 @@ async function applyJustifMatches(){
     const r=res.matched[i];
     if(!checkedStates[i])continue;
     const row=r.match.row;const f=r.file;
-    const nj=tempName(row);
+    // Update fournisseur from user input
+    const fourName=fourInputs[i]||r.info.four||row.four||"";
+    if(fourName)row.four=fourName;
+    // Build definitive piece name with promoteN (F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT)
+    const nj=promoteN(row);
     const ext=f.name.split(".").pop().toLowerCase();
     row.numj=nj;
     if(!row.stat||row.stat.includes("manquant"))row.stat=row.cre&&row.cre>0?"Classé - Convention":"Classé - Facture";
-    // Upload to Drive
+    // Upload to Drive → JUSTIFICATIFS CLASSÉS
     const prog=$("uploadProg");
     if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext}...</div>`;
     try{
       const uploadRes=await sheetAPI("uploadJustif",{
-        folderId:"1P9uk7SdagTkv6nADAN5gUNnnl-w-lwxB",
-        ndfRef:"COMPTA",
+        folderId:"1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx",
+        ndfRef:"",
         fileName:nj+"."+ext,
         fileData:r.dataUrl
       });
@@ -1112,14 +1119,13 @@ async function applyJustifMatches(){
     }
     applied++;
   }
-  // Orphaned justifs
+  // Orphaned justifs → JUSTIFICATIFS NON CLASSÉS (keep original filename)
   for(const r of res.noMatch){
-    const nj="ORPH-"+Date.now().toString(36).toUpperCase();
-    const ext=r.file.name.split(".").pop().toLowerCase();
+    const origName=r.file.name;
     const prog=$("uploadProg");
-    if(prog)prog.innerHTML+=`<div>📤 ${nj}.${ext} (orphelin)...</div>`;
+    if(prog)prog.innerHTML+=`<div>📤 ${origName} (non classé)...</div>`;
     try{
-      await sheetAPI("uploadJustif",{folderId:"1P9uk7SdagTkv6nADAN5gUNnnl-w-lwxB",ndfRef:"COMPTA",fileName:nj+"."+ext,fileData:r.dataUrl});
+      await sheetAPI("uploadJustif",{folderId:"1pMOnsryDdUPACfjm71AhFbKw8xFBgIsM",ndfRef:"",fileName:origName,fileData:r.dataUrl});
     }catch(e){}
     orphaned++;
   }
@@ -1127,7 +1133,8 @@ async function applyJustifMatches(){
   // Close and show results
   closeM();render();
   let msg="✅ "+applied+" justificatif(s) rapproché(s)";
-  if(uploaded)msg+="\n📤 "+uploaded+" uploadé(s) dans le Drive (Dépenses Lit uP / COMPTA)";
+  if(uploaded)msg+="\n📤 "+uploaded+" → JUSTIFICATIFS CLASSÉS (nommés F2026-XXX-...)";
+  if(orphaned)msg+="\n📁 "+orphaned+" → JUSTIFICATIFS NON CLASSÉS";
   if(orphaned)msg+="\n\n⚠️ "+orphaned+" justificatif(s) sans correspondance — uploadé(s) comme orphelins";
   msg+="\n\n💡 Pensez à cliquer ☁️ Sauvegarder pour enregistrer dans le Sheet.";
   alert(msg);
