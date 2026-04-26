@@ -773,44 +773,6 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
     else if(added>0)alert(added+" ligne(s) ajoutée(s)"+soldeInfo)
   };rd.readAsArrayBuffer(f);e.target.value=""};
 
-// ─── NDF JSON IMPORT ───
-$("fi_ndf_json").onchange=function(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();
-  rd.onload=ev=>{pushUndo();
-    try{
-      const d=JSON.parse(ev.target.result);
-      if(!D.ndfBuffer)D.ndfBuffer={};
-      let imported=0,ndfCount=0;
-      // Format 1: export comptable from direction {ndfBuffer:{ref:[lines]}}
-      if(d.ndfBuffer){
-        for(const[ref,lines] of Object.entries(d.ndfBuffer)){
-          D.ndfBuffer[ref]=lines.map(l=>({dt:l.dt||"",desc:l.desc||"",four:l.four||"",deb:l.deb||0,cat:l.cat||l.expType||"",act:l.act||"",expType:l.expType||"",resp:l.resp||"",numj:l.numj||"",ndf:l.ndf||ref,lineNum:l.lineNum||0}));
-          imported+=lines.length;ndfCount++}
-        autoSave();render();
-        const bankMatches=D.rows.filter(r=>r.src==="banque"&&parseNDF(r.lib)).length;
-        alert("✅ "+imported+" sous-ligne(s) importées pour "+ndfCount+" NDF (JSON).\n"+bankMatches+" virement(s) NDF repéré(s) en banque.\n\nCliquez ✂️ sur les lignes de virement NDF pour éclater.");
-      }
-      // Format 2: export salarié {salarie, ndfs:[...]}
-      else if(d.salarie&&d.ndfs){
-        d.ndfs.forEach(n=>{
-          const lines=n.lines.map((l,i)=>({dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||0,cat:l.expType||"",act:l.code||"",expType:l.expType||"",resp:d.salarie,numj:n.ref+"_"+String(i+1).padStart(2,"0"),ndf:n.ref,lineNum:i+1}));
-          if(lines.length){D.ndfBuffer[n.ref]=lines;imported+=lines.length;ndfCount++}});
-        autoSave();render();
-        const bankMatches=D.rows.filter(r=>r.src==="banque"&&parseNDF(r.lib)).length;
-        alert("✅ "+imported+" sous-ligne(s) importées pour "+ndfCount+" NDF de "+d.salarie+".\n"+bankMatches+" virement(s) NDF repéré(s) en banque.\n\nCliquez ✂️ sur les lignes de virement NDF pour éclater.");
-      }
-      // Format 3: backup {type:"litup-ndf-backup", data:{salarie, ndfs}}
-      else if(d.type==="litup-ndf-backup"&&d.data&&d.data.ndfs){
-        const s=d.data.salarie||d.salarie||"Inconnu";
-        d.data.ndfs.forEach(n=>{
-          const lines=n.lines.map((l,i)=>({dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||0,cat:l.expType||"",act:l.code||"",expType:l.expType||"",resp:s,numj:n.ref+"_"+String(i+1).padStart(2,"0"),ndf:n.ref,lineNum:i+1}));
-          if(lines.length){D.ndfBuffer[n.ref]=lines;imported+=lines.length;ndfCount++}});
-        autoSave();render();
-        alert("✅ "+imported+" sous-ligne(s) importées pour "+ndfCount+" NDF de "+s+" (sauvegarde).");
-      }
-      else{alert("Format JSON non reconnu.\n\nAttendus :\n• Export comptable direction (NDF_compta_...)\n• Export salarié (NOM_Nouvelles_NdF_...)\n• Sauvegarde (SAUVEGARDE_NDF_...)\n\nClés détectées : "+Object.keys(d).join(", "))}
-    }catch(err){alert("❌ Erreur : "+err.message)}
-  };rd.readAsText(f);e.target.value=""};
-
 // ─── NDF CODE PROJET RESOLUTION MODAL ───
 function showNdfCodeModal(unmatchedList,counts,imported,ndfCount,bankMatches){
   const acts=actLabels();
