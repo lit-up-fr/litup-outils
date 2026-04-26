@@ -254,20 +254,30 @@ function render(){
   const el=$("mainContent");const ndfs=[...D.ndfs];
   // Default sort: ref ascending
   if(!window._sortCol){window._sortCol="ref";window._sortDir=1}
+  if(window._ndfFilter===undefined)window._ndfFilter="all";
+  const filt=window._ndfFilter;
+  const myNdfs=ndfs.filter(n=>!n.salarie||n.salarie===D.salarie);
+  const otherNdfs=ndfs.filter(n=>n.salarie&&n.salarie!==D.salarie);
+  const shown=filt==="mine"?myNdfs:ndfs;
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <div><strong style="font-size:15px">${D.salarie||"?"}</strong> <span style="color:var(--text-3);font-size:11px">· ${D.cv} CV · ${ndfs.length} NDF</span></div>
+    <div><strong style="font-size:15px">${D.salarie||"?"}</strong> <span style="color:var(--text-3);font-size:11px">· ${D.cv} CV · ${myNdfs.length} perso · ${otherNdfs.length} coordo</span></div>
     <button class="b bd" onclick="showSettings()" style="font-size:10px">⚙️ Profil</button></div>`;
-  // Stats
-  const totAmt=ndfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const totIK=ndfs.reduce((s,n)=>s+n.lines.filter(l=>l.type==="ik").reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const presta=ndfs.filter(n=>n.isPresta&&(n.status==="brouillon"||n.status==="à envoyer"));
-  const drafts=ndfs.filter(n=>n.status==="brouillon");
-  const aEnvoyer=ndfs.filter(n=>n.status==="à envoyer");
+  // Filter toggle
+  h+=`<div style="display:flex;gap:4px;margin-bottom:10px">
+    <button class="b ${filt==="all"?"bp":"bd"}" style="font-size:10px;padding:3px 10px" onclick="window._ndfFilter='all';render()">Toutes (${ndfs.length})</button>
+    <button class="b ${filt==="mine"?"bp":"bd"}" style="font-size:10px;padding:3px 10px" onclick="window._ndfFilter='mine';render()">🟢 Mes NDF (${myNdfs.length})</button>
+  </div>`;
+  // Stats based on filter
+  const totAmt=shown.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
+  const totIK=shown.reduce((s,n)=>s+n.lines.filter(l=>l.type==="ik").reduce((s2,l)=>s2+(l.amount||0),0),0);
+  const presta=shown.filter(n=>n.isPresta&&(n.status==="brouillon"||n.status==="à envoyer"));
+  const drafts=shown.filter(n=>n.status==="brouillon");
+  const aEnvoyer=shown.filter(n=>n.status==="à envoyer");
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(totAmt)}</div><div class="stat-l">Total déclaré</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--amber)">${fmt(totIK)}</div><div class="stat-l">Dont IK</div></div>
-    <div class="stat-card"><div class="stat-v">${ndfs.filter(n=>n.status==="envoyée").length}</div><div class="stat-l">Envoyées</div></div>
-    <div class="stat-card"><div class="stat-v" style="color:var(--green)">${ndfs.filter(n=>n.status==="validée"||n.status==="réglée").length}</div><div class="stat-l">Validées/Réglées</div></div>
+    <div class="stat-card"><div class="stat-v">${shown.filter(n=>n.status==="envoyée").length}</div><div class="stat-l">Envoyées</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--green)">${shown.filter(n=>n.status==="validée"||n.status==="réglée").length}</div><div class="stat-l">Validées/Réglées</div></div>
   </div>`;
   // Alerts
   if(presta.length||drafts.length||aEnvoyer.length){
@@ -277,11 +287,11 @@ function render(){
     if(aEnvoyer.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--green-bg);color:var(--green)">📨 ${aEnvoyer.length} NDF prête(s) à envoyer</div>`;
     h+=`</div>`;
   }
-  if(!ndfs.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong></p></div>`;el.innerHTML=h;return}
+  if(!shown.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> ou <strong>🚗 Indemnité KM</strong></p></div>`;el.innerHTML=h;return}
   // Sort
   if(window._sortCol){
     const col=window._sortCol,dir=window._sortDir||1;
-    ndfs.sort((a,b)=>{
+    shown.sort((a,b)=>{
       let va,vb;
       if(col==="ref"){va=a.ref||"";vb=b.ref||""}
       else if(col==="date"){va=a.date||"";vb=b.date||""}
@@ -305,12 +315,16 @@ function render(){
     <th>Justif.</th><th></th></tr></thead><tbody>`;
   const statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸"};
   const statusBadge={"brouillon":"badge-draft","à envoyer":"badge-wait","envoyée":"badge-sent","validée":"badge-ok","réglée":"badge-paid"};
-  ndfs.forEach(n=>{
+  shown.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
     const hasFiles=n.lines.some(l=>l.fileName||l.fileData);
-    h+=`<tr style="cursor:pointer${n.isPresta?";background:#fff7ed;border-left:3px solid var(--amber)":n.salarie&&n.salarie!==D.salarie?";background:#f0f4ff;border-left:3px solid #6366f1":""}" onclick="editNDF(${n.id})">
-      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${n.isPresta?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:var(--amber);color:white;font-weight:600">👤 '+(n.salarie||"Prestataire")+'</span>':(n.salarie&&n.salarie!==D.salarie?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#6366f1;color:white;font-weight:600">👤 '+n.salarie+'</span>':"")}</td>
+    const isOwn=!n.salarie||n.salarie===D.salarie;
+    const isOther=n.salarie&&n.salarie!==D.salarie;
+    const rowBg=isOther?";background:#f0f4ff;border-left:3px solid #6366f1":";background:#f0fdf4;border-left:3px solid #16a34a";
+    const badge=isOther?'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#6366f1;color:white;font-weight:600">👤 '+n.salarie+'</span>':'<br><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#16a34a;color:white;font-weight:600">👤 '+D.salarie+'</span>';
+    h+=`<tr style="cursor:pointer${rowBg}" onclick="editNDF(${n.id})">
+      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${n.ref||"—"}${badge}</td>
       <td style="font-size:11px;color:var(--text-2)">${(n.date||"").replace(/T.*$/,"")}</td>
       <td style="text-align:center">${n.lines.length}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(total)}</td>
