@@ -44,13 +44,13 @@ tr:hover{background:rgba(91,99,224,.02)}
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
     <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Notes de frais — Direction</div><div style="font-size:9px;color:var(--text-3)">Lit uP · 2026</div></div>
-    <span id="syncStatus" style="font-size:20px;margin-left:8px;cursor:pointer" title="Cliquer pour recharger depuis le Cloud" onclick="loadFromSheet()">☁️</span>
+    <button id="syncStatus" class="b b-d" style="font-size:16px;padding:2px 8px;min-width:36px" title="Recharger depuis le Cloud" onclick="loadFromSheet()">☁️</button>
     <div id="dirLabel" style="font-size:11px;color:var(--text-2);border-left:1px solid var(--border);padding-left:8px;margin-left:4px"></div>
   </div>
   <div style="flex:1"></div>
   <div class="bg-grp">
     <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
-    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">📋 Codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
+    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄 MAJ codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
   </div>
   <div class="bg-grp"><button class="b b-d" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button></div>
 </div>
@@ -60,8 +60,8 @@ tr:hover{background:rgba(91,99,224,.02)}
 <script>
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-const STATUTS=["brouillon","à envoyer","envoyée","validée","réglée"];
-const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"}};
+const STATUTS=["à traiter","validée","réglée","refusée"];
+const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"à traiter":{e:"📋",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"},"refusée":{e:"❌",c:"#dc2626"}};
 const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
 const EXPENSE_TYPES=[
@@ -200,7 +200,7 @@ async function majCodes(){
     st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
     setTimeout(()=>{st.textContent=""},5000);
   }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
-  btn.disabled=false;btn.textContent="📋 Codes projets";
+  btn.disabled=false;btn.textContent="🔄 MAJ codes projets";
 }
 
 function render(){
@@ -227,7 +227,7 @@ function render(){
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v">${allNdfs.length}</div><div class="stat-l">NDF totales</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(tot)}</div><div class="stat-l">Montant total</div></div>
-    <div class="stat-card" style="${cardStyle(filtStatus==="envoyée")}" onclick="toggleStatusFilter('envoyée')"><div class="stat-v" style="color:var(--amber)">${aValider}</div><div class="stat-l">Envoyées${filtStatus==="envoyée"?" ✕":""}</div></div>
+    <div class="stat-card" style="${cardStyle(filtStatus==="à traiter")}" onclick="toggleStatusFilter('à traiter')"><div class="stat-v" style="color:var(--amber)">${aValider}</div><div class="stat-l">À traiter${filtStatus==="à traiter"?" ✕":""}</div></div>
     <div class="stat-card" style="${cardStyle(filtStatus==="validée")}" onclick="toggleStatusFilter('validée')"><div class="stat-v" style="color:var(--green)">${byS["validée"]||0}</div><div class="stat-l">Validées${filtStatus==="validée"?" ✕":""}</div></div>
     <div class="stat-card" style="${cardStyle(filtStatus==="réglée")}" onclick="toggleStatusFilter('réglée')"><div class="stat-v" style="color:var(--violet)">${byS["réglée"]||0}</div><div class="stat-l">Réglées${filtStatus==="réglée"?" ✕":""}</div></div>
   </div>`;
@@ -271,19 +271,23 @@ function render(){
     });
     sorted.forEach(({n,montant})=>{
       const ni=D.ndfs.indexOf(n);const fc=n.lines.filter(l=>l.fileData||l.fileName).length;
-      const benef=n.isPresta?(n.salarie||"Prestataire"):(n.source||"?");const st=STY[n.status]||STY.brouillon;
-      h+=`<tr>
+      const benef=n.isPresta?(n.salarie||"Prestataire"):(n.source||"?");
+      const effStatus=(n.status==="envoyée")?"à traiter":n.status;
+      const st=STY[effStatus]||STY["à traiter"];
+      const isUnresolved=effStatus==="à traiter"||effStatus==="validée";
+      const rowBg=isUnresolved?";background:#fffbeb;border-left:3px solid var(--amber)":effStatus==="refusée"?";background:var(--red-bg);border-left:3px solid var(--red)":"";
+      h+=`<tr style="${rowBg}">
         <td style="font-weight:600;font-size:11px">${n.source||"?"}</td>
         <td style="font-size:11px">${benef}${n.isPresta?' <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-weight:600">presta</span>':""}</td>
         <td style="font-family:var(--mono);font-size:11px">${n.ref||"—"}</td>
-        <td style="font-size:11px;color:var(--text-2)">${n.date||""}</td>
+        <td style="font-size:11px;color:var(--text-2)">${(n.date||"").replace(/T.*$/,"")}</td>
         <td style="text-align:center">${n.lines.length}</td>
         <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(montant)}</td>
         <td style="text-align:center">${fc?`📎 ${fc}`:""}</td>
         <td><select class="inp" style="font-size:11px;padding:4px 6px;width:auto;min-width:120px;color:${st.c};font-weight:600;border-color:${st.c}44" onchange="changeStatus(${ni},this.value)">
-          ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+          ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===effStatus?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
         </select></td>
-        <td style="font-size:11px">${n.status==="réglée"?`<input class="inp" type="date" value="${n.paymentDate||n.statusDate||""}" style="font-size:11px;padding:3px 6px;width:auto" onchange="D.ndfs[${ni}].paymentDate=this.value;save()">`:n.statusDate?`<span style="color:var(--text-3)">${n.statusDate}</span>`:""}</td>
+        <td style="font-size:11px;white-space:nowrap">${effStatus==="validée"?`<input class="inp" type="date" id="pay_${ni}" value="${n.paymentDate||""}" style="font-size:11px;padding:3px 6px;width:auto"> <button class="b b-v" style="font-size:9px;padding:3px 8px" onclick="reglerNDF(${ni})">💸 Régler</button>`:effStatus==="réglée"?`<span style="color:var(--violet);font-weight:600">${n.paymentDate||n.statusDate||""}</span>`:n.statusDate?`<span style="color:var(--text-3)">${n.statusDate}</span>`:""}</td>
         <td style="white-space:nowrap">
           <button class="b b-p" style="font-size:10px;padding:4px 8px" onclick="viewDetail(${ni})">👁</button>
           <button class="b b-r" style="font-size:10px;padding:4px 6px" onclick="if(confirm('Supprimer cette NDF ?')){D.ndfs.splice(${ni},1);save();render()}">🗑</button>
@@ -301,7 +305,7 @@ function viewDetail(ni){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <h3 style="margin:0">👁 ${n.ref} — ${n.salarie||n.source||"?"}${n.isPresta?' <span style="font-size:11px;color:var(--amber)">presta</span>':""}</h3>
       <select class="inp" style="font-size:11px;width:auto;min-width:130px;color:${st.c};font-weight:600" onchange="changeStatusDetail(${ni},this.value)">
-        ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===n.status?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+        ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===(n.status==="envoyée"?"à traiter":n.status)?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
       </select>
     </div>
     <div class="stat-row" style="margin-bottom:12px">
@@ -412,9 +416,11 @@ async function uploadPJ(ni,li,inp){
 
 function changeStatus(ni,newStatus){
   const n=D.ndfs[ni];if(!n)return;
-  const oldStatus=n.status;
-  
-  // If changing to "validée" and ref is not official yet → assign official number
+  // Map old statuses
+  if(newStatus==="envoyée")newStatus="à traiter";
+  // "réglée" can only be set via reglerNDF button
+  if(newStatus==="réglée"){alert("Utilisez le bouton 💸 Régler avec une date de règlement.");render();return}
+  // Validate → assign official N° if needed
   if(newStatus==="validée"&&!n.ref.match(/^N2026-\d+/)){
     const num=getNextOfficialNumber();
     const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
@@ -422,22 +428,59 @@ function changeStatus(ni,newStatus){
     const oldRef=n.ref;
     n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
     if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
-    // Rename Drive folder from old ref to new official ref
     sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref}).then(r=>{
-      if(r.error)console.warn("Renommage dossier Drive échoué:",r.error);
-      else console.log("Dossier Drive renommé:",oldRef,"→",n.ref);
-    }).catch(e=>console.warn("Erreur renommage Drive:",e));
+      if(r.error)console.warn("Renommage dossier:",r.error);
+      else console.log("Dossier renommé:",oldRef,"→",n.ref);
+    }).catch(e=>console.warn("Erreur renommage:",e));
   }
-  
+  // Refusée → ask reason
+  if(newStatus==="refusée"){
+    const reason=prompt("Motif du refus :");
+    if(!reason){render();return}
+    n.refusReason=reason;
+  }
   n.status=newStatus;
   n.statusDate=new Date().toISOString().split("T")[0];
   save();render();
+}
+
+async function reglerNDF(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const dateInput=$("pay_"+ni);
+  const payDate=dateInput?dateInput.value:"";
+  if(!payDate){alert("Indiquez d'abord la date de règlement.");return}
+  if(!confirm("Confirmer le règlement de "+n.ref+" ?\n\nDate : "+payDate+"\nMontant : "+fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0)))){return}
+  // Assign official N° if not already done
+  const oldRef=n.ref;
+  if(!n.ref.match(/^N2026-\d+/)){
+    const num=getNextOfficialNumber();
+    const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
+    const dt=(n.date||new Date().toISOString().split("T")[0]).replace(/-/g,"");
+    n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
+  }
+  n.status="réglée";
+  n.paymentDate=payDate;
+  n.statusDate=new Date().toISOString().split("T")[0];
+  // Rename Drive folder
+  if(oldRef!==n.ref){
+    try{
+      setSyncStatus("🔄");
+      const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
+      if(r.error)console.warn("Renommage dossier:",r.error);
+      else console.log("Dossier renommé:",oldRef,"→",n.ref);
+    }catch(e){console.warn("Erreur renommage:",e)}
+  }
+  save();render();
+  setSyncStatus("☁️");
+  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate);
 }
 
 function changeStatusDetail(ni,newStatus){
   changeStatus(ni,newStatus);
   if(D.ndfs[ni])viewDetail(ni);
 }
+
+function setSyncStatus(s){const el=$("syncStatus");if(el)el.textContent=s}
 
 function handleImportNDF(inp){
   if(!inp.files||!inp.files.length)return;
