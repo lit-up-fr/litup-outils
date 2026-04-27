@@ -71,6 +71,12 @@ th .col-resize:hover{background:rgba(99,102,241,.5)}
 .filter-row td{padding:2px 3px;background:var(--bg-1)}
 .cf{width:100%;padding:2px 4px;font-size:8px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--text-1);outline:none}
 .cf:focus{border-color:var(--accent)}
+.cf-btn{padding:1px 3px;font-size:7px;border:1px solid var(--bd);border-radius:2px;background:var(--bg);color:var(--text-3);cursor:pointer;line-height:1}
+.cf-btn:hover{background:var(--accent);color:#fff}
+.cf-drop{position:absolute;top:100%;left:0;z-index:100;background:var(--bg-1);border:1px solid var(--bd);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:200px;overflow-y:auto;min-width:140px;padding:4px}
+.cf-drop label{display:flex;align-items:center;gap:4px;padding:2px 6px;font-size:9px;cursor:pointer;border-radius:3px;color:var(--text-2)}
+.cf-drop label:hover{background:rgba(99,102,241,.1)}
+.cf-drop input[type=checkbox]{accent-color:var(--accent)}
 td{padding:5px 8px;border-bottom:1px solid rgba(37,45,63,.4);vertical-align:middle}
 tr:hover{background:rgba(99,102,241,.03)}
 tr.ndf{background:rgba(251,191,36,.04)}
@@ -127,7 +133,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <body>
 <script>if(localStorage.getItem("litup_pwd_compta")!=="litup-compta-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Comptabilité</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder au suivi comptable.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-compta-2026"){localStorage.setItem("litup_pwd_compta",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 
-<div class="hd">
+<div class="hd" style="flex-wrap:wrap;gap:6px">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
     <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6</div></div>
@@ -135,34 +141,44 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
   <input type="file" id="fi_scan" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none">
-  <div class="btn-group">
-    <button class="b bg" onclick="$('fi_bank').click()">📥 Banque</button>
-    <button class="b by" onclick="loadNDFFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ NDF Cloud</button>
-    <button class="b by" onclick="loadDepensesFromSheet()" title="Charger les dépenses depuis Google Sheet">☁️ Dépenses Cloud</button>
-    <button class="b by" onclick="autoMatchNDF()" title="Rapprochement automatique banque ↔ NDF">🔗 Rapprocher NDF</button>
-    <button class="b by" onclick="autoMatchDepenses()" title="Rapprochement automatique banque ↔ dépenses">🔗 Rapprocher dépenses</button>
-    <button class="b bb" onclick="$('fi_scan').click()" title="Importer des justificatifs (PDF, images) avec OCR et rapprochement auto">📎 Justif.</button>
+  <!-- Chargement -->
+  <div class="btn-group" title="Chargement">
+    <button class="b by" onclick="loadComptaFromSheet()" title="Charger la dernière sauvegarde depuis Google Sheet">☁️ Dernière sauvegarde</button>
+    <button class="b by" onclick="importAirtable()" title="Importer les données Airtable (subventions, prestations)">📥 Airtable</button>
+    <button class="b by" onclick="loadNDFFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ NDF</button>
+    <button class="b by" onclick="loadDepensesFromSheet()" title="Charger les dépenses depuis Google Sheet">☁️ Dépenses</button>
+    <button class="b by" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
+    <button class="b by" onclick="showConfig()" title="Configuration : règles, codes projets, codes comptables">⚙️ Config</button>
   </div>
-  <div class="btn-group">
-    <button class="b bp" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
-    <button class="b bd" onclick="batchPromoteNumj()" title="Numéroter définitivement les pièces provisoires (YYYYMMJJ-FOUR-MT → F2026-XXX-...)">🏷️ Numéroter</button>
-    <button class="b bd" onclick="undo()" title="Annuler la dernière action">↩️</button>
+  <!-- Import -->
+  <div class="btn-group" title="Import">
+    <button class="b bg" onclick="$('fi_bank').click()" title="Importer le relevé bancaire (.xlsx Crédit Mutuel)">📥 Banque</button>
+    <button class="b bg" onclick="$('fi_scan').click()" title="Importer des justificatifs (PDF, images) avec OCR + rapprochement">📎 Justif.</button>
+    <button class="b bg" onclick="loadAll()" title="Charger un backup JSON">📂 JSON</button>
   </div>
-  <div class="btn-group">
-    <button class="b bd" onclick="exportCSV()">📤 CSV</button>
+  <!-- Rapprochement -->
+  <div class="btn-group" title="Rapprochement">
+    <button class="b bp" onclick="autoMatchNDF()" title="Rapprochement banque ↔ virements NDF">🔗 NDF</button>
+    <button class="b bp" onclick="autoMatchDepenses()" title="Rapprochement banque ↔ dépenses">🔗 Dépenses</button>
+  </div>
+  <!-- Sauvegarder -->
+  <div class="btn-group" title="Sauvegarder">
+    <button class="b bg" onclick="saveComptaToSheet()" style="font-weight:700" title="Sauvegarder tout vers Google Sheet">☁️ Sauvegarder</button>
+  </div>
+  <!-- Export -->
+  <div class="btn-group" title="Export">
+    <button class="b bd" onclick="exportCSV()" title="Exporter en CSV">📤 CSV</button>
     <button class="b bd" onclick="exportFEC()" title="Export FEC pour l'expert-comptable">📤 FEC</button>
-    <button class="b bd" onclick="exportZIP()">📦 ZIP</button>
+    <button class="b bd" onclick="exportZIP()" title="Export ZIP avec justificatifs">📦 ZIP</button>
     <button class="b bd" onclick="saveAll()" title="Sauvegarder en JSON (backup local)">💾 JSON</button>
-    <button class="b bd" onclick="loadAll()" title="Charger un backup JSON">📂 JSON</button>
   </div>
-  <div class="btn-group">
-    <button class="b by" onclick="importAirtable()" title="Importer données Airtable (JSON)">📥 AT</button>
-    <button class="b bg" onclick="saveComptaToSheet()" title="Sauvegarder tout vers Google Sheet (lignes + métadonnées)">☁️ Sauvegarder</button>
-    <button class="b bg" onclick="loadComptaFromSheet()" title="Charger depuis Google Sheet (écrase le local)">☁️ Charger</button>
-    <button class="b br" onclick="clearData()" title="Effacer des données">🧹</button>
+  <!-- Autres -->
+  <div class="btn-group" title="Autres">
+    <button class="b bd" onclick="undo()" title="Annuler la dernière action">↩️</button>
+    <button class="b br" onclick="clearData()" title="Effacer des données (local uniquement)">🧹</button>
+    <button class="b bd" onclick="toggleTheme()" id="themeBtn" title="Changer de thème">🌙</button>
+    <button class="b bd" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button>
   </div>
-  <button class="b bd" onclick="toggleTheme()" id="themeBtn" title="Changer de thème">🌙</button>
-  <button class="b bd" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button>
 </div>
 <div class="st" id="statsBar"></div>
 <div id="alertsBanner" style="padding:0 20px"></div>
@@ -766,7 +782,7 @@ async function loadComptaFromSheet(){
       dt:r.dt||"",yr:r.yr||"",lib:r.lib||"",four:r.four||"",
       cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
       modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
-      src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||""
+      src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""
     }));
     // Load metadata
     if(res.meta){
@@ -1254,7 +1270,6 @@ function getAlerts(){
   const now=new Date();const elapsed=(now.getMonth()+1)/12;
   // NDF en attente dans le buffer
   const ndfCount=Object.keys(D.ndfBuffer||{}).length;
-  if(ndfCount)alerts.push({type:"warn",icon:"✂️",text:ndfCount+" NDF importée(s) non éclatée(s) — cliquez ✂️ sur les virements correspondants"});
   // Justificatifs manquants
   const missing=D.rows.filter(r=>r.stat==="Justificatif manquant"&&r.cat).length;
   if(missing)alerts.push({type:"warn",icon:"📎",text:missing+" justificatif(s) manquant(s)"});
@@ -1495,16 +1510,77 @@ function rRH(el){
 }
 function switchTab(t){curTab=t;render()}
 function tglF(el){curFilt=curFilt===el.dataset.f?"":el.dataset.f;render()}
+function tglF2(f){curFilt=curFilt===f?"":f;render()}
 if(!window._colFilters)window._colFilters={};
-function setColFilter(key,val){window._colFilters[key]=val.toLowerCase();render()}
+if(!window._colMultiFilters)window._colMultiFilters={};
+function setColFilter(key,val){window._colFilters[key]=val.toLowerCase();delete window._colMultiFilters[key];render()}
 
-function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};return D.rows.filter(r=>{
-  if(curFilt==="uncl"&&r.cat&&r.act)return false;if(curFilt==="cl"&&(!r.cat||!r.act))return false;
-  if(curFilt==="bank"&&r.src!=="banque")return false;if(curFilt==="ndf"&&r.src!=="ndf")return false;
-  if(curFilt==="noatt"&&D.att[r.id])return false;
-  if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q))return false;
-  // Column filters
+function toggleColDropdown(key,btn){
+  // Close any existing dropdown
+  const existing=document.querySelector('.cf-drop');
+  if(existing){existing.remove();return}
+  // Get unique values for this column
+  const vals=new Set();
+  D.rows.forEach(r=>{const v=String(r[key]||"").trim();if(v)vals.add(v)});
+  const sorted=[...vals].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  if(!sorted.length)return;
+  // Build dropdown
+  const selected=window._colMultiFilters[key]||new Set();
+  let dd=document.createElement('div');dd.className='cf-drop';
+  dd.innerHTML=`<div style="display:flex;gap:4px;padding:2px 4px;margin-bottom:2px;border-bottom:1px solid var(--bd)">
+    <button style="font-size:8px;padding:1px 4px;border:none;background:var(--accent);color:white;border-radius:2px;cursor:pointer" onclick="selectAllColFilter('${key}',true)">Tout</button>
+    <button style="font-size:8px;padding:1px 4px;border:none;background:var(--bd);color:var(--text-2);border-radius:2px;cursor:pointer" onclick="selectAllColFilter('${key}',false)">Aucun</button>
+    <button style="font-size:8px;padding:1px 4px;border:none;background:var(--red);color:white;border-radius:2px;cursor:pointer;margin-left:auto" onclick="clearColFilter('${key}')">✕</button>
+  </div>`;
+  sorted.forEach(v=>{
+    const checked=selected.size===0||selected.has(v);
+    dd.innerHTML+=`<label><input type="checkbox" ${checked?"checked":""} onchange="toggleColFilterVal('${key}',\`${v.replace(/`/g,"")}\`,this.checked)">${v.length>30?v.substring(0,30)+"…":v}</label>`;
+  });
+  btn.closest('td').appendChild(dd);
+  // Close on outside click
+  setTimeout(()=>{document.addEventListener('click',function closer(e){
+    if(!dd.contains(e.target)&&e.target!==btn){dd.remove();document.removeEventListener('click',closer)}
+  })},10);
+}
+
+function toggleColFilterVal(key,val,checked){
+  if(!window._colMultiFilters[key])window._colMultiFilters[key]=new Set(
+    [...new Set(D.rows.map(r=>String(r[key]||"").trim()).filter(Boolean))]
+  );
+  if(checked)window._colMultiFilters[key].add(val);
+  else window._colMultiFilters[key].delete(val);
+  window._colFilters[key]="";
+  const inp=$("cf_"+key);if(inp)inp.value="";
+  render();
+}
+
+function selectAllColFilter(key,all){
+  if(all){delete window._colMultiFilters[key]}
+  else{window._colMultiFilters[key]=new Set()}
+  window._colFilters[key]="";
+  const inp=$("cf_"+key);if(inp)inp.value="";
+  document.querySelector('.cf-drop')?.remove();
+  render();
+}
+
+function clearColFilter(key){
+  delete window._colMultiFilters[key];
+  window._colFilters[key]="";
+  const inp=$("cf_"+key);if(inp)inp.value="";
+  document.querySelector('.cf-drop')?.remove();
+  render();
+}
+
+function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};const mf=window._colMultiFilters||{};return D.rows.filter(r=>{
+  if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
+  if(curFilt==="cl"&&!((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
+  if(curFilt==="bank"&&r.src!=="banque")return false;
+  if(curFilt==="ndf"&&!r.src?.startsWith("ndf"))return false;
+  if(curFilt==="noatt"&&((r.stat||"").startsWith("Classé")||(!r.deb&&!r.cre)))return false;
+  if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q)&&!r.numj?.toLowerCase().includes(q)&&!r.comment?.toLowerCase().includes(q))return false;
   for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(v))return false}
+  // Multi-select filters
+  for(const[k,selected] of Object.entries(mf)){if(!selected.size)return false;const rv=String(r[k]||"").trim();if(!selected.has(rv))return false}
   return true})}
 
 // ─── SEARCH SELECT ───
@@ -1937,15 +2013,20 @@ function checkSolde(){
 
 // ─── MAIN RENDER ───
 function render(){
-  const cl=D.rows.filter(r=>r.cat&&r.act).length;const ch=D.rows.reduce((s,r)=>s+(r.deb||0),0);const pr=D.rows.reduce((s,r)=>s+(r.cre||0),0);
-  const ac=Object.keys(D.att).filter(k=>!k.startsWith("orph")).length;
+  // Compute stats — "à classer" = missing cat OR act OR stat not "Classé"
+  const classees=D.rows.filter(r=>(r.stat||"").startsWith("Classé")&&r.cat&&r.act).length;
+  const aClasser=D.rows.filter(r=>!((r.stat||"").startsWith("Classé")&&r.cat&&r.act)&&(r.deb||r.cre)).length;
+  const justifOk=D.rows.filter(r=>(r.stat||"").startsWith("Classé")).length;
+  const justifManq=D.rows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
+  const ch=D.rows.reduce((s,r)=>s+(r.deb||0),0);const pr=D.rows.reduce((s,r)=>s+(r.cre||0),0);
   $("statsBar").innerHTML=[
-    {l:"Lignes",v:D.rows.length,c:"#818cf8"},{l:"Classées",v:cl,c:"#22c55e"},
-    {l:"À classer",v:D.rows.length-cl,c:D.rows.length-cl>0?"#ef4444":"#22c55e"},
-    {l:"Justif.",v:ac+"/"+D.rows.length,c:ac<D.rows.length?"#f59e0b":"#22c55e"},
-    {l:"Charges",v:fmt(ch),c:"#f87171"},{l:"Produits",v:fmt(pr),c:"#4ade80"},
-    {l:"Solde",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444"}
-  ].map(s=>`<div class="sc"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
+    {l:"Lignes",v:D.rows.length,c:"#818cf8",f:""},
+    {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
+    {l:"À classer",v:aClasser,c:aClasser>0?"#ef4444":"#22c55e",f:"uncl"},
+    {l:"Justif. manquant",v:justifManq,c:justifManq>0?"#f59e0b":"#22c55e",f:"noatt"},
+    {l:"Charges",v:fmt(ch),c:"#f87171",f:""},{l:"Produits",v:fmt(pr),c:"#4ade80",f:""},
+    {l:"Solde",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""}
+  ].map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
 
   // Alerts banner
   const alerts=getAlerts();
@@ -1960,14 +2041,14 @@ function render(){
     } else ab.innerHTML="";
   }
 
-  const tabs=[{id:"class",l:"📋 Classement"},{id:"synth",l:"📊 Synthèse"},{id:"suivi",l:"📈 Suivi codes"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."},{id:"config",l:"⚙️"}];
+  const tabs=[{id:"class",l:"📋 Classement"},{id:"synth",l:"📊 Synthèse"},{id:"suivi",l:"📈 Suivi codes"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."}];
   let tb='';tabs.forEach(t=>{
-    tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="${t.id==='config'?'showConfig()':'switchTab(\''+t.id+'\')'}">${t.l}</button>`});
+    tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="switchTab('${t.id}')">${t.l}</button>`});
   tb+=`<div style="width:1px;height:14px;background:#2d3148;margin:0 1px"></div>`;
-  tb+=`<input class="si" id="si" placeholder="🔍" value="${$('si')?.value||''}" oninput="render()">`;
-  ["","uncl","cl","bank","ndf","noatt"].forEach(f=>{
-    const ls={"":"Tout",uncl:"⚠",cl:"✓",bank:"🏦",ndf:"🧾",noatt:"📎"};
-    tb+=`<button class="fb${curFilt===f?" on":""}" data-f="${f}" onclick="tglF(this)" title="${{"":"Tous",uncl:"Non classé",cl:"Classé",bank:"Banque",ndf:"NDF",noatt:"Sans justif."}[f]}">${ls[f]}</button>`});
+  tb+=`<input class="si" id="si" placeholder="🔍 Recherche globale" value="${$('si')?.value||''}" oninput="render()">`;
+  tb+=`<button class="fb${curFilt===""?" on":""}" onclick="tglF2('')" title="Toutes les lignes">Tout</button>`;
+  tb+=`<button class="fb${curFilt==="bank"?" on":""}" onclick="tglF2('bank')" title="Lignes bancaires">🏦</button>`;
+  tb+=`<button class="fb${curFilt==="ndf"?" on":""}" onclick="tglF2('ndf')" title="Lignes NDF">🧾</button>`;
   const flt=getFilt();tb+=`<div style="margin-left:auto;font-size:7px;color:#64748b">${flt.length}/${D.rows.length}</div>`;
   $("toolbar").innerHTML=tb;
 
@@ -1983,13 +2064,18 @@ function render(){
   // Classement tab
   if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
   let h='<div style="overflow-x:auto"><table><thead><tr>';
-  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.",""];
-  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","modal","stat","resp","numj",""];
+  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.","💬",""];
+  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","modal","stat","resp","numj","comment",""];
   cols.forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)"></div></th>`);
   h+="</tr><tr class='filter-row'>";
   colKeys.forEach((k,i)=>{
     if(!k||k==="deb"||k==="cre"){h+="<td></td>"}
-    else{h+=`<td><input class="cf" id="cf_${k}" value="${window._colFilters?.[k]||""}" placeholder="🔍" oninput="setColFilter('${k}',this.value)"></td>`}
+    else{
+      const curVal=window._colFilters?.[k]||"";
+      h+=`<td style="position:relative"><div style="display:flex;gap:1px">
+        <input class="cf" id="cf_${k}" value="${curVal}" placeholder="🔍" oninput="setColFilter('${k}',this.value)" style="flex:1;min-width:0">
+        <button class="cf-btn" onclick="toggleColDropdown('${k}',this)" title="Filtrer par valeur">▼</button>
+      </div></td>`}
   });
   h+="</tr></thead><tbody>";
   flt.forEach(r=>{const a=D.att[r.id];
@@ -2006,12 +2092,13 @@ function render(){
     h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:#f87171;width:65px" value="${r.deb||''}" onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
-    h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button></td>`
+    h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
         :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')"><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
     h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
+    h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
     h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
@@ -2103,6 +2190,22 @@ function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=
     $("mr_"+i).innerHTML=`<span style="color:#22c55e">✓ ${nj}.${ext}</span> <button class="att has" onclick="viewAtt('miss_${nj}')" style="margin-left:3px">👁</button>`;
     autoSave()};rd.readAsArrayBuffer(f)}
 
+// ─── DELETE JUSTIF FROM ROW + DRIVE ───
+async function deleteJustif(rowId){
+  const row=D.rows.find(r=>r.id===rowId);if(!row)return;
+  const a=D.att[rowId];
+  const name=a?a.name:row.numj;
+  if(!confirm("Supprimer le justificatif ?\n\n"+name+"\n\nLe fichier sera aussi supprimé du Drive.")){return}
+  // Delete from Drive if we have driveFileId
+  if(row.driveFileId){
+    try{await sheetAPI("deleteDriveFile",{fileId:row.driveFileId})}catch(e){console.warn("Delete Drive error:",e)}
+  }
+  // Remove local attachment
+  delete D.att[rowId];
+  row.numj="";row.stat="Justificatif manquant";row.driveUrl="";row.driveFileId="";
+  autoSave();render();
+}
+
 // ─── DRAG & DROP JUSTIF ONTO ROW ───
 async function dropJustif(event,rowId){
   const files=event.dataTransfer.files;if(!files.length)return;
@@ -2153,36 +2256,45 @@ function startResize(e){
 render();
 </script>
 <div style="max-width:1200px;margin:20px auto;padding:16px 20px;border-radius:12px;border:1px solid var(--bd);background:var(--bg2);font-family:var(--sans);font-size:11px;line-height:2;color:var(--t2)">
-  <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende des boutons</div>
+  <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
+    <div><strong>CHARGEMENT</strong></div><div></div>
+    <div><strong style="color:var(--t1)">☁️ Dernière sauvegarde</strong> — Charger tout depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">📥 Airtable</strong> — Importer subventions et prestations (JSON)</div>
+    <div><strong style="color:var(--t1)">☁️ NDF</strong> — Charger les NDF depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">☁️ Dépenses</strong> — Charger les dépenses depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">🔄 Règles</strong> — Appliquer les règles auto aux lignes non classées</div>
+    <div></div>
+    <div><strong>IMPORT</strong></div><div></div>
     <div><strong style="color:var(--t1)">📥 Banque</strong> — Importer le relevé bancaire (.xlsx Crédit Mutuel)</div>
-    <div><strong style="color:var(--t1)">☁️ NDF Cloud</strong> — Charger les NDF depuis le Google Sheet</div>
-    <div><strong style="color:var(--t1)">☁️ Dépenses Cloud</strong> — Charger les dépenses depuis le Google Sheet</div>
-    <div><strong style="color:var(--t1)">🔗 Rapprocher NDF</strong> — Rapprochement banque ↔ virements NDF</div>
-    <div><strong style="color:var(--t1)">🔗 Rapprocher dépenses</strong> — Rapprochement banque ↔ dépenses (carte, virements, prélèvements)</div>
-    <div><strong style="color:var(--t1)">🔄 Règles</strong> — Appliquer les règles de reconnaissance automatique</div>
-    <div><strong style="color:var(--t1)">🏷️ Numéroter</strong> — Attribuer les N° définitifs aux pièces provisoires</div>
+    <div><strong style="color:var(--t1)">📎 Justif.</strong> — Importer des justificatifs avec OCR et rapprochement auto</div>
+    <div><strong style="color:var(--t1)">📂 JSON</strong> — Charger un backup JSON</div>
+    <div></div>
+    <div><strong>RAPPROCHEMENT</strong></div><div></div>
+    <div><strong style="color:var(--t1)">🔗 NDF</strong> — Rapprochement banque ↔ virements NDF</div>
+    <div><strong style="color:var(--t1)">🔗 Dépenses</strong> — Rapprochement banque ↔ dépenses (carte, virements, prélèvements)</div>
+    <div><strong>SAUVEGARDER / EXPORT</strong></div><div></div>
+    <div><strong style="color:var(--t1)">☁️ Sauvegarder</strong> — Tout sauvegarder vers Google Sheet (partagé)</div>
     <div><strong style="color:var(--t1)">📤 CSV / FEC / ZIP</strong> — Exports pour l'expert-comptable</div>
     <div><strong style="color:var(--t1)">💾 JSON</strong> — Sauvegarder en fichier JSON (backup local)</div>
-    <div><strong style="color:var(--t1)">📂 JSON</strong> — Charger un backup JSON</div>
-    <div><strong style="color:var(--t1)">☁️ Sauvegarder</strong> — Tout sauvegarder vers Google Sheet (source de vérité partagée)</div>
-    <div><strong style="color:var(--t1)">☁️ Charger</strong> — Charger tout depuis Google Sheet (remplace le local)</div>
-    <div><strong style="color:var(--t1)">📥 AT</strong> — Importer les données Airtable (subventions et prestations)</div>
   </div>
   <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(99,102,241,.06);font-size:10px;color:var(--t2)">
-    <strong>💡 Travail à deux :</strong> Après vos modifications, cliquez <strong>☁️ Sauvegarder</strong> pour enregistrer dans le Sheet.
-    Quand l'autre personne ouvre l'outil, elle clique <strong>☁️ Charger</strong> pour récupérer la dernière version.
-    Le nom de la personne et la date de la dernière sauvegarde sont enregistrés.
+    <strong>💡 Travail à deux :</strong> Après vos modifications, cliquez <strong>☁️ Sauvegarder</strong>.
+    L'autre personne clique <strong>☁️ Dernière sauvegarde</strong> pour récupérer.
   </div>
   <div style="margin-top:8px;padding:8px 10px;border-radius:6px;font-size:10px;color:var(--t3);border:1px solid var(--bd)">
-    <strong>Code couleur des lignes :</strong>
+    <strong>Code couleur :</strong>
     <span style="color:#f97316">🟠 Orange</span> = justificatif manquant ·
     <span style="color:#facc15">🟡 Jaune</span> = pas encore classé ·
-    <span style="color:#16a34a">🟢 Vert</span> = classé et nommé
+    <span style="color:#16a34a">🟢 Vert</span> = classé et nommé ·
+    <strong>Champs orange</strong> = à compléter
   </div>
   <div style="margin-top:6px;font-size:10px;color:var(--t3)">
     <strong>Workflow :</strong>
     ① 📥 Banque → ② 🔄 Règles → ③ ☁️ NDF + Dépenses → ④ 🔗 Rapprocher → ⑤ ✂️ Éclater NDF → ⑥ Compléter → ⑦ ☁️ Sauvegarder → ⑧ 📤 FEC
+  </div>
+  <div style="margin-top:6px;font-size:10px;color:var(--t3)">
+    <strong>💡 Justificatifs :</strong> Glissez-déposez un fichier sur la cellule 📎+ d'une ligne pour l'attacher. Cliquez ✕ pour supprimer un justificatif (aussi du Drive).
   </div>
 </div>
 </body>
