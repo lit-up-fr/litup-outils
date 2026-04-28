@@ -73,6 +73,11 @@ th .col-resize:hover{background:rgba(99,102,241,.5)}
 .cf:focus{border-color:var(--accent)}
 .cf-btn{padding:1px 3px;font-size:7px;border:1px solid var(--bd);border-radius:2px;background:var(--bg);color:var(--text-3);cursor:pointer;line-height:1}
 .cf-btn:hover{background:var(--accent);color:#fff}
+.dd-wrap{position:relative;display:inline-block}
+.dd-menu{display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--bg-1);border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:200px;padding:4px;margin-top:4px}
+.dd-menu.open{display:block}
+.dd-menu button{display:block;width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-1);font-size:11px;cursor:pointer;border-radius:4px}
+.dd-menu button:hover{background:rgba(99,102,241,.12)}
 .cf-drop{position:absolute;top:100%;left:0;z-index:100;background:var(--bg-1);border:1px solid var(--bd);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:200px;overflow-y:auto;min-width:140px;padding:4px}
 .cf-drop label{display:flex;align-items:center;gap:4px;padding:2px 6px;font-size:9px;cursor:pointer;border-radius:3px;color:var(--text-2)}
 .cf-drop label:hover{background:rgba(99,102,241,.1)}
@@ -133,7 +138,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <body>
 <script>if(localStorage.getItem("litup_pwd_compta")!=="litup-compta-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Comptabilité</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder au suivi comptable.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-compta-2026"){localStorage.setItem("litup_pwd_compta",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 
-<div class="hd" style="flex-wrap:wrap;gap:6px">
+<div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
     <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6</div></div>
@@ -141,43 +146,51 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
   <input type="file" id="fi_scan" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none">
-  <!-- Chargement -->
-  <div class="btn-group" title="Chargement">
-    <button class="b by" onclick="loadComptaFromSheet()" title="Charger la dernière sauvegarde depuis Google Sheet">☁️ Dernière sauvegarde</button>
-    <button class="b by" onclick="importAirtable()" title="Importer les données Airtable (subventions, prestations)">📥 Airtable</button>
-    <button class="b by" onclick="loadNDFFromSheet()" title="Charger les NDF depuis Google Sheet">☁️ NDF</button>
-    <button class="b by" onclick="loadDepensesFromSheet()" title="Charger les dépenses depuis Google Sheet">☁️ Dépenses</button>
-    <button class="b by" onclick="applyRulesToUnaffected()" title="Appliquer les règles aux lignes non classées">🔄 Règles</button>
-    <button class="b by" onclick="showConfig()" title="Configuration : règles, codes projets, codes comptables">⚙️ Config</button>
+  <!-- Dropdown menus -->
+  <div class="dd-wrap">
+    <button class="b by dd-trigger" onclick="toggleDD('dd_actual')">🔄 Actualisation ▾</button>
+    <div class="dd-menu" id="dd_actual">
+      <button onclick="loadComptaFromSheet();closeDD()">☁️ Dernière sauvegarde</button>
+      <button onclick="importAirtable();closeDD()">📥 Données Airtable</button>
+      <button onclick="loadNDFFromSheet();closeDD()">☁️ NDF Cloud</button>
+      <button onclick="loadDepensesFromSheet();closeDD()">☁️ Dépenses Cloud</button>
+      <button onclick="applyRulesToUnaffected();closeDD()">🔄 Appliquer les règles</button>
+    </div>
   </div>
-  <!-- Import -->
-  <div class="btn-group" title="Import">
-    <button class="b bg" onclick="$('fi_bank').click()" title="Importer le relevé bancaire (.xlsx Crédit Mutuel)">📥 Banque</button>
-    <button class="b bg" onclick="$('fi_scan').click()" title="Importer des justificatifs (PDF, images) avec OCR + rapprochement">📎 Justif.</button>
-    <button class="b bg" onclick="loadAll()" title="Charger un backup JSON">📂 JSON</button>
+  <div class="dd-wrap">
+    <button class="b bg dd-trigger" onclick="toggleDD('dd_import')">📥 Import ▾</button>
+    <div class="dd-menu" id="dd_import">
+      <button onclick="$('fi_bank').click();closeDD()">📥 Relevé bancaire (.xlsx)</button>
+      <button onclick="$('fi_scan').click();closeDD()">📎 Justificatifs (OCR)</button>
+      <button onclick="loadAll();closeDD()">📂 Backup JSON</button>
+    </div>
   </div>
-  <!-- Rapprochement -->
-  <div class="btn-group" title="Rapprochement">
-    <button class="b bp" onclick="autoMatchNDF()" title="Rapprochement banque ↔ virements NDF">🔗 NDF</button>
-    <button class="b bp" onclick="autoMatchDepenses()" title="Rapprochement banque ↔ dépenses">🔗 Dépenses</button>
+  <div class="dd-wrap">
+    <button class="b bp dd-trigger" onclick="toggleDD('dd_rappr')">🔗 Rapprochement ▾</button>
+    <div class="dd-menu" id="dd_rappr">
+      <button onclick="autoMatchNDF();closeDD()">🔗 Rapprocher NDF</button>
+      <button onclick="autoMatchDepenses();closeDD()">🔗 Rapprocher dépenses</button>
+    </div>
   </div>
-  <!-- Sauvegarder -->
-  <div class="btn-group" title="Sauvegarder">
-    <button class="b bg" onclick="saveComptaToSheet()" style="font-weight:700" title="Sauvegarder tout vers Google Sheet">☁️ Sauvegarder</button>
+  <button class="b bg" onclick="saveComptaToSheet()" style="font-weight:700" title="Sauvegarder vers Google Sheet">☁️ Sauvegarder</button>
+  <button class="b bd" onclick="undo()" title="Annuler">↩️</button>
+  <div class="dd-wrap">
+    <button class="b bd dd-trigger" onclick="toggleDD('dd_export')">📤 Export ▾</button>
+    <div class="dd-menu" id="dd_export">
+      <button onclick="exportCSV();closeDD()">📤 CSV</button>
+      <button onclick="exportFEC();closeDD()">📤 FEC (expert-comptable)</button>
+      <button onclick="exportZIP();closeDD()">📦 ZIP (CSV + justificatifs)</button>
+      <button onclick="saveAll();closeDD()">💾 JSON (backup local)</button>
+    </div>
   </div>
-  <!-- Export -->
-  <div class="btn-group" title="Export">
-    <button class="b bd" onclick="exportCSV()" title="Exporter en CSV">📤 CSV</button>
-    <button class="b bd" onclick="exportFEC()" title="Export FEC pour l'expert-comptable">📤 FEC</button>
-    <button class="b bd" onclick="exportZIP()" title="Export ZIP avec justificatifs">📦 ZIP</button>
-    <button class="b bd" onclick="saveAll()" title="Sauvegarder en JSON (backup local)">💾 JSON</button>
-  </div>
-  <!-- Autres -->
-  <div class="btn-group" title="Autres">
-    <button class="b bd" onclick="undo()" title="Annuler la dernière action">↩️</button>
-    <button class="b br" onclick="clearData()" title="Effacer des données (local uniquement)">🧹</button>
-    <button class="b bd" onclick="toggleTheme()" id="themeBtn" title="Changer de thème">🌙</button>
-    <button class="b bd" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button>
+  <div class="dd-wrap">
+    <button class="b bd dd-trigger" onclick="toggleDD('dd_param')">⚙️ Paramètres ▾</button>
+    <div class="dd-menu" id="dd_param">
+      <button onclick="showConfig();closeDD()">⚙️ Configuration (règles, codes)</button>
+      <button onclick="clearData();closeDD()">🧹 Effacer des données</button>
+      <button onclick="toggleTheme();closeDD()" id="themeBtn2">🌙 Changer de thème</button>
+      <button onclick="location.href='index.html'">🏠 Page d'accueil</button>
+    </div>
   </div>
 </div>
 <div class="st" id="statsBar"></div>
@@ -188,6 +201,11 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 
 <script>
 const $=id=>document.getElementById(id);
+
+// ─── DROPDOWN MENUS ───
+function toggleDD(id){const m=$(id);document.querySelectorAll('.dd-menu.open').forEach(d=>{if(d.id!==id)d.classList.remove('open')});m?.classList.toggle('open')}
+function closeDD(){document.querySelectorAll('.dd-menu.open').forEach(d=>d.classList.remove('open'))}
+document.addEventListener('click',e=>{if(!e.target.closest('.dd-wrap'))closeDD()});
 
 // ─── GOOGLE SHEET BACKEND ───
 const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
@@ -1530,6 +1548,7 @@ function toggleColDropdown(key,btn){
   dd.innerHTML=`<div style="display:flex;gap:4px;padding:2px 4px;margin-bottom:2px;border-bottom:1px solid var(--bd)">
     <button style="font-size:8px;padding:1px 4px;border:none;background:var(--accent);color:white;border-radius:2px;cursor:pointer" onclick="selectAllColFilter('${key}',true)">Tout</button>
     <button style="font-size:8px;padding:1px 4px;border:none;background:var(--bd);color:var(--text-2);border-radius:2px;cursor:pointer" onclick="selectAllColFilter('${key}',false)">Aucun</button>
+    <button style="font-size:8px;padding:1px 4px;border:none;background:var(--accent);color:white;border-radius:2px;cursor:pointer" onclick="applyColFilterDD('${key}')">Valider</button>
     <button style="font-size:8px;padding:1px 4px;border:none;background:var(--red);color:white;border-radius:2px;cursor:pointer;margin-left:auto" onclick="clearColFilter('${key}')">✕</button>
   </div>`;
   sorted.forEach(v=>{
@@ -1549,8 +1568,11 @@ function toggleColFilterVal(key,val,checked){
   );
   if(checked)window._colMultiFilters[key].add(val);
   else window._colMultiFilters[key].delete(val);
+}
+function applyColFilterDD(key){
   window._colFilters[key]="";
   const inp=$("cf_"+key);if(inp)inp.value="";
+  document.querySelector('.cf-drop')?.remove();
   render();
 }
 
@@ -1572,7 +1594,7 @@ function clearColFilter(key){
 }
 
 function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};const mf=window._colMultiFilters||{};return D.rows.filter(r=>{
-  if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
+  if(curFilt==="all"){}else if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
   if(curFilt==="cl"&&!((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
   if(curFilt==="bank"&&r.src!=="banque")return false;
   if(curFilt==="ndf"&&!r.src?.startsWith("ndf"))return false;
@@ -2013,33 +2035,25 @@ function checkSolde(){
 
 // ─── MAIN RENDER ───
 function render(){
-  // Compute stats — "à classer" = missing cat OR act OR stat not "Classé"
+  // Compute stats
   const classees=D.rows.filter(r=>(r.stat||"").startsWith("Classé")&&r.cat&&r.act).length;
   const aClasser=D.rows.filter(r=>!((r.stat||"").startsWith("Classé")&&r.cat&&r.act)&&(r.deb||r.cre)).length;
-  const justifOk=D.rows.filter(r=>(r.stat||"").startsWith("Classé")).length;
   const justifManq=D.rows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
   const ch=D.rows.reduce((s,r)=>s+(r.deb||0),0);const pr=D.rows.reduce((s,r)=>s+(r.cre||0),0);
+  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>r.compte==="CC"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeLivret=D.soldeInitialLivret||0;
   $("statsBar").innerHTML=[
-    {l:"Lignes",v:D.rows.length,c:"#818cf8",f:""},
+    {l:"Lignes",v:D.rows.length,c:"#818cf8",f:"all"},
     {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
     {l:"À classer",v:aClasser,c:aClasser>0?"#ef4444":"#22c55e",f:"uncl"},
     {l:"Justif. manquant",v:justifManq,c:justifManq>0?"#f59e0b":"#22c55e",f:"noatt"},
-    {l:"Charges",v:fmt(ch),c:"#f87171",f:""},{l:"Produits",v:fmt(pr),c:"#4ade80",f:""},
-    {l:"Solde",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""}
+    {l:"Charges 2026",v:fmt(ch),c:"#f87171",f:""},{l:"Produits 2026",v:fmt(pr),c:"#4ade80",f:""},
+    {l:"Solde 2026",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
+    {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:""},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:""},
+    {l:"Total banque",v:fmt(soldeCC+soldeLivret),c:"#60a5fa",f:""}
   ].map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
 
-  // Alerts banner
-  const alerts=getAlerts();
-  const ab=$("alertsBanner");
-  if(ab){
-    if(alerts.length){
-      const colors={danger:"var(--red-bg)",warn:"var(--amber-bg)",info:"var(--accent-bg)"};
-      const txtColors={danger:"var(--red)",warn:"var(--amber)",info:"var(--accent-l)"};
-      ab.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0">`+
-        alerts.slice(0,5).map(a=>`<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${colors[a.type]||colors.info};color:${txtColors[a.type]||txtColors.info}">${a.icon} ${a.text}</div>`).join("")+
-        (alerts.length>5?`<div style="font-size:10px;color:var(--text-3);padding:4px">+${alerts.length-5} autres</div>`:"")+`</div>`;
-    } else ab.innerHTML="";
-  }
+  // No alerts banner — stats cards are sufficient
 
   const tabs=[{id:"class",l:"📋 Classement"},{id:"synth",l:"📊 Synthèse"},{id:"suivi",l:"📈 Suivi codes"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."}];
   let tb='';tabs.forEach(t=>{
@@ -2049,7 +2063,10 @@ function render(){
   tb+=`<button class="fb${curFilt===""?" on":""}" onclick="tglF2('')" title="Toutes les lignes">Tout</button>`;
   tb+=`<button class="fb${curFilt==="bank"?" on":""}" onclick="tglF2('bank')" title="Lignes bancaires">🏦</button>`;
   tb+=`<button class="fb${curFilt==="ndf"?" on":""}" onclick="tglF2('ndf')" title="Lignes NDF">🧾</button>`;
-  const flt=getFilt();tb+=`<div style="margin-left:auto;font-size:7px;color:#64748b">${flt.length}/${D.rows.length}</div>`;
+  const flt=getFilt();
+  // Default sort: most recent first
+  flt.sort((a,b)=>(b.dt||"").localeCompare(a.dt||""));
+  tb+=`<div style="margin-left:auto;font-size:7px;color:#64748b">${flt.length}/${D.rows.length}</div>`;
   $("toolbar").innerHTML=tb;
 
   const ct=$("content");
@@ -2210,17 +2227,31 @@ async function deleteJustif(rowId){
 async function dropJustif(event,rowId){
   const files=event.dataTransfer.files;if(!files.length)return;
   const f=files[0];const row=D.rows.find(r=>r.id===rowId);if(!row)return;
+  // For credits (products), ask the type before naming
+  let prefix="F";
+  if(row.cre&&row.cre>0){
+    const choice=prompt("Type de pièce pour ce produit ?\n\nS = Subvention (convention)\nP = Prestation (facture client)\nRF = Reçu fiscal (don/mécénat)\nA = Autre\n\nTapez S, P, RF ou A :","S");
+    if(!choice)return;
+    const c=choice.trim().toUpperCase();
+    if(c==="S")prefix="S";else if(c==="P")prefix="P";else if(c==="RF")prefix="RF";else prefix="A";
+  }
   // Read file as dataURL
   const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
-  // Build definitive name
-  const nj=promoteN(row);
+  // Build definitive name with correct prefix
+  D.ctr[prefix]=(D.ctr[prefix]||0)+1;
+  const seq=prefix+"2026-"+String(D.ctr[prefix]).padStart(3,"0");
+  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
+  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
+  const nj=seq+"-"+dt+"-"+four+"-"+amt;
   const ext=f.name.split(".").pop().toLowerCase();
   const fileName=nj+"."+ext;
   // Attach locally
   D.att[rowId]={data:await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(f)}),
     name:fileName,orig:f.name,type:f.type,ext,nj};
   row.numj=nj;
-  row.stat=row.cre&&row.cre>0?"Classé - Convention":"Classé - Facture";
+  const statMap={S:"Classé - Convention",P:"Classé - Facture",RF:"Classé - Reçu fiscal",F:"Classé - Facture",A:"Classé - Facture"};
+  row.stat=statMap[prefix]||"Classé - Facture";
   autoSave();render();
   // Upload to Drive → JUSTIFICATIFS CLASSÉS
   try{
