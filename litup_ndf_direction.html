@@ -325,22 +325,23 @@ function viewDetail(ni){
       <div class="stat-card"><div class="stat-v">${n.lines.filter(l=>l.fileData||l.fileName).length}</div><div class="stat-l">Justificatifs</div></div>
     </div>`;
   if(n.prestaComment)h+=`<div style="padding:8px 12px;background:var(--amber-bg);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:12px">💬 ${n.prestaComment}</div>`;
-  h+=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Type</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Type dépense</th><th>Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
+  h+=`<div style="overflow-x:auto;overflow-y:visible"><table style="table-layout:auto"><thead><tr><th>#</th><th>Type</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th style="min-width:140px">Type dépense</th><th style="min-width:150px">Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
   n.lines.forEach((l,i)=>{const ik=l.type==="ik";
     h+=`<tr${ik?' style="background:var(--amber-bg)"':""}>
       <td style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${i+1}</td>
       <td style="font-size:10px">${ik?"🚗":"📝"}</td>
-      <td style="font-size:11px;color:var(--text-2)">${l.date||""}</td>
+      <td style="font-size:11px;color:var(--text-2);white-space:nowrap">${(l.date||"").split("T")[0]}</td>
       <td style="font-size:11px">${l.desc||"—"}${ik?` <span style="color:var(--text-3);font-size:10px">(${l.km||0} km, ${l.cv||5} CV)</span>`:""}</td>
       <td style="font-size:11px;color:var(--text-2)">${l.four||""}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red);font-size:11px">${fmt(l.amount)}</td>
-      <td style="font-size:10px;max-width:140px"><select class="inp" style="font-size:10px;padding:2px 4px;min-width:100px" onchange="D.ndfs[${ni}].lines[${i}].expType=this.value;save()">${expTypeOptions(l.expType)}</select></td>
-      <td style="font-size:10px;max-width:140px"><select class="inp" style="font-size:10px;padding:2px 4px;min-width:120px" onchange="D.ndfs[${ni}].lines[${i}].code=this.value;save()">${codeOptions(l.code)}</select></td>
-      <td style="font-size:10px">`;
+      <td><select class="inp" style="font-size:9px;padding:2px 4px;width:100%" onchange="D.ndfs[${ni}].lines[${i}].expType=this.value;save()">${expTypeOptions(l.expType)}</select></td>
+      <td><select class="inp" style="font-size:9px;padding:2px 4px;width:100%" onchange="D.ndfs[${ni}].lines[${i}].code=this.value;save()">${codeOptions(l.code)}</select></td>
+      <td style="font-size:10px;white-space:nowrap">`;
     if(l.driveUrl)h+=`<a href="${l.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline">📎 ${l.fileName||"Voir"}</a> `;
     else if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a> `;
     else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a> `}
-    else if(l.fileName)h+=`<span style="color:var(--text-3)">📄 ${l.fileName}</span> `;
+    else if(l.fileName)h+=`<a href="https://drive.google.com/drive/search?q=${encodeURIComponent(l.fileName)}" target="_blank" style="color:var(--accent);text-decoration:underline" title="Chercher dans le Drive">📄 ${l.fileName}</a> `;
+    else h+=`<span style="color:var(--red);font-size:9px">Absent</span> `;
     h+=`<label style="cursor:pointer;font-size:9px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--text-3)" title="Ajouter/remplacer le justificatif">📤<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadPJ(${ni},${i},this)"></label>`;
     h+=`</td></tr>`;
   });

@@ -624,7 +624,7 @@ async function envoyerNDF(id){
 
 async function supprimerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  if(n.status!=="brouillon"&&n.status!=="refusée"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
+  if(n.status!=="brouillon"&&n.status!=="refusée"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
   if(!confirm("Supprimer la NDF "+n.ref+" ?\n(sera aussi supprimée du Cloud)"))return;
   const ref=n.ref;const salarie=n.salarie||D.salarie;
   D.ndfs=D.ndfs.filter(x=>x.id!==id);
@@ -641,7 +641,7 @@ function toggleSort(col){
 
 function editNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  const editable=n.status==="brouillon"||n.status==="refusée";
+  const editable=n.status==="brouillon"||n.status==="refusée"||n.status==="à envoyer";
   if(!editable){
     // Show read-only detail view
     let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
