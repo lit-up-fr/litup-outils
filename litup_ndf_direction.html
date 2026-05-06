@@ -141,8 +141,8 @@ async function loadFromSheet(){
     if(res.error){setSyncStatus("⚠️");return}
     if(res.ndfs&&res.ndfs.length){
       let added=0,updated=0;
-      // Show all NDF that have been sent (not brouillons/à envoyer from salarie)
-      const sentNdfs=res.ndfs.filter(sn=>sn.status!=="brouillon"&&sn.status!=="à envoyer");
+      // Show all NDF that have been sent or are ready to send (not brouillons)
+      const sentNdfs=res.ndfs.filter(sn=>sn.status!=="brouillon");
       const sheetRefs=new Set(sentNdfs.map(sn=>sn.ref));
       // Remove local NDF that no longer exist in Sheet
       const before=D.ndfs.length;

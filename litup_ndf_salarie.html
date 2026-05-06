@@ -130,7 +130,7 @@ async function syncFromSheet(){
       // Only remove if they were synced from Sheet (status envoyée/validée/réglée/refusée)
       D.ndfs=D.ndfs.filter(n=>{
         if(sheetRefs.has(n.ref))return true; // Still in Sheet
-        if(n.status==="brouillon"||n.status==="à envoyer")return true; // Local only, keep
+        if(n.status==="brouillon")return true; // Local only, keep
         // Check if this NDF was replaced by a renamed version (same salarie, same amount, different ref)
         const amt=n.lines.reduce((s,l)=>s+(l.amount||0),0);
         const replacement=myNdfs.find(sn=>sn.ref!==n.ref&&Math.abs((sn.lines||[]).reduce((s2,l)=>s2+(l.amount||0),0)-amt)<0.01);
@@ -152,7 +152,7 @@ async function syncFromSheet(){
             ref:sn.ref,
             date:sn.date||"",
             lines:sn.lines||[],
-            status:sn.status||"à envoyer",
+            status:sn.status==="à envoyer"?"brouillon":sn.status||"brouillon",
             statusDate:sn.statusDate||"",
             paymentDate:sn.paymentDate||"",
             salarie:sn.salarie||D.salarie,
@@ -280,9 +280,8 @@ function render(){
   // Stats based on filter
   const totAmt=shown.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
   const totIK=shown.reduce((s,n)=>s+n.lines.filter(l=>l.type==="ik").reduce((s2,l)=>s2+(l.amount||0),0),0);
-  const presta=shown.filter(n=>n.isPresta&&(n.status==="brouillon"||n.status==="à envoyer"));
+  const presta=shown.filter(n=>n.isPresta&&n.status==="brouillon");
   const drafts=shown.filter(n=>n.status==="brouillon");
-  const aEnvoyer=shown.filter(n=>n.status==="à envoyer");
   h+=`<div class="stat-row">
     <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(totAmt)}</div><div class="stat-l">Total déclaré</div></div>
     <div class="stat-card"><div class="stat-v" style="color:var(--amber)">${fmt(totIK)}</div><div class="stat-l">Dont IK</div></div>
@@ -294,7 +293,7 @@ function render(){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">`;
     if(presta.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--amber-bg);color:var(--amber)">📥 ${presta.length} NDF prestataire(s) à compléter</div>`;
     if(drafts.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--accent-bg);color:var(--accent)">📝 ${drafts.length} brouillon(s)</div>`;
-    if(aEnvoyer.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--green-bg);color:var(--green)">📨 ${aEnvoyer.length} NDF prête(s) à envoyer</div>`;
+
     h+=`</div>`;
   }
   if(!shown.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> pour commencer</p></div>`;el.innerHTML=h;return}
@@ -323,8 +322,8 @@ function render(){
     <th style="cursor:pointer" onclick="toggleSort('code')">Code projet${arrow("code")}</th>
     <th style="cursor:pointer" onclick="toggleSort('status')">Statut${arrow("status")}</th>
     <th>Justif.</th><th></th></tr></thead><tbody>`;
-  const statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸"};
-  const statusBadge={"brouillon":"badge-draft","à envoyer":"badge-wait","envoyée":"badge-sent","validée":"badge-ok","réglée":"badge-paid"};
+  const statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸","refusée":"❌"};
+  const statusBadge={"brouillon":"badge-draft","à envoyer":"badge-wait","envoyée":"badge-sent","validée":"badge-ok","réglée":"badge-paid","refusée":"badge-draft"};
   shown.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
     const codes=[...new Set(n.lines.map(l=>l.code).filter(c=>c&&c!=="_inconnu"&&c!=="_absent"))];
@@ -340,9 +339,9 @@ function render(){
       <td style="text-align:center">${n.lines.length}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(total)}</td>
       <td style="font-size:10px;color:var(--text-2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${codes.join(", ")||"—"}</td>
-      <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${(n.paymentDate||n.statusDate||"?").replace(/T.*$/,"")}</span>`:""}</td>
+      <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${(n.paymentDate||n.statusDate||"?").replace(/T.*$/,"")}</span>`:n.status==="refusée"?` <span style="font-size:9px;color:var(--red)" title="${(n.refusReason||"").replace(/"/g,"&quot;")}">⚠️ ${n.refusReason?n.refusReason.substring(0,20)+"…":"motif non précisé"}</span>`:""}</td>
       <td style="text-align:center">${hasFiles?"📎":""}</td>
-      <td style="white-space:nowrap">${n.status==="à envoyer"?`<button class="b bp" style="font-size:9px;padding:3px 8px" onclick="event.stopPropagation();envoyerNDF(${n.id})">✉️ Envoyer</button> `:""}${n.status==="brouillon"||n.status==="à envoyer"?
+      <td style="white-space:nowrap">${n.status==="brouillon"||n.status==="refusée"?`<button class="b bp" style="font-size:9px;padding:3px 8px" onclick="event.stopPropagation();envoyerNDF(${n.id})">✉️ ${n.status==="refusée"?"Renvoyer":"Envoyer"}</button> `:""}${n.status==="brouillon"||n.status==="refusée"?
         `<button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();supprimerNDF(${n.id})">🗑</button>`:""}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
@@ -393,7 +392,7 @@ function showNewNDF(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addNdfLine();
 }
@@ -410,7 +409,7 @@ function showNewIK(){
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b by" onclick="addIkLine()">🚗 + Trajet</button><button class="b bd" onclick="addNdfLine()">+ Dépense</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];window._ndfEditExisting=null;addIkLine();
 }
@@ -544,6 +543,8 @@ async function uploadJustifToDrive(ndfRef, line, lineIdx){
 }
 
 async function saveNDF(status){
+  // If sending (envoyée), ask confirmation first
+  if(status==="envoyée"&&!confirm("Envoyer cette NDF à la direction ?\nElle ne pourra plus être modifiée après envoi."))return;
   const ref=($("ndf_ref")?.value||"").trim();const date=($("ndf_date")?.value||"").trim();
   if(!ref){alert("Numéro requis");return}
   const lines=[];
@@ -570,6 +571,24 @@ async function saveNDF(status){
     }
   }
   if(lines.some(l=>l.driveUrl))save(); // Re-save with driveUrls
+  if(status==="envoyée"){
+    // Force direct sync of this specific NDF to Sheet with envoyée status
+    setSyncStatus("✉️");
+    try{
+      const ndf=existing||D.ndfs.find(n=>n.ref===ref);
+      const ndfData={...ndf,lines:ndf.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+      const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:[ndfData],modifiedBy:D.salarie});
+      if(res.error){
+        console.warn("Sync envoi échouée:",res.error);setSyncStatus("⚠️");
+        // Retry once
+        await new Promise(r=>setTimeout(r,1500));
+        const res2=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:[ndfData],modifiedBy:D.salarie});
+        if(res2.error){console.warn("Retry échoué:",res2.error);alert("⚠️ L'envoi a pu échouer. Vérifiez votre connexion et cliquez ☁️ pour resynchroniser.")}
+        else{setSyncStatus("☁️")}
+      } else{setSyncStatus("☁️");console.log("✅ NDF envoyée et synchronisée:",ndf.ref)}
+    }catch(e){console.warn("Sync envoi error:",e);setSyncStatus("⚠️")}
+    alert("✅ NDF "+ref+" envoyée à la direction !");
+  }
 }
 
 async function envoyerNDF(id){
@@ -584,13 +603,28 @@ async function envoyerNDF(id){
   }
   if(!confirm("Envoyer cette NDF à la direction ?\nElle ne pourra plus être modifiée."))return;
   n.status="envoyée";n.statusDate=new Date().toISOString().split("T")[0];
-  save();render();
+  save();
+  // Force sync: send this specific NDF with envoyée status
+  setSyncStatus("✉️");
+  try{
+    const ndfData={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+    const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:[ndfData],modifiedBy:D.salarie});
+    if(res.error){
+      console.warn("Sync envoi échouée:",res.error);setSyncStatus("⚠️");
+      // Retry once
+      await new Promise(r=>setTimeout(r,1000));
+      const res2=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:[ndfData],modifiedBy:D.salarie});
+      if(res2.error){console.warn("Retry aussi échoué:",res2.error)}else{setSyncStatus("☁️")}
+    }
+    else{setSyncStatus("☁️");console.log("✅ NDF envoyée et synchronisée:",n.ref)}
+  }catch(e){console.warn("Sync envoi error:",e);setSyncStatus("⚠️")}
+  render();
   alert("✅ NDF "+n.ref+" envoyée à la direction !");
 }
 
 async function supprimerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  if(n.status!=="brouillon"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
+  if(n.status!=="brouillon"&&n.status!=="refusée"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
   if(!confirm("Supprimer la NDF "+n.ref+" ?\n(sera aussi supprimée du Cloud)"))return;
   const ref=n.ref;const salarie=n.salarie||D.salarie;
   D.ndfs=D.ndfs.filter(x=>x.id!==id);
@@ -606,16 +640,39 @@ function toggleSort(col){
 }
 
 function editNDF(id){
-  const n=D.ndfs.find(x=>x.id===id);if(!n)return;window._ndfEditExisting=n.lines;
+  const n=D.ndfs.find(x=>x.id===id);if(!n)return;
+  const editable=n.status==="brouillon"||n.status==="refusée";
+  if(!editable){
+    // Show read-only detail view
+    let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+      <h3>${statusEmoji[n.status]||""} ${n.ref} <span style="font-size:11px;color:var(--text-3);font-weight:400">${n.status}</span></h3>
+      ${n.prestaComment?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2)"><div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">💬 Commentaire du prestataire</div><div style="font-size:13px;color:var(--text-1);line-height:1.5">${n.prestaComment}</div></div>`:""}
+      <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">${n.salarie||D.salarie} · ${(n.date||"").replace(/T.*$/,"")} · ${n.lines.length} ligne(s)</div>
+      <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Code</th></tr></thead><tbody>`;
+    n.lines.forEach((l,i)=>{
+      h+=`<tr><td>${i+1}</td><td style="font-size:10px">${(l.date||"").replace(/T.*$/,"")}</td><td>${l.desc||""}</td><td>${l.four||""}</td><td style="text-align:right;font-family:var(--mono)">${fmt(l.amount||0)}</td><td style="font-size:9px">${l.code||""}</td></tr>`;
+    });
+    h+=`</tbody></table>`;
+    h+=`<div style="text-align:right;font-size:14px;font-weight:700;color:var(--red);margin-top:8px">Total : ${fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0))}</div>`;
+    if(n.paymentDate)h+=`<div style="font-size:10px;color:var(--green);margin-top:4px">Réglée le ${n.paymentDate.replace(/T.*$/,"")}</div>`;
+    h+=`<div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Fermer</button></div></div></div>`;
+    $("modalC").innerHTML=h;return;
+  }
+  // Refusée → show reason and convert back to brouillon for editing
+  const wasRefused=n.status==="refusée";
+  const refusReason=n.refusReason||"";
+  if(wasRefused)n.status="brouillon";
+  window._ndfEditExisting=n.lines;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
     <h3>📝 Modifier — ${n.ref}${n.isPresta?' <span style="font-size:11px;color:var(--amber);font-weight:400">presta</span>':""}</h3>
+    ${wasRefused?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--red-bg);border:1px solid rgba(220,38,38,.2)"><div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:3px">❌ NDF refusée par la direction</div><div style="font-size:12px;color:var(--text-1);line-height:1.5">${refusReason||"Motif non précisé"}</div><div style="font-size:9px;color:var(--text-3);margin-top:4px">Corrigez les éléments demandés puis cliquez ✉️ Envoyer pour renvoyer à la direction.</div></div>`:""}
     ${n.prestaComment?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2)"><div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">💬 Commentaire du prestataire</div><div style="font-size:13px;color:var(--text-1);line-height:1.5">${n.prestaComment}</div></div>`:""}
     <div class="form-grid" style="margin-bottom:14px"><div class="form-row"><label>N° NDF</label><input class="inp" id="ndf_ref" value="${n.ref}" style="font-family:var(--mono)"></div>
       <div class="form-row"><label>Date</label><input class="inp" id="ndf_date" type="date" value="${n.date||""}"></div></div>
     <div id="ndfLines"></div>
     <div style="display:flex;gap:6px;margin:8px 0"><button class="b bd" onclick="addNdfLine()">+ Dépense</button><button class="b by" onclick="addIkLine()">🚗 + IK</button></div>
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
-      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('à envoyer')">📨 Prêt à envoyer</button></div>
+      <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
   window._ndfEditLines=[];_lineIdx=0;
   n.lines.forEach(l=>{
@@ -646,7 +703,7 @@ async function calcDistance(idx){
 // ─── EXPORT / IMPORT ───
 function exportJSON(){
   const exportNdfs=D.ndfs.filter(n=>n.status!=="brouillon");
-  if(!exportNdfs.length){alert("Aucune NDF à envoyer. Passez vos brouillons au statut « à envoyer ».");return}
+  if(!exportNdfs.length){alert("Aucune NDF envoyée à exporter.");return}
   const noCode=exportNdfs.flatMap(n=>n.lines).filter(l=>!l.code).length;
   if(noCode&&!confirm("⚠️ "+noCode+" ligne(s) sans code projet.\nExporter quand même ?"))return;
   const today=new Date();const dateStr=today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
@@ -693,7 +750,7 @@ function handleImportPresta(inp){
   if(!inp.files||!inp.files.length)return;
   Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
     if(d.type!=="litup-ndf-prestataire"){alert("Ce fichier n'est pas une NDF prestataire.");inp.value="";return}
-    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"à envoyer",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
+    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"brouillon",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
     const ex=D.ndfs.find(n=>n.ref===ndf.ref);if(ex){if(!confirm(ndf.ref+" existe déjà. Écraser ?"))return;Object.assign(ex,ndf)}else D.ndfs.push(ndf);
     save();render();
     const total=ndf.lines.reduce((s,l)=>s+(l.amount||0),0);const noCode=ndf.lines.some(l=>!l.code);
