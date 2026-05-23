@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lit uP · NDF Direction</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--bg:#f5f6f8;--card:#fff;--card-alt:#fafbfc;--border:#e0e4ec;--text-1:#1a202c;--text-2:#4a5568;--text-3:#8896a8;
+--accent:#5b63e0;--accent-bg:rgba(91,99,224,.06);--green:#16a34a;--green-bg:rgba(22,163,74,.06);
+--red:#dc2626;--red-bg:rgba(220,38,38,.06);--amber:#d97706;--amber-bg:rgba(217,119,6,.06);--violet:#7c3aed;--violet-bg:rgba(124,58,237,.06);
+--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:13.5px}
+body{background:var(--bg);color:var(--text-1);font-family:var(--sans);line-height:1.6}
+.hd{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7c3aed,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:9px;color:#fff;flex-shrink:0}
+.bg-grp{display:flex;gap:4px;padding:3px;background:var(--card-alt);border-radius:var(--radius);border:1px solid var(--border)}
+.b{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:var(--radius);font-size:11.5px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;font-family:var(--sans)}.b:hover{transform:translateY(-1px)}
+.b-p{background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:0 2px 8px rgba(91,99,224,.2)}
+.b-g{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,.2)}
+.b-v{background:var(--violet-bg);color:var(--violet);border:1px solid rgba(124,58,237,.2)}
+.b-d{background:#fff;color:var(--text-2);border:1px solid var(--border)}.b-d:hover{border-color:var(--accent);color:var(--accent)}
+.b-r{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,.15)}
+.content{max-width:1200px;margin:0 auto;padding:20px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--card-alt);padding:9px 10px;text-align:left;border-bottom:2px solid var(--border);color:var(--text-3);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;font-weight:600}
+td{padding:8px 10px;border-bottom:1px solid #f0f2f5;vertical-align:middle}
+tr:hover{background:rgba(91,99,224,.02)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;flex:1;min-width:110px;box-shadow:var(--shadow)}
+.stat-v{font-size:22px;font-weight:800;font-family:var(--mono)}.stat-l{font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:#fff;border:1px solid var(--border);border-radius:14px;padding:24px;max-width:900px;width:95%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.12)}
+.modal h3{font-size:16px;margin-bottom:14px;font-weight:700}
+.empty{text-align:center;padding:50px;color:var(--text-3)}.empty h3{font-size:16px;color:var(--text-2);margin-bottom:8px}
+.inp{background:#fff;color:var(--text-1);border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;font-family:var(--sans);outline:none;transition:all .2s}.inp:focus{border-color:var(--accent)}
+@media(max-width:600px){.hd{padding:10px 12px}.content{padding:14px}.stat-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<script>if(localStorage.getItem("litup_pwd_dir")!=="litup-dir-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Direction</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder à la validation des NDF.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-dir-2026"){localStorage.setItem("litup_pwd_dir",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
+<div class="hd">
+  <div style="display:flex;align-items:center;gap:8px">
+    <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Notes de frais — Direction</div><div style="font-size:9px;color:var(--text-3)">Lit uP · 2026</div></div>
+    <button id="syncStatus" class="b b-d" style="font-size:16px;padding:2px 8px;min-width:36px" title="Recharger depuis le Cloud" onclick="loadFromSheet()">☁️</button>
+    <div id="dirLabel" style="font-size:11px;color:var(--text-2);border-left:1px solid var(--border);padding-left:8px;margin-left:4px"></div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="bg-grp">
+    <button class="b b-v" onclick="exportCompta()">📤 Export comptable</button>
+    <button class="b b-d" onclick="majCodes()" id="btnMaj" title="Mettre à jour les codes projets depuis Airtable">🔄 MAJ codes projets</button><span id="majStatus" style="font-size:10px;margin-left:2px;vertical-align:middle"></span>
+  </div>
+  <div class="bg-grp"><button class="b b-d" onclick="location.href='index.html'" title="Retour page d'accueil">🏠</button></div>
+</div>
+<div class="content" id="main"></div>
+<div id="modalC"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const STATUTS=["à traiter","validée","réglée","refusée"];
+const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"à traiter":{e:"📋",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"},"refusée":{e:"❌",c:"#dc2626"}};
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
+const EXPENSE_TYPES=[
+  {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
+  {l:"Fournitures administratives",c:"60640000 - Fournitures administratives"},
+  {l:"Maintenance informatique",c:"61560000 - Maintenance"},
+  {l:"Documentation",c:"61810000 - Documentation"},
+  {l:"Voyages et déplacements",c:"62510000 - Voyages et déplacements"},
+  {l:"Missions (séjours, séminaires)",c:"62560000 - Missions / Séjours / Séminaires"},
+  {l:"Alimentation",c:"62571000 - Réceptions"},
+  {l:"Autre",c:"_autre"},{l:"Je ne sais pas",c:"_inconnu"}];
+function expTypeOptions(current){
+  let found=false;
+  const opts=EXPENSE_TYPES.map(t=>{const s=t.c===current||(current&&t.c&&t.c.trim()===current.trim());if(s)found=true;return`<option value="${t.c}"${s?" selected":""}>${t.l}</option>`}).join("");
+  const extra=current&&!found&&!current.startsWith("_")?`<option value="${current}" selected>${current}</option>`:"";
+  return'<option value="">—</option>'+opts+extra;
+}
+function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
+async function loadCodesFromSheet(){
+  // Always try localStorage first
+  try{
+    const cached=JSON.parse(localStorage.getItem("litup_codes_dir")||"null");
+    if(cached&&cached.length>4){CODES=cached;console.log("Codes from cache: "+CODES.length)}
+  }catch(e){}
+  // Then try to refresh from Sheet
+  try{
+    const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
+    if(res.value){
+      let nc;
+      try{nc=JSON.parse(res.value)}catch(e){
+        nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
+      }
+      if(nc&&nc.length){CODES=mergeCodes(nc);localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));console.log("Codes refreshed from Sheet: "+CODES.length)}
+    }
+  }catch(e){console.warn("Load codes error (using cache):",e)}
+}
+function codeOptions(current){
+  const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const isSel=(c,cur)=>c===cur||(cur&&c&&c.trim()===cur.trim());
+  let found=false;
+  const fixOpts=CODES_FIXES.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const autreOpts=autres.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  // If current value not found in list, add it as-is
+  const extra=current&&!found&&current!=="_inconnu"&&current!=="_absent"?`<option selected>${current}</option>`:"";
+  return'<option value="">—</option><option value="_inconnu"'+(current==="_inconnu"?' selected':'')+'>?</option>'+
+    '<optgroup label="Transversal">'+fixOpts+'</optgroup>'+
+    '<optgroup label="Parcours">'+autreOpts+extra+'</optgroup>'
+}
+let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
+function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
+function closeM(){$("modalC").innerHTML=""}
+
+// ─── GOOGLE SHEET BACKEND ───
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+async function sheetAPI(action,data,params){
+  try{
+    let url=BACKEND_URL+"?action="+action;
+    if(params)Object.keys(params).forEach(k=>url+="&"+k+"="+encodeURIComponent(params[k]));
+    if(!data){const r=await fetch(url,{redirect:"follow"});return await r.json()}
+    const r=await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)});
+    const txt=await r.text();try{return JSON.parse(txt)}catch(e){return{ok:true,raw:txt.substring(0,100)}};
+  }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
+}
+function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
+// ─── MODALE DE CHARGEMENT ───
+function showLoader(title,steps){
+  const stepsHtml=steps?steps.map((s,i)=>`<div id="loader_step_${i}" style="font-size:11px;color:var(--text-3);padding:3px 0;display:flex;align-items:center;gap:6px"><span class="loader-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0"></span>${s}</div>`).join(""):"";
+  $("modalC").innerHTML=`<div class="modal-bg" style="pointer-events:all"><div class="modal" style="max-width:380px;text-align:center">
+    <div style="font-size:28px;margin-bottom:10px;animation:spin 1.2s linear infinite;display:inline-block">⏳</div>
+    <h3 style="margin-bottom:8px">${title||"Traitement en cours…"}</h3>
+    <div id="loader_msg" style="font-size:12px;color:var(--text-2);margin-bottom:12px">Veuillez patienter…</div>
+    <div id="loader_steps" style="text-align:left;padding:0 20px">${stepsHtml}</div>
+  </div></div>
+  <style>@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style>`;
+}
+function updateLoaderStep(idx,status){
+  const el=$("loader_step_"+idx);if(!el)return;
+  const dot=el.querySelector(".loader-dot");
+  if(status==="active"){if(dot){dot.style.background="var(--accent)";dot.style.animation="pulse .8s ease infinite"}el.style.color="var(--text-1)";el.style.fontWeight="600"}
+  else if(status==="done"){if(dot){dot.style.background="var(--green)";dot.style.animation="none";dot.textContent="✓";dot.style.fontSize="10px";dot.style.width="auto";dot.style.height="auto"}el.style.color="var(--green)"}
+  else if(status==="error"){if(dot){dot.style.background="var(--red)";dot.style.animation="none";dot.textContent="✗";dot.style.fontSize="10px";dot.style.width="auto";dot.style.height="auto"}el.style.color="var(--red)"}
+}
+function updateLoaderMsg(msg){const el=$("loader_msg");if(el)el.textContent=msg}
+function hideLoader(){closeM()}
+async function syncToSheet(){
+  if(!D.director)return;setSyncStatus("🔄");
+  try{
+    const updates=D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,date:(n.date||"").replace(/T.*$/,""),status:n.status,statusDate:n.statusDate||"",paymentDate:n.paymentDate||"",isPresta:!!n.isPresta,prestaName:n.isPresta?(n.salarie||""):"",lines_json:JSON.stringify(n.lines||[]),coordo:n.coordo||""}));
+    const res=await sheetAPI("updateStatus",{updates,director:D.director});
+    setSyncStatus(res.error?"⚠️":"☁️");
+  }catch(e){console.warn("Dir sync error:",e);setSyncStatus("⚠️")}
+}
+async function loadFromSheet(){
+  showLoader("☁️ Chargement des NDF…");
+  setSyncStatus("🔄");
+  try{
+    const res=await sheetAPI("getAllNDF");
+    if(res.error){setSyncStatus("⚠️");return}
+    if(res.ndfs&&res.ndfs.length){
+      let added=0,updated=0;
+      // Show all NDF that have been sent or are ready to send (not brouillons)
+      const sentNdfs=res.ndfs.filter(sn=>sn.status!=="brouillon");
+      const sheetRefs=new Set(sentNdfs.map(sn=>sn.ref));
+      // Remove local NDF that no longer exist in Sheet
+      const before=D.ndfs.length;
+      D.ndfs=D.ndfs.filter(n=>sheetRefs.has(n.ref));
+      const removed=before-D.ndfs.length;
+      if(removed)console.log("Removed "+removed+" orphaned local NDF");
+      sentNdfs.forEach(sn=>{
+        const ex=D.ndfs.find(n=>n.ref===sn.ref);
+        if(!ex){
+          D.ndfs.push({ref:sn.ref,salarie:sn.salarie,source:sn.salarie,date:sn.date,status:sn.status||"envoyée",
+            statusDate:sn.statusDate,paymentDate:sn.paymentDate,lines:sn.lines||[],isPresta:sn.isPresta==="TRUE",coordo:sn.coordo||""});
+          added++;
+        } else {
+          if(sn.lines&&sn.lines.length)ex.lines=sn.lines;
+          if(sn.status)ex.status=sn.status;
+          if(sn.statusDate)ex.statusDate=sn.statusDate;
+          if(sn.paymentDate)ex.paymentDate=sn.paymentDate;
+          if(sn.coordo)ex.coordo=sn.coordo;
+          updated++;
+        }
+      });
+      save();render();
+      if(added||removed)console.log("Loaded "+added+" new, updated "+updated+", removed "+removed);
+    }
+    setSyncStatus("☁️");
+    hideLoader();
+  }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️");hideLoader()}
+}
+
+// Director profile
+function initDirector(){
+  if(D.director)return;
+  $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:400px">
+    <h3>👋 Bienvenue</h3><p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Sélectionnez votre profil direction.</p>
+    <div class="form-row" style="margin-bottom:12px"><label>Votre nom</label>
+      <select class="inp" id="initDir"><option value="">— Choisir —</option><option>Laetitia DE BORDE</option><option>Clémentine CLAUDON</option></select></div>
+    <button class="b b-p" onclick="const v=$('initDir').value;if(!v){alert('Choisissez un nom');return}D.director=v;save();closeM();render()">Commencer</button>
+  </div></div>`;
+}
+
+let sortCol="ref",sortDir=-1,filtStatus="",filtSalarie="";
+
+function toggleStatusFilter(s){
+  if(filtStatus===s)filtStatus="";else filtStatus=s;
+  render();
+}
+function setSort(col){
+  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==="montant"||col==="date"?-1:1}
+  render();
+}
+
+async function majCodes(){
+  const btn=document.getElementById("btnMaj"),st=document.getElementById("majStatus");
+  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
+  try{
+    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
+    st.textContent="Airtable → Sheet…";
+    await new Promise(r=>setTimeout(r,10000));
+    st.textContent="chargement…";
+    await loadCodesFromSheet();
+    st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
+    setTimeout(()=>{st.textContent=""},5000);
+  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
+  btn.disabled=false;btn.textContent="🔄 MAJ codes projets";
+}
+
+function render(){
+  let ndfs=[...D.ndfs];
+  // Sort: à traiter/envoyée first, then by ref descending
+  ndfs.sort((a,b)=>{
+    const aTraiter=(a.status==="envoyée"||a.status==="à traiter")?0:1;
+    const bTraiter=(b.status==="envoyée"||b.status==="à traiter")?0:1;
+    if(aTraiter!==bTraiter)return aTraiter-bTraiter;
+    return (b.ref||"").localeCompare(a.ref||"",undefined,{numeric:true});
+  });
+  // Filters
+  if(filtStatus){
+    if(filtStatus==="à traiter")ndfs=ndfs.filter(n=>n.status==="envoyée"||n.status==="à traiter");
+    else ndfs=ndfs.filter(n=>n.status===filtStatus);
+  }
+  if(filtSalarie)ndfs=ndfs.filter(n=>(n.source||n.salarie||"")=== filtSalarie);
+  // Stats (on all data, not filtered)
+  const allNdfs=D.ndfs;const byS={};STATUTS.forEach(s=>byS[s]=0);allNdfs.forEach(n=>{const es=n.status==="envoyée"?"à traiter":n.status;byS[es]=(byS[es]||0)+1});
+  const tot=allNdfs.reduce((s,n)=>s+n.lines.reduce((s2,l)=>s2+(l.amount||0),0),0);
+  const aValider=(byS["à traiter"]||0);
+  // Director info
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div><strong style="font-size:15px">${D.director||"Direction"}</strong> <span style="color:var(--text-3);font-size:11px">· ${allNdfs.length} NDF</span></div>
+    <button class="b b-d" style="font-size:10px" onclick="D.director='';save();location.reload()">⚙️ Profil</button>
+  </div>`;
+  // Stat cards (clickable for filter)
+  const cardStyle=(active)=>`cursor:pointer;transition:.2s;${active?"box-shadow:0 0 0 3px var(--accent);transform:scale(1.03)":""}`;
+  h+=`<div class="stat-row">
+    <div class="stat-card"><div class="stat-v">${allNdfs.length}</div><div class="stat-l">NDF totales</div></div>
+    <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(tot)}</div><div class="stat-l">Montant total</div></div>
+    <div class="stat-card" style="${cardStyle(filtStatus==="à traiter")}" onclick="toggleStatusFilter('à traiter')"><div class="stat-v" style="color:var(--amber)">${aValider}</div><div class="stat-l">À traiter${filtStatus==="à traiter"?" ✕":""}</div></div>
+    <div class="stat-card" style="${cardStyle(filtStatus==="validée")}" onclick="toggleStatusFilter('validée')"><div class="stat-v" style="color:var(--green)">${byS["validée"]||0}</div><div class="stat-l">Validées${filtStatus==="validée"?" ✕":""}</div></div>
+    <div class="stat-card" style="${cardStyle(filtStatus==="réglée")}" onclick="toggleStatusFilter('réglée')"><div class="stat-v" style="color:var(--violet)">${byS["réglée"]||0}</div><div class="stat-l">Réglées${filtStatus==="réglée"?" ✕":""}</div></div>
+  </div>`;
+  // Filter bar
+  const salaries=[...new Set(allNdfs.map(n=>n.source||n.salarie||"?"))].sort();
+  h+=`<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <select class="inp" style="width:auto;min-width:180px;font-size:12px;padding:6px 10px" onchange="filtSalarie=this.value;render()">
+      <option value="">👤 Tous les salariés</option>
+      ${salaries.map(s=>`<option${s===filtSalarie?" selected":""}>${s}</option>`).join("")}
+    </select>
+    <select class="inp" style="width:auto;min-width:150px;font-size:12px;padding:6px 10px" onchange="filtStatus=this.value;render()">
+      <option value="">📋 Tous les statuts</option>
+      ${STATUTS.map(s=>`<option value="${s}"${s===filtStatus?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+    </select>
+    ${filtStatus||filtSalarie?`<button class="b b-d" style="font-size:11px;padding:4px 10px" onclick="filtStatus='';filtSalarie='';render()">✕ Réinitialiser</button>`:""}
+    <span style="font-size:11px;color:var(--text-3);margin-left:auto">${ndfs.length}/${allNdfs.length} NDF affichées</span>
+  </div>`;
+
+  if(!ndfs.length){h+=`<div class="empty"><h3>${allNdfs.length?"Aucune NDF ne correspond au filtre":"Aucune NDF"}</h3><p>${allNdfs.length?"Modifiez les filtres ci-dessus":"Importez les exports JSON des salariés via 📂"}</p></div>`}
+  else{
+    const arrow=c=>sortCol===c?(sortDir>0?" ▲":" ▼"):"";
+    h+=`<div style="overflow-x:auto"><table><thead><tr>
+      <th style="cursor:pointer" onclick="setSort('source')">Salarié${arrow("source")}</th>
+      <th style="cursor:pointer" onclick="setSort('benef')">Bénéficiaire${arrow("benef")}</th>
+      <th style="cursor:pointer" onclick="setSort('ref')">N° NDF${arrow("ref")}</th>
+      <th style="cursor:pointer" onclick="setSort('date')">Date${arrow("date")}</th>
+      <th>Lignes</th>
+      <th style="text-align:right;cursor:pointer" onclick="setSort('montant')">Montant${arrow("montant")}</th>
+      <th>Justif.</th><th>Statut</th><th>Date règlement</th><th></th>
+    </tr></thead><tbody>`;
+    // Sort
+    const sorted=[...ndfs].map(n=>({n,source:n.source||"",benef:n.isPresta?(n.salarie||""):(n.source||""),montant:n.lines.reduce((s,l)=>s+(l.amount||0),0)}));
+    sorted.sort((a,b)=>{
+      let v=0;
+      if(sortCol==="source")v=a.source.localeCompare(b.source);
+      else if(sortCol==="benef")v=a.benef.localeCompare(b.benef);
+      else if(sortCol==="ref")v=(a.n.ref||"").localeCompare(b.n.ref||"");
+      else if(sortCol==="date")v=(a.n.date||"").localeCompare(b.n.date||"");
+      else if(sortCol==="montant")v=a.montant-b.montant;
+      return v*sortDir;
+    });
+    sorted.forEach(({n,montant})=>{
+      const ni=D.ndfs.indexOf(n);const fc=n.lines.filter(l=>l.fileData||l.fileName).length;
+      const benef=n.isPresta?(n.salarie||"Prestataire"):(n.source||"?");
+      const effStatus=(n.status==="envoyée")?"à traiter":n.status;
+      const st=STY[effStatus]||STY["à traiter"];
+      const isUnresolved=effStatus==="à traiter"||effStatus==="validée";
+      const rowBg=isUnresolved?";background:#fffbeb;border-left:3px solid var(--amber)":effStatus==="refusée"?";background:var(--red-bg);border-left:3px solid var(--red)":"";
+      h+=`<tr style="${rowBg}">
+        <td style="font-weight:600;font-size:11px">${n.source||"?"}</td>
+        <td style="font-size:11px">${benef}${n.isPresta?' <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-weight:600">presta</span>':""}</td>
+        <td style="font-family:var(--mono);font-size:11px">${n.ref||"—"}</td>
+        <td style="font-size:11px;color:var(--text-2)">${(n.date||"").replace(/T.*$/,"")}</td>
+        <td style="text-align:center">${n.lines.length}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(montant)}</td>
+        <td style="text-align:center">${fc?`📎 ${fc}`:""}</td>
+        <td><select class="inp" style="font-size:11px;padding:4px 6px;width:auto;min-width:120px;color:${st.c};font-weight:600;border-color:${st.c}44" onchange="changeStatus(${ni},this.value)">
+          ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===effStatus?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+        </select></td>
+        <td style="font-size:11px;white-space:nowrap">${effStatus==="à traiter"||effStatus==="validée"?`<input class="inp" type="date" id="pay_${ni}" value="${n.paymentDate||""}" style="font-size:11px;padding:3px 6px;width:auto"> <button class="b b-v" style="font-size:9px;padding:3px 8px" onclick="reglerNDF(${ni})">💸 Régler</button>`:effStatus==="réglée"?`<span style="color:var(--violet);font-weight:600">${(n.paymentDate||n.statusDate||"").replace(/T.*$/,"")}</span>`:n.statusDate?`<span style="color:var(--text-3)">${(n.statusDate||"").replace(/T.*$/,"")}</span>`:""}</td>
+        <td style="white-space:nowrap">
+          <button class="b b-p" style="font-size:10px;padding:4px 8px" onclick="viewDetail(${ni})">👁</button>
+          <button class="b b-r" style="font-size:10px;padding:4px 6px" onclick="deleteNDF(${ni})">🗑</button>
+        </td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  $("main").innerHTML=h;
+  const dl=$("dirLabel");if(dl&&D.director)dl.textContent="👤 "+D.director;
+}
+
+function viewDetail(ni){
+  const n=D.ndfs[ni];if(!n)return;const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);const st=STY[n.status]||STY.brouillon;
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0">👁 ${n.ref} — ${n.salarie||n.source||"?"}${n.isPresta?' <span style="font-size:11px;color:var(--amber)">presta</span>':""}</h3>
+      <select class="inp" style="font-size:11px;width:auto;min-width:130px;color:${st.c};font-weight:600" onchange="changeStatusDetail(${ni},this.value)">
+        ${STATUTS.map(s=>`<option value="${s}" style="color:${(STY[s]||{}).c}"${s===(n.status==="envoyée"?"à traiter":n.status)?" selected":""}>${(STY[s]||{}).e||""} ${s}</option>`).join("")}
+      </select>
+    </div>
+    <div class="stat-row" style="margin-bottom:12px">
+      <div class="stat-card"><div class="stat-v" style="color:var(--text-1)">${n.date||"—"}</div><div class="stat-l">Date</div></div>
+      <div class="stat-card"><div class="stat-v" style="color:var(--red)">${fmt(total)}</div><div class="stat-l">Total</div></div>
+      <div class="stat-card"><div class="stat-v">${n.lines.length}</div><div class="stat-l">Lignes</div></div>
+      <div class="stat-card"><div class="stat-v">${n.lines.filter(l=>l.fileData||l.fileName).length}</div><div class="stat-l">Justificatifs</div></div>
+    </div>`;
+  if(n.prestaComment)h+=`<div style="padding:8px 12px;background:var(--amber-bg);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:12px">💬 ${n.prestaComment}</div>`;
+  h+=`<div style="overflow-x:auto;overflow-y:visible"><table style="table-layout:auto"><thead><tr><th>#</th><th>Type</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th style="min-width:140px">Type dépense</th><th style="min-width:150px">Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
+  n.lines.forEach((l,i)=>{const ik=l.type==="ik";
+    h+=`<tr${ik?' style="background:var(--amber-bg)"':""}>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${i+1}</td>
+      <td style="font-size:10px">${ik?"🚗":"📝"}</td>
+      <td style="font-size:11px;color:var(--text-2);white-space:nowrap">${(l.date||"").split("T")[0]}</td>
+      <td style="font-size:11px">${l.desc||"—"}${ik?` <span style="color:var(--text-3);font-size:10px">(${l.km||0} km, ${l.cv||5} CV)</span>`:""}</td>
+      <td style="font-size:11px;color:var(--text-2)">${l.four||""}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red);font-size:11px">${fmt(l.amount)}</td>
+      <td><select class="inp" style="font-size:9px;padding:2px 4px;width:100%" onchange="D.ndfs[${ni}].lines[${i}].expType=this.value;save()">${expTypeOptions(l.expType)}</select></td>
+      <td><select class="inp" style="font-size:9px;padding:2px 4px;width:100%" onchange="D.ndfs[${ni}].lines[${i}].code=this.value;save()">${codeOptions(l.code)}</select></td>
+      <td style="font-size:10px;white-space:nowrap">`;
+    if(l.driveUrl)h+=`<a href="${l.driveUrl}" target="_blank" style="color:var(--accent);text-decoration:underline">📎 ${l.fileName||"Voir"}</a> `;
+    else if(l.fileData){if((l.fileType||"").startsWith("image/"))h+=`<a href="#" onclick="event.preventDefault();showImg('${(l.fileName||"").replace(/'/g,"\\'")}','${l.fileData}')" style="color:var(--accent);text-decoration:underline">🖼 ${l.fileName||"image"}</a> `;
+    else h+=`<a href="${l.fileData}" download="${l.fileName||"justif"}" style="color:var(--accent)">📄 ${l.fileName||"fichier"}</a> `}
+    else if(l.fileName)h+=`<a href="https://drive.google.com/drive/search?q=${encodeURIComponent(l.fileName)}" target="_blank" style="color:var(--accent);text-decoration:underline" title="Chercher dans le Drive">📄 ${l.fileName}</a> `;
+    else h+=`<span style="color:var(--red);font-size:9px">Absent</span> `;
+    h+=`<label style="cursor:pointer;font-size:9px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--text-3)" title="Ajouter/remplacer le justificatif">📤<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadPJ(${ni},${i},this)"></label>`;
+    h+=`</td></tr>`;
+  });
+  h+=`<tr style="border-top:2px solid var(--border);font-weight:700"><td></td><td></td><td></td><td></td><td>TOTAL</td><td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(total)}</td><td></td><td></td><td></td></tr></tbody></table></div>`;
+  // Admin: edit ref
+  h+=`<div style="margin-top:12px;padding:10px 14px;background:var(--card-alt);border-radius:8px;border:1px solid var(--border)">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:11px;font-weight:600;color:var(--text-3)">Réf :</label>
+      <input class="inp" id="editRef_${ni}" value="${n.ref}" style="font-size:11px;width:280px;font-family:var(--mono);padding:4px 8px">
+      <button class="b b-v" style="font-size:10px;padding:4px 10px" onclick="resyncNDF(${ni})">☁️ Sauvegarder</button>
+    </div>
+  </div>`;
+  h+=`<div style="display:flex;gap:6px;margin-top:16px;justify-content:flex-end"><button class="b b-d" onclick="closeM()">Fermer</button></div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function showImg(name,dataUrl){const d=document.createElement("div");d.innerHTML=`<div class="modal-bg" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:900px;text-align:center"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">📎 ${name}</h3><div style="display:flex;gap:6px"><a href="${dataUrl}" download="${name}" class="b b-g" style="text-decoration:none">⬇️</a><button class="b b-d" onclick="this.closest('.modal-bg').remove()">✕</button></div></div><img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px;border:1px solid var(--border)"></div></div>`;document.body.appendChild(d.firstElementChild)}
+
+async function getNextOfficialNumber(){
+  // Query Sheet for the real last number (source of truth)
+  try{
+    const res=await sheetAPI("getLastNDFNumber");
+    if(res.lastNumber!==undefined){
+      const sheetMax=res.lastNumber;
+      // Also check local in case we just assigned a number not yet synced
+      const localNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
+      const localMax=Math.max(0,...localNums);
+      return Math.max(sheetMax,localMax)+1;
+    }
+  }catch(e){console.warn("getLastNDFNumber error, falling back to local:",e)}
+  // Fallback: local only
+  const allNums=D.ndfs.map(n=>{const m=(n.ref||"").match(/^N2026-(\d+)/);return m?parseInt(m[1]):0});
+  return Math.max(0,...allNums)+1;
+}
+
+function updateRef(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const newRef=document.getElementById("editRef_"+ni)?.value?.trim();
+  if(!newRef){alert("Réf vide");return}
+  if(newRef===n.ref)return;
+  const oldRef=n.ref;
+  n.ref=newRef;
+  save();render();
+  alert("Réf modifiée : "+oldRef+" → "+newRef);
+}
+
+async function resyncNDF(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const btn=event.target;btn.disabled=true;btn.textContent="⏳ Sauvegarde...";
+  try{
+    const ndfForSheet={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+    await sheetAPI("saveNDF",{salarie:n.salarie||n.source||"",ndfs:[ndfForSheet],modifiedBy:D.director||"Direction",coordo:n.coordo||""});
+    btn.textContent="✅ Sauvegardé !";btn.style.color="var(--green)";
+    setTimeout(()=>{btn.textContent="☁️ Sauvegarder";btn.style.color="";btn.disabled=false},2000);
+  }catch(e){
+    btn.textContent="❌ Erreur";btn.style.color="var(--red)";
+    setTimeout(()=>{btn.textContent="☁️ Sauvegarder";btn.style.color="";btn.disabled=false},2000);
+  }
+}
+
+async function uploadPJ(ni,li,inp){
+  if(!inp.files||!inp.files.length)return;
+  const n=D.ndfs[ni];if(!n)return;
+  const l=n.lines[li];if(!l)return;
+  const f=inp.files[0];
+  const label=inp.parentElement;
+  label.textContent="⏳";
+  
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    const fileData=ev.target.result;
+    const ext=f.name.includes(".")?f.name.split(".").pop():"pdf";
+    const fournisseur=(l.four||"").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20)||"JUSTIF";
+    const nomFichier=n.ref+"_"+String(li+1).padStart(2,"0")+"_"+fournisseur+"."+ext;
+    
+    try{
+      const res=await sheetAPI("uploadJustif",{ndfRef:n.ref,fileName:nomFichier,fileData:fileData});
+      if(res.ok){
+        l.driveUrl=res.fileUrl||"";
+        l.driveFileId=res.fileId||"";
+        l.fileName=nomFichier;
+        l.fileType=f.type;
+        save();
+        label.innerHTML='✅';
+        setTimeout(()=>viewDetail(ni),1000);
+      }else{label.innerHTML='❌'}
+    }catch(e){
+      console.warn("Upload PJ error:",e);
+      label.innerHTML='❌';
+    }
+  };
+  rd.readAsDataURL(f);
+}
+
+async function changeStatus(ni,newStatus){
+  const n=D.ndfs[ni];if(!n)return;
+  // Map old statuses
+  if(newStatus==="envoyée")newStatus="à traiter";
+  // "réglée" can only be set via reglerNDF button
+  if(newStatus==="réglée"){alert("Utilisez le bouton 💸 Régler avec une date de règlement.");render();return}
+  // Validate → assign official N° if needed
+  if(newStatus==="validée"&&!n.ref.match(/^N2026-\d+/)){
+    const num=await getNextOfficialNumber();
+    const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
+    const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
+    const oldRef=n.ref;
+    n.ref="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
+    if(!confirm("Valider cette NDF ?\n\nRéférence officielle : "+n.ref+"\n(ancienne réf : "+oldRef+")")){n.ref=oldRef;return}
+    // Delete old Sheet entry + rename Drive folder
+    sheetAPI("deleteNDF",{ref:oldRef}).then(()=>console.log("Ancienne entrée supprimée:",oldRef)).catch(e=>console.warn(e));
+    sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref}).then(r=>{
+      if(r.error)console.warn("Renommage dossier:",r.error);
+      else console.log("Dossier renommé:",oldRef,"→",n.ref);
+    }).catch(e=>console.warn("Erreur renommage:",e));
+  }
+  // Refusée → ask reason
+  if(newStatus==="refusée"){
+    const reason=prompt("Motif du refus :");
+    if(!reason){render();return}
+    n.refusReason=reason;
+  }
+  n.status=newStatus;
+  n.statusDate=new Date().toISOString().split("T")[0];
+  save();render();
+}
+
+async function reglerNDF(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const dateInput=$("pay_"+ni);
+  const payDate=dateInput?dateInput.value:"";
+  if(!payDate){alert("Indiquez d'abord la date de règlement.");return}
+  if(!confirm("Confirmer le règlement de "+n.ref+" ?\n\nDate : "+payDate+"\nMontant : "+fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0)))){return}
+  const steps=["Préparation du N° officiel","Renommage du dossier Drive","Renommage des justificatifs","Suppression ancienne ligne Sheet","Sauvegarde nouvelle entrée","Génération du PDF récapitulatif"];
+  showLoader("💸 Règlement en cours…",steps);
+  setSyncStatus("🔄");
+  // Step 0: Assign official N° with full suffix
+  updateLoaderStep(0,"active");
+  const oldRef=n.ref;
+  const num=n.ref.match(/^N2026-(\d+)/)?parseInt(n.ref.match(/^N2026-(\d+)/)[1]):await getNextOfficialNumber();
+  const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
+  const dt=(n.date||new Date().toISOString()).split("T")[0].replace(/-/g,"").slice(-4);
+  const fullRef="N2026-"+String(num).padStart(3,"0")+"-"+nom+"-"+dt;
+  n.ref=fullRef;
+  n.status="réglée";
+  n.paymentDate=payDate;
+  n.statusDate=new Date().toISOString().split("T")[0];
+  updateLoaderStep(0,"done");
+  // Step 1: Rename Drive folder (even if ref is same, ensure correct name)
+  updateLoaderStep(1,"active");
+  if(oldRef!==n.ref){
+    try{
+      const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
+      if(r.renamed)console.log("Dossier renommé:",oldRef,"→",n.ref);
+      else console.warn("Dossier non trouvé:",oldRef,r.message||"");
+    }catch(e){console.warn("Erreur renommage:",e)}
+  }
+  updateLoaderStep(1,"done");
+  // Step 2: Rename each PJ file
+  updateLoaderStep(2,"active");
+  for(let i=0;i<n.lines.length;i++){
+    const l=n.lines[i];
+    if(!l.fileName||l.type==="ik")continue;
+    const ext=l.fileName.includes(".")?l.fileName.split(".").pop():"pdf";
+    const four=(l.four||"JUSTIF").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+    const newName=n.ref+"_"+String(i+1).padStart(2,"0")+"_"+four+"."+ext;
+    if(l.fileName!==newName){
+      try{
+        await sheetAPI("renameDriveFolder",{oldName:l.fileName,newName,parentFolderId:"17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P"});
+        console.log("PJ renommée:",l.fileName,"→",newName);
+      }catch(e){console.warn("Erreur renommage PJ:",e)}
+      l.fileName=newName;
+    }
+  }
+  updateLoaderStep(2,"done");
+  // Step 3: ALWAYS delete old Sheet entry (even if ref unchanged — prevents doublon)
+  updateLoaderStep(3,"active");
+  try{
+    await sheetAPI("deleteNDFSheetOnly",{ref:oldRef});
+    console.log("Ancienne entrée Sheet supprimée:",oldRef);
+  }catch(e){console.warn("Erreur suppression Sheet:",e)}
+  // Also try to delete by current ref in case of previous doublon
+  if(oldRef!==n.ref){
+    try{await sheetAPI("deleteNDFSheetOnly",{ref:n.ref})}catch(e){}
+  }
+  updateLoaderStep(3,"done");
+  // Step 4: Save new entry to Sheet
+  updateLoaderStep(4,"active");
+  save();render();
+  try{
+    const ndfData={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+    await sheetAPI("saveNDF",{salarie:n.salarie||n.source,ndfs:[ndfData],modifiedBy:D.director||"Direction"});
+  }catch(e){console.warn("Sync Sheet error:",e)}
+  updateLoaderStep(4,"done");
+  // Step 5: Generate PDF recap
+  updateLoaderStep(5,"active");
+  try{
+    const pdfRes=await sheetAPI("generateNDFPDF",{
+      ref:n.ref,salarie:n.salarie||n.source,date:n.date,
+      lines:n.lines,status:n.status,paymentDate:n.paymentDate,
+      statusDate:n.statusDate,director:D.director,
+      isPresta:!!n.isPresta,prestaComment:n.prestaComment||""
+    });
+    if(pdfRes.ok){console.log("📄 PDF récap généré:",pdfRes.fileName);updateLoaderStep(5,"done")}
+    else{console.warn("PDF erreur:",pdfRes.error);updateLoaderStep(5,"error")}
+  }catch(e){console.warn("PDF generation error:",e);updateLoaderStep(5,"error")}
+  setSyncStatus("☁️");
+  updateLoaderMsg("✅ Terminé !");
+  await new Promise(r=>setTimeout(r,1200));
+  hideLoader();
+  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate+"\n📄 PDF récapitulatif généré dans le Drive\n📎 "+n.lines.filter(l=>l.fileName).length+" justificatif(s) renommé(s)");
+}
+
+function changeStatusDetail(ni,newStatus){
+  changeStatus(ni,newStatus);
+  if(D.ndfs[ni])viewDetail(ni);
+}
+
+function setSyncStatus(s){const el=$("syncStatus");if(el)el.textContent=s}
+
+async function deleteNDF(ni){
+  const n=D.ndfs[ni];if(!n)return;
+  const ref=n.ref||"?";const sal=n.salarie||n.source||"?";
+  const montant=n.lines.reduce((s,l)=>s+(l.amount||0),0);
+  if(!confirm("⚠️ Supprimer définitivement cette NDF ?\n\n"+ref+" — "+sal+"\nMontant : "+fmt(montant)+"\n\nCette action supprimera aussi :\n• La ligne dans le Google Sheet\n• Le dossier de justificatifs dans le Drive")){return}
+  setSyncStatus("🔄");
+  try{
+    // Delete from Sheet
+    const resDel=await sheetAPI("deleteNDF",{ref:ref});
+    if(resDel.error)console.warn("Suppression Sheet:",resDel.error);
+    else console.log("NDF supprimée du Sheet:",ref);
+  }catch(e){console.warn("Erreur suppression Sheet:",e)}
+  // Remove from local
+  D.ndfs.splice(ni,1);
+  save();render();
+  setSyncStatus("☁️");
+}
+
+function handleImportNDF(inp){
+  if(!inp.files||!inp.files.length)return;
+  Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{
+    try{
+      const raw=ev.target.result;
+      if(!raw||raw.length<10){alert("⚠️ Fichier vide ou trop petit.");inp.value="";return}
+      const d=JSON.parse(raw);
+      // Standard export from salarié tool: {salarie, ndfs, cv, exportDate}
+      if(d.salarie&&d.ndfs&&Array.isArray(d.ndfs)){
+        let added=0,updated=0;
+        d.ndfs.forEach(n=>{n.source=d.salarie;const ex=D.ndfs.find(x=>x.ref===n.ref&&x.source===d.salarie);if(ex){Object.assign(ex,n);updated++}else{D.ndfs.push(n);added++}});
+        save();render();alert("✅ "+d.ndfs.length+" NDF de "+d.salarie+"\n("+added+" nouvelles, "+updated+" mises à jour)");inp.value="";return}
+      // Backup format: {type:"litup-ndf-backup", data:{salarie, ndfs,...}}
+      if(d.type==="litup-ndf-backup"&&d.data){
+        const ndfs=d.data.ndfs||[];
+        if(!ndfs.length){alert("⚠️ Sauvegarde vide (0 NDF).");inp.value="";return}
+        const s=d.data.salarie||d.salarie||"Inconnu";
+        let added=0,updated=0;
+        ndfs.forEach(n=>{n.source=s;const ex=D.ndfs.find(x=>x.ref===n.ref&&x.source===s);if(ex){Object.assign(ex,n);updated++}else{D.ndfs.push(n);added++}});
+        save();render();alert("✅ "+ndfs.length+" NDF importées de "+s+"\n("+added+" nouvelles, "+updated+" mises à jour)");inp.value="";return}
+      // Prestataire NDF
+      if(d.type==="litup-ndf-prestataire"){alert("⚠️ C'est une NDF prestataire.\nImportez-la dans l'outil salarié d'abord.");inp.value="";return}
+      // Retour direction
+      if(d.type==="litup-ndf-retour"){alert("⚠️ Ce fichier est un retour direction — il est destiné aux salariés.");inp.value="";return}
+      alert("Format non reconnu.\n\nType: "+(d.type||"aucun")+"\nClés: "+Object.keys(d).join(", "));
+    }catch(err){alert("❌ Erreur de lecture :\n"+err.message+"\n\nFichier: "+f.name+" ("+f.size+" octets)")}
+    inp.value="";
+  };rd.readAsText(f)});
+}
+
+function exportRetour(){
+  const today=new Date();const dateStr=today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
+  const isoDate=today.toISOString().split("T")[0];
+  const dirName=D.director||"Direction";const dirNom=dirName.split(" ").pop().toUpperCase();
+  const ret={type:"litup-ndf-retour",date:isoDate,director:dirName,updates:D.ndfs.map(n=>({ref:n.ref,salarie:n.salarie||n.source,status:n.status,statusDate:n.statusDate||isoDate,paymentDate:n.paymentDate||"",statusBy:dirName}))};
+  const fn="NDF_retour_"+dirNom+"_"+dateStr+".json";
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(ret,null,2)],{type:"application/json"}));a.download=fn;a.click();
+  alert("✅ "+ret.updates.length+" statuts exportés\n📁 "+fn+"\n\nChaque salarié importera ce fichier pour voir les mises à jour.");
+}
+
+function exportCompta(){
+  const ok=D.ndfs.filter(n=>n.status==="validée"||n.status==="réglée");
+  if(!ok.length){alert("Aucune NDF validée/réglée.");return}
+  const buf={};ok.forEach(n=>{buf[n.ref]=n.lines.map((l,i)=>({dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||0,cat:l.expType||"",act:l.code||"",expType:l.expType||"",resp:n.salarie||n.source||"",numj:n.ref+"_"+String(i+1).padStart(2,"0"),ndf:n.ref}))});
+  const data={ndfBuffer:buf,exportSource:"litup-ndf-direction",exportDate:new Date().toISOString().split("T")[0]};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="NDF_compta_"+data.exportDate+".json";a.click();
+  alert("✅ "+Object.keys(buf).length+" NDF exportées pour la compta\n\nImportez dans l'outil V6 via 📥 AT.");
+}
+
+initDirector();
+if(D.director){
+  // Load codes first, then render and sync
+  loadCodesFromSheet().then(()=>{render();loadFromSheet()});
+}
+</script>
+</body>
+</html>
