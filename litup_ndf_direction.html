@@ -186,7 +186,7 @@ async function loadFromSheet(){
           updated++;
         }
       });
-      save();render();
+      saveLocal();render();
       if(added||removed)console.log("Loaded "+added+" new, updated "+updated+", removed "+removed);
     }
     setSyncStatus("☁️");
