@@ -289,11 +289,10 @@ function render(){
     <div class="stat-card"><div class="stat-v" style="color:var(--green)">${shown.filter(n=>n.status==="validée"||n.status==="réglée").length}</div><div class="stat-l">Validées/Réglées</div></div>
   </div>`;
   // Alerts
-  if(presta.length||drafts.length||aEnvoyer.length){
+  if(presta.length||drafts.length){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">`;
     if(presta.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--amber-bg);color:var(--amber)">📥 ${presta.length} NDF prestataire(s) à compléter</div>`;
     if(drafts.length)h+=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--accent-bg);color:var(--accent)">📝 ${drafts.length} brouillon(s)</div>`;
-
     h+=`</div>`;
   }
   if(!shown.length){h+=`<div class="empty"><h3>Aucune note de frais</h3><p>Cliquez <strong>+ Nouvelle NDF</strong> pour commencer</p></div>`;el.innerHTML=h;return}
