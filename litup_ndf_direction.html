@@ -488,18 +488,13 @@ async function reglerNDF(ni){
   n.statusDate=new Date().toISOString().split("T")[0];
   // If ref changed: rename Drive folder + rename PJ files + update lines
   if(oldRef!==n.ref){
-    // Delete old Sheet entry
-    try{
-      await sheetAPI("deleteNDF",{ref:oldRef});
-      console.log("Ancienne entrée Sheet supprimée:",oldRef);
-    }catch(e){console.warn("Erreur suppression ancienne entrée:",e)}
-    // Rename Drive folder
+    // 1. Rename Drive folder FIRST (before any deletion)
     try{
       const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
-      if(r.error)console.warn("Renommage dossier:",r.error);
-      else console.log("Dossier renommé:",oldRef,"→",n.ref);
+      if(r.renamed)console.log("Dossier renommé:",oldRef,"→",n.ref);
+      else console.warn("Dossier non trouvé:",oldRef,r.message||"");
     }catch(e){console.warn("Erreur renommage:",e)}
-    // Rename each PJ file in the folder and update fileName in lines
+    // 2. Rename each PJ file inside the (now renamed) folder
     for(let i=0;i<n.lines.length;i++){
       const l=n.lines[i];
       if(!l.fileName||l.type==="ik")continue;
@@ -514,6 +509,11 @@ async function reglerNDF(ni){
         l.fileName=newName;
       }
     }
+    // 3. Delete old Sheet entry ONLY (not Drive)
+    try{
+      await sheetAPI("deleteNDFSheetOnly",{ref:oldRef});
+      console.log("Ancienne entrée Sheet supprimée:",oldRef);
+    }catch(e){console.warn("Erreur suppression Sheet:",e)}
   }
   save();render();
   setSyncStatus("☁️");
