@@ -341,7 +341,7 @@ function render(){
       <td style="font-size:10px;color:var(--text-2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${codes.join(", ")||"—"}</td>
       <td><span class="badge ${statusBadge[n.status]||"badge-draft"}">${statusEmoji[n.status]||""} ${n.status}</span>${n.status==="réglée"?` <span style="font-size:10px;color:var(--text-3)">le ${(n.paymentDate||n.statusDate||"?").replace(/T.*$/,"")}</span>`:n.status==="refusée"?` <span style="font-size:9px;color:var(--red)" title="${(n.refusReason||"").replace(/"/g,"&quot;")}">⚠️ ${n.refusReason?n.refusReason.substring(0,20)+"…":"motif non précisé"}</span>`:""}</td>
       <td style="text-align:center">${hasFiles?"📎":""}</td>
-      <td style="white-space:nowrap">${n.status==="brouillon"||n.status==="refusée"?`<button class="b bp" style="font-size:9px;padding:3px 8px" onclick="event.stopPropagation();envoyerNDF(${n.id})">✉️ ${n.status==="refusée"?"Renvoyer":"Envoyer"}</button> `:""}${n.status==="brouillon"||n.status==="refusée"?
+      <td style="white-space:nowrap">${n.status!=="brouillon"&&n.status!=="refusée"?`<button class="b bd" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();openNDF(${n.id})">👁</button> `:""}${n.status==="brouillon"||n.status==="refusée"?`<button class="b bp" style="font-size:9px;padding:3px 8px" onclick="event.stopPropagation();envoyerNDF(${n.id})">✉️ ${n.status==="refusée"?"Renvoyer":"Envoyer"}</button> `:""}${n.status==="brouillon"||n.status==="refusée"?
         `<button class="b br" style="font-size:9px;padding:3px 6px" onclick="event.stopPropagation();supprimerNDF(${n.id})">🗑</button>`:""}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
@@ -660,17 +660,19 @@ function editNDF(id){
   const editable=n.status==="brouillon"||n.status==="refusée";
   if(!editable){
     // Show read-only detail view
-    let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
+    let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:700px">
       <h3>${statusEmoji[n.status]||""} ${n.ref} <span style="font-size:11px;color:var(--text-3);font-weight:400">${n.status}</span></h3>
       ${n.prestaComment?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2)"><div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">💬 Commentaire du prestataire</div><div style="font-size:13px;color:var(--text-1);line-height:1.5">${n.prestaComment}</div></div>`:""}
       <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">${n.salarie||D.salarie} · ${(n.date||"").replace(/T.*$/,"")} · ${n.lines.length} ligne(s)</div>
-      <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Code</th></tr></thead><tbody>`;
+      ${n.paymentDate?`<div style="font-size:10px;color:var(--green);margin-bottom:10px">💸 Réglée le ${n.paymentDate.replace(/T.*$/,"")}</div>`:""}
+      <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
     n.lines.forEach((l,i)=>{
-      h+=`<tr><td>${i+1}</td><td style="font-size:10px">${(l.date||"").replace(/T.*$/,"")}</td><td>${l.desc||""}</td><td>${l.four||""}</td><td style="text-align:right;font-family:var(--mono)">${fmt(l.amount||0)}</td><td style="font-size:9px">${l.code||""}</td></tr>`;
+      const type=l.type==="ik"?"🚗 IK":"📄 Dép.";
+      const pj=l.fileName?`<span style="color:var(--green)">📎 ${l.fileName.length>25?l.fileName.substring(0,25)+"…":l.fileName}</span>`:'<span style="color:var(--text-3)">—</span>';
+      h+=`<tr><td>${i+1}</td><td style="font-size:10px">${(l.date||"").replace(/T.*$/,"")}</td><td style="font-size:9px">${type}</td><td>${l.desc||""}${l.type==="ik"&&l.km?" ("+l.km+" km)":""}</td><td>${l.four||""}</td><td style="text-align:right;font-family:var(--mono)">${fmt(l.amount||0)}</td><td style="font-size:9px">${l.code||""}</td><td style="font-size:8px">${pj}</td></tr>`;
     });
-    h+=`</tbody></table>`;
+    h+=`</tbody></table></div>`;
     h+=`<div style="text-align:right;font-size:14px;font-weight:700;color:var(--red);margin-top:8px">Total : ${fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0))}</div>`;
-    if(n.paymentDate)h+=`<div style="font-size:10px;color:var(--green);margin-top:4px">Réglée le ${n.paymentDate.replace(/T.*$/,"")}</div>`;
     h+=`<div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Fermer</button></div></div></div>`;
     $("modalC").innerHTML=h;return;
   }
