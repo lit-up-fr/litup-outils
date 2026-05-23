@@ -242,7 +242,15 @@ let D=JSON.parse(localStorage.getItem("litup_ndf")||"null")||{salarie:"",cv:5,nd
 // Pre-configure API key if not already set
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-function save(){try{localStorage.setItem("litup_ndf",JSON.stringify(D))}catch(e){} syncToSheet()}
+function save(){
+  try{
+    // Strip fileData before saving to localStorage (base64 blobs are too large)
+    const clean=JSON.parse(JSON.stringify(D));
+    clean.ndfs.forEach(n=>{(n.lines||[]).forEach(l=>{delete l.fileData})});
+    localStorage.setItem("litup_ndf",JSON.stringify(clean));
+  }catch(e){console.warn("localStorage save error:",e)}
+  syncToSheet();
+}
 function closeM(){$("modalC").innerHTML=""}
 
 // ─── INIT ───
