@@ -322,7 +322,7 @@ function render(){
     <th style="cursor:pointer" onclick="toggleSort('code')">Code projet${arrow("code")}</th>
     <th style="cursor:pointer" onclick="toggleSort('status')">Statut${arrow("status")}</th>
     <th>Justif.</th><th></th></tr></thead><tbody>`;
-  const statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸","refusée":"❌"};
+  const statusEmoji=window._statusEmoji||(window._statusEmoji={"brouillon":"📝","à envoyer":"📨","envoyée":"✉️","validée":"✅","réglée":"💸","refusée":"❌"});
   const statusBadge={"brouillon":"badge-draft","à envoyer":"badge-wait","envoyée":"badge-sent","validée":"badge-ok","réglée":"badge-paid","refusée":"badge-draft"};
   shown.forEach(n=>{
     const total=n.lines.reduce((s,l)=>s+(l.amount||0),0);
@@ -661,7 +661,7 @@ function editNDF(id){
   if(!editable){
     // Show read-only detail view
     let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:700px">
-      <h3>${statusEmoji[n.status]||""} ${n.ref} <span style="font-size:11px;color:var(--text-3);font-weight:400">${n.status}</span></h3>
+      <h3>${(window._statusEmoji||{})[n.status]||""} ${n.ref} <span style="font-size:11px;color:var(--text-3);font-weight:400">${n.status}</span></h3>
       ${n.prestaComment?`<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2)"><div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">💬 Commentaire du prestataire</div><div style="font-size:13px;color:var(--text-1);line-height:1.5">${n.prestaComment}</div></div>`:""}
       <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">${n.salarie||D.salarie} · ${(n.date||"").replace(/T.*$/,"")} · ${n.lines.length} ligne(s)</div>
       ${n.paymentDate?`<div style="font-size:10px;color:var(--green);margin-bottom:10px">💸 Réglée le ${n.paymentDate.replace(/T.*$/,"")}</div>`:""}
