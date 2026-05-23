@@ -111,7 +111,8 @@ function codeOptions(current){
     '<optgroup label="Parcours">'+autreOpts+extra+'</optgroup>'
 }
 let D=JSON.parse(localStorage.getItem("litup_dir")||"null")||{ndfs:[]};
-function save(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){} syncToSheet()}
+function saveLocal(){try{localStorage.setItem("litup_dir",JSON.stringify(D))}catch(e){}}
+function save(){saveLocal(); syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
 
 // ─── GOOGLE SHEET BACKEND ───
@@ -549,9 +550,9 @@ async function reglerNDF(ni){
     try{await sheetAPI("deleteNDFSheetOnly",{ref:n.ref})}catch(e){}
   }
   updateLoaderStep(3,"done");
-  // Step 4: Save new entry to Sheet
+  // Step 4: Save new entry to Sheet (saveLocal = pas de syncToSheet qui recrée la ligne)
   updateLoaderStep(4,"active");
-  save();render();
+  saveLocal();render();
   try{
     const ndfData={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
     await sheetAPI("saveNDF",{salarie:n.salarie||n.source,ndfs:[ndfData],modifiedBy:D.director||"Direction"});
