@@ -126,6 +126,26 @@ async function sheetAPI(action,data,params){
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
+// ─── MODALE DE CHARGEMENT ───
+function showLoader(title,steps){
+  const stepsHtml=steps?steps.map((s,i)=>`<div id="loader_step_${i}" style="font-size:11px;color:var(--text-3);padding:3px 0;display:flex;align-items:center;gap:6px"><span class="loader-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0"></span>${s}</div>`).join(""):"";
+  $("modalC").innerHTML=`<div class="modal-bg" style="pointer-events:all"><div class="modal" style="max-width:380px;text-align:center">
+    <div style="font-size:28px;margin-bottom:10px;animation:spin 1.2s linear infinite;display:inline-block">⏳</div>
+    <h3 style="margin-bottom:8px">${title||"Traitement en cours…"}</h3>
+    <div id="loader_msg" style="font-size:12px;color:var(--text-2);margin-bottom:12px">Veuillez patienter…</div>
+    <div id="loader_steps" style="text-align:left;padding:0 20px">${stepsHtml}</div>
+  </div></div>
+  <style>@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style>`;
+}
+function updateLoaderStep(idx,status){
+  const el=$("loader_step_"+idx);if(!el)return;
+  const dot=el.querySelector(".loader-dot");
+  if(status==="active"){if(dot){dot.style.background="var(--accent)";dot.style.animation="pulse .8s ease infinite"}el.style.color="var(--text-1)";el.style.fontWeight="600"}
+  else if(status==="done"){if(dot){dot.style.background="var(--green)";dot.style.animation="none";dot.textContent="✓";dot.style.fontSize="10px";dot.style.width="auto";dot.style.height="auto"}el.style.color="var(--green)"}
+  else if(status==="error"){if(dot){dot.style.background="var(--red)";dot.style.animation="none";dot.textContent="✗";dot.style.fontSize="10px";dot.style.width="auto";dot.style.height="auto"}el.style.color="var(--red)"}
+}
+function updateLoaderMsg(msg){const el=$("loader_msg");if(el)el.textContent=msg}
+function hideLoader(){closeM()}
 async function syncToSheet(){
   if(!D.director)return;setSyncStatus("🔄");
   try{
@@ -135,6 +155,7 @@ async function syncToSheet(){
   }catch(e){console.warn("Dir sync error:",e);setSyncStatus("⚠️")}
 }
 async function loadFromSheet(){
+  showLoader("☁️ Chargement des NDF…");
   setSyncStatus("🔄");
   try{
     const res=await sheetAPI("getAllNDF");
@@ -168,7 +189,8 @@ async function loadFromSheet(){
       if(added||removed)console.log("Loaded "+added+" new, updated "+updated+", removed "+removed);
     }
     setSyncStatus("☁️");
-  }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️")}
+    hideLoader();
+  }catch(e){console.warn("Load from sheet error:",e);setSyncStatus("⚠️");hideLoader()}
 }
 
 // Director profile
@@ -474,8 +496,11 @@ async function reglerNDF(ni){
   const payDate=dateInput?dateInput.value:"";
   if(!payDate){alert("Indiquez d'abord la date de règlement.");return}
   if(!confirm("Confirmer le règlement de "+n.ref+" ?\n\nDate : "+payDate+"\nMontant : "+fmt(n.lines.reduce((s,l)=>s+(l.amount||0),0)))){return}
+  const steps=["Préparation du N° officiel","Renommage du dossier Drive","Renommage des justificatifs","Suppression ancienne ligne Sheet","Sauvegarde nouvelle entrée","Génération du PDF récapitulatif"];
+  showLoader("💸 Règlement en cours…",steps);
   setSyncStatus("🔄");
-  // Assign official N° with full suffix
+  // Step 0: Assign official N° with full suffix
+  updateLoaderStep(0,"active");
   const oldRef=n.ref;
   const num=n.ref.match(/^N2026-(\d+)/)?parseInt(n.ref.match(/^N2026-(\d+)/)[1]):await getNextOfficialNumber();
   const nom=(n.salarie||n.source||"X").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"");
@@ -485,43 +510,55 @@ async function reglerNDF(ni){
   n.status="réglée";
   n.paymentDate=payDate;
   n.statusDate=new Date().toISOString().split("T")[0];
-  // Always rename Drive folder + PJ files + delete old Sheet entry
+  updateLoaderStep(0,"done");
+  // Step 1: Rename Drive folder (even if ref is same, ensure correct name)
+  updateLoaderStep(1,"active");
   if(oldRef!==n.ref){
-    // 1. Rename Drive folder FIRST (before any deletion)
     try{
       const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
       if(r.renamed)console.log("Dossier renommé:",oldRef,"→",n.ref);
       else console.warn("Dossier non trouvé:",oldRef,r.message||"");
     }catch(e){console.warn("Erreur renommage:",e)}
-    // 2. Rename each PJ file inside the (now renamed) folder
-    for(let i=0;i<n.lines.length;i++){
-      const l=n.lines[i];
-      if(!l.fileName||l.type==="ik")continue;
-      const ext=l.fileName.includes(".")?l.fileName.split(".").pop():"pdf";
-      const four=(l.four||"JUSTIF").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
-      const newName=n.ref+"_"+String(i+1).padStart(2,"0")+"_"+four+"."+ext;
-      if(l.fileName!==newName){
-        try{
-          await sheetAPI("renameDriveFolder",{oldName:l.fileName,newName,parentFolderId:"17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P"});
-          console.log("PJ renommée:",l.fileName,"→",newName);
-        }catch(e){console.warn("Erreur renommage PJ:",e)}
-        l.fileName=newName;
-      }
-    }
-    // 3. Delete old Sheet entry ONLY (not Drive)
-    try{
-      await sheetAPI("deleteNDFSheetOnly",{ref:oldRef});
-      console.log("Ancienne entrée Sheet supprimée:",oldRef);
-    }catch(e){console.warn("Erreur suppression Sheet:",e)}
   }
+  updateLoaderStep(1,"done");
+  // Step 2: Rename each PJ file
+  updateLoaderStep(2,"active");
+  for(let i=0;i<n.lines.length;i++){
+    const l=n.lines[i];
+    if(!l.fileName||l.type==="ik")continue;
+    const ext=l.fileName.includes(".")?l.fileName.split(".").pop():"pdf";
+    const four=(l.four||"JUSTIF").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+    const newName=n.ref+"_"+String(i+1).padStart(2,"0")+"_"+four+"."+ext;
+    if(l.fileName!==newName){
+      try{
+        await sheetAPI("renameDriveFolder",{oldName:l.fileName,newName,parentFolderId:"17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P"});
+        console.log("PJ renommée:",l.fileName,"→",newName);
+      }catch(e){console.warn("Erreur renommage PJ:",e)}
+      l.fileName=newName;
+    }
+  }
+  updateLoaderStep(2,"done");
+  // Step 3: ALWAYS delete old Sheet entry (even if ref unchanged — prevents doublon)
+  updateLoaderStep(3,"active");
+  try{
+    await sheetAPI("deleteNDFSheetOnly",{ref:oldRef});
+    console.log("Ancienne entrée Sheet supprimée:",oldRef);
+  }catch(e){console.warn("Erreur suppression Sheet:",e)}
+  // Also try to delete by current ref in case of previous doublon
+  if(oldRef!==n.ref){
+    try{await sheetAPI("deleteNDFSheetOnly",{ref:n.ref})}catch(e){}
+  }
+  updateLoaderStep(3,"done");
+  // Step 4: Save new entry to Sheet
+  updateLoaderStep(4,"active");
   save();render();
-  setSyncStatus("☁️");
-  // Sync updated NDF to Sheet (with new fileNames)
   try{
     const ndfData={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
     await sheetAPI("saveNDF",{salarie:n.salarie||n.source,ndfs:[ndfData],modifiedBy:D.director||"Direction"});
   }catch(e){console.warn("Sync Sheet error:",e)}
-  // Generate PDF recap in NDF Drive folder
+  updateLoaderStep(4,"done");
+  // Step 5: Generate PDF recap
+  updateLoaderStep(5,"active");
   try{
     const pdfRes=await sheetAPI("generateNDFPDF",{
       ref:n.ref,salarie:n.salarie||n.source,date:n.date,
@@ -529,9 +566,13 @@ async function reglerNDF(ni){
       statusDate:n.statusDate,director:D.director,
       isPresta:!!n.isPresta,prestaComment:n.prestaComment||""
     });
-    if(pdfRes.ok)console.log("📄 PDF récap généré:",pdfRes.fileName);
-    else console.warn("PDF erreur:",pdfRes.error);
-  }catch(e){console.warn("PDF generation error:",e)}
+    if(pdfRes.ok){console.log("📄 PDF récap généré:",pdfRes.fileName);updateLoaderStep(5,"done")}
+    else{console.warn("PDF erreur:",pdfRes.error);updateLoaderStep(5,"error")}
+  }catch(e){console.warn("PDF generation error:",e);updateLoaderStep(5,"error")}
+  setSyncStatus("☁️");
+  updateLoaderMsg("✅ Terminé !");
+  await new Promise(r=>setTimeout(r,1200));
+  hideLoader();
   alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate+"\n📄 PDF récapitulatif généré dans le Drive\n📎 "+n.lines.filter(l=>l.fileName).length+" justificatif(s) renommé(s)");
 }
 
