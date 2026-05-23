@@ -486,20 +486,42 @@ async function reglerNDF(ni){
   n.status="réglée";
   n.paymentDate=payDate;
   n.statusDate=new Date().toISOString().split("T")[0];
-  // If ref changed: delete old entry from Sheet first, then rename Drive folder
+  // If ref changed: rename Drive folder + rename PJ files + update lines
   if(oldRef!==n.ref){
+    // Delete old Sheet entry
     try{
       await sheetAPI("deleteNDF",{ref:oldRef});
       console.log("Ancienne entrée Sheet supprimée:",oldRef);
     }catch(e){console.warn("Erreur suppression ancienne entrée:",e)}
+    // Rename Drive folder
     try{
       const r=await sheetAPI("renameDriveFolder",{oldName:oldRef,newName:n.ref});
       if(r.error)console.warn("Renommage dossier:",r.error);
       else console.log("Dossier renommé:",oldRef,"→",n.ref);
     }catch(e){console.warn("Erreur renommage:",e)}
+    // Rename each PJ file in the folder and update fileName in lines
+    for(let i=0;i<n.lines.length;i++){
+      const l=n.lines[i];
+      if(!l.fileName||l.type==="ik")continue;
+      const ext=l.fileName.includes(".")?l.fileName.split(".").pop():"pdf";
+      const four=(l.four||"JUSTIF").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+      const newName=n.ref+"_"+String(i+1).padStart(2,"0")+"_"+four+"."+ext;
+      if(l.fileName!==newName){
+        try{
+          await sheetAPI("renameDriveFolder",{oldName:l.fileName,newName,parentFolderId:"17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P"});
+          console.log("PJ renommée:",l.fileName,"→",newName);
+        }catch(e){console.warn("Erreur renommage PJ:",e)}
+        l.fileName=newName;
+      }
+    }
   }
   save();render();
   setSyncStatus("☁️");
+  // Sync updated NDF to Sheet (with new fileNames)
+  try{
+    const ndfData={...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})};
+    await sheetAPI("saveNDF",{salarie:n.salarie||n.source,ndfs:[ndfData],modifiedBy:D.director||"Direction"});
+  }catch(e){console.warn("Sync Sheet error:",e)}
   // Generate PDF recap in NDF Drive folder
   try{
     const pdfRes=await sheetAPI("generateNDFPDF",{
@@ -511,7 +533,7 @@ async function reglerNDF(ni){
     if(pdfRes.ok)console.log("📄 PDF récap généré:",pdfRes.fileName);
     else console.warn("PDF erreur:",pdfRes.error);
   }catch(e){console.warn("PDF generation error:",e)}
-  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate+"\n📄 PDF récapitulatif généré dans le Drive");
+  alert("✅ NDF réglée !\n\n"+n.ref+"\nDate règlement : "+payDate+"\n📄 PDF récapitulatif généré dans le Drive\n📎 "+n.lines.filter(l=>l.fileName).length+" justificatif(s) renommé(s)");
 }
 
 function changeStatusDetail(ni,newStatus){

@@ -309,7 +309,7 @@ async function envoyerNDF(){
         st.textContent="📎 Upload justificatif "+(i+1)+"/"+d.lines.length+"...";
         try{
           const res=await sheetAPI("uploadJustif",{ndfRef:d.ref,fileName:l.fileName||"justif_"+(i+1),fileData:l.fileData});
-          if(res.ok){l.driveUrl=res.fileUrl||"";l.driveFileId=res.fileId||""}
+          if(res.ok||res.fileUrl){l.driveUrl=res.fileUrl||"";l.driveFileId=res.fileId||""}
         }catch(e){console.warn("Upload error:",e)}
       }
     }

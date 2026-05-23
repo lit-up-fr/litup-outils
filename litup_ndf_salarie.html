@@ -558,19 +558,35 @@ async function saveNDF(status){
     }
   }
   if(!lines.length){alert("Ajoutez au moins une ligne");return}
-  const noFile=lines.filter(l=>l.type!=="ik"&&!l.fileData&&!l.fileName);
-  if(noFile.length){alert("⚠️ Justificatif obligatoire !\n"+noFile.length+" ligne(s) sans justificatif.");return}
+  const noFile=lines.filter(l=>l.type!=="ik"&&!l.fileData&&!l.fileName&&!l.driveUrl);
+  if(noFile.length&&status==="envoyée"){alert("⚠️ Justificatif obligatoire !\n"+noFile.length+" ligne(s) sans justificatif.");return}
   const existing=D.ndfs.find(n=>n.ref===ref);
   if(existing){existing.date=date;existing.lines=lines;existing.status=status}
   else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie})}
-  save();closeM();render();
-  // Upload PJ to Drive immediately (even for brouillons)
-  for(let i=0;i<lines.length;i++){
-    if(lines[i].fileData&&!lines[i].driveUrl){
-      await uploadJustifToDrive(ref,lines[i],i+1);
+  save();render();
+  // Upload PJ to Drive with visible progress
+  const pjToUpload=lines.filter(l=>l.fileData&&!l.driveUrl);
+  if(pjToUpload.length){
+    const prog=document.createElement("div");
+    prog.style.cssText="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-1);border:1px solid var(--bd);border-radius:12px;padding:20px;z-index:9999;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.5)";
+    prog.innerHTML=`<div style="font-weight:700;margin-bottom:8px">📤 Upload justificatifs...</div><div id="uploadLog" style="font-size:10px;line-height:1.8;max-height:200px;overflow-y:auto"></div>`;
+    document.body.appendChild(prog);
+    const log=$("uploadLog");
+    let uploaded=0,failed=0;
+    for(let i=0;i<lines.length;i++){
+      if(!lines[i].fileData||lines[i].driveUrl)continue;
+      const lineDesc=(lines[i].four||lines[i].desc||"Ligne "+(i+1)).substring(0,25);
+      if(log)log.innerHTML+=`<div>📤 ${i+1}/${lines.length} ${lineDesc}...</div>`;
+      try{
+        await uploadJustifToDrive(ref,lines[i],i+1);
+        if(lines[i].driveUrl){uploaded++;if(log)log.innerHTML+=`<div style="color:#22c55e">✅ ${lines[i].fileName}</div>`}
+        else{failed++;if(log)log.innerHTML+=`<div style="color:#f59e0b">⚠️ ${lineDesc} — pas de réponse Drive</div>`}
+      }catch(e){failed++;if(log)log.innerHTML+=`<div style="color:#ef4444">❌ ${lineDesc} — ${e.message}</div>`}
     }
+    if(lines.some(l=>l.driveUrl))save(); // Re-save with driveUrls
+    if(log)log.innerHTML+=`<div style="margin-top:6px;font-weight:600">${uploaded} uploadé(s)${failed?" / "+failed+" échoué(s)":""}</div>`;
+    setTimeout(()=>prog.remove(),failed?5000:2000);
   }
-  if(lines.some(l=>l.driveUrl))save(); // Re-save with driveUrls
   if(status==="envoyée"){
     // Force direct sync of this specific NDF to Sheet with envoyée status
     setSyncStatus("✉️");
@@ -624,7 +640,7 @@ async function envoyerNDF(id){
 
 async function supprimerNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  if(n.status!=="brouillon"&&n.status!=="refusée"&&n.status!=="à envoyer"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
+  if(n.status!=="brouillon"&&n.status!=="refusée"){alert("Impossible de supprimer une NDF déjà envoyée.");return}
   if(!confirm("Supprimer la NDF "+n.ref+" ?\n(sera aussi supprimée du Cloud)"))return;
   const ref=n.ref;const salarie=n.salarie||D.salarie;
   D.ndfs=D.ndfs.filter(x=>x.id!==id);
@@ -641,7 +657,7 @@ function toggleSort(col){
 
 function editNDF(id){
   const n=D.ndfs.find(x=>x.id===id);if(!n)return;
-  const editable=n.status==="brouillon"||n.status==="refusée"||n.status==="à envoyer";
+  const editable=n.status==="brouillon"||n.status==="refusée";
   if(!editable){
     // Show read-only detail view
     let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal">
