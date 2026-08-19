@@ -15,7 +15,7 @@
  *   4. PAS besoin de redéployer le web app : les déclencheurs utilisent
  *      toujours la dernière version enregistrée du code.
  *
- * Emails des salariés/prestataires (pour les notifications validée/refusée/réglée) :
+ * Emails des salariés/prestataires (pour les notifications coordo/refusée/réglée) :
  *   Ajouter une ligne dans l'onglet Config du Sheet :
  *     key   = notif_emails
  *     value = une ligne par personne, au format "Nom complet : email", ex :
@@ -26,8 +26,10 @@
  *   n'est simplement pas notifiée (aucune erreur).
  *
  * Notifications envoyées :
- *   - NDF passe à "envoyée"  → email à la direction (groupé si plusieurs)
- *   - NDF passe à "validée"  → email au salarié (remboursement à venir)
+ *   - NDF salarié passe à "envoyée" → email à la direction (Laetitia + Clémentine)
+ *   - NDF prestataire soumise      → email au coordo choisi par le presta
+ *     (c'est lui qui vérifie avant transmission ; si son email n'est pas dans
+ *     notif_emails, l'alerte bascule vers la direction pour ne rien perdre)
  *   - NDF passe à "refusée"  → email au salarié (motif à consulter dans l'outil)
  *   - NDF passe à "réglée"   → email au salarié (montant + date de règlement)
  *   - Lundi matin : rappel à la direction si des NDF attendent depuis > 3 jours
@@ -38,7 +40,7 @@
  * À l'installation, l'état courant est mémorisé sans envoyer d'email.
  */
 
-var NOTIF_EMAIL_DIRECTION = "laetitia.deborde@lit-up.fr";
+var NOTIF_EMAILS_DIRECTION = "laetitia.deborde@lit-up.fr,clementine.claudon@lit-up.fr";
 var NOTIF_SHEET_ID = "1YkW_vcIdh9BKxQ7vRYMOW4DTj0U1OLCuHVRIyouyGR8";
 var NOTIF_TAB_NDF = "NDF";
 var NOTIF_TAB_CONFIG = "Config";
@@ -77,8 +79,9 @@ function checkNotificationsNDF() {
     var prev = JSON.parse(props.getProperty(NOTIF_PROP_KEY) || "{}");
     var ndfs = lireNDF_();
 
-    var pourDirection = [];           // nouvelles NDF envoyées
-    var pourSalaries = {};            // email → [{ndf, event}]
+    var pourDirection = [];           // NDF salariés envoyées
+    var pourCoordos = {};             // email coordo → NDF presta reçues
+    var pourSalaries = {};            // email salarié → NDF refusées/réglées
     var emails = lireEmailsSalaries_();
     var next = {};
 
@@ -87,8 +90,19 @@ function checkNotificationsNDF() {
       var avant = prev[n.ref]; // undefined si référence nouvelle
       if (avant === n.status) return; // pas de changement
       if (n.status === "envoyée") {
-        pourDirection.push(n);
-      } else if (n.status === "validée" || n.status === "refusée" || n.status === "réglée") {
+        if (n.isPresta && n.coordo) {
+          var emailCoordo = emails[normaliserNom_(n.coordo)];
+          if (emailCoordo) {
+            if (!pourCoordos[emailCoordo]) pourCoordos[emailCoordo] = [];
+            pourCoordos[emailCoordo].push(n);
+          } else {
+            Logger.log("Pas d'email Config pour le coordo « " + n.coordo + " » (NDF presta " + n.ref + ") — alerte direction");
+            pourDirection.push(n);
+          }
+        } else {
+          pourDirection.push(n);
+        }
+      } else if (n.status === "refusée" || n.status === "réglée") {
         var email = emails[normaliserNom_(nomNDF_(n))];
         if (email) {
           if (!pourSalaries[email]) pourSalaries[email] = [];
@@ -97,7 +111,7 @@ function checkNotificationsNDF() {
           Logger.log("Pas d'email Config pour « " + nomNDF_(n) + " » (NDF " + n.ref + ", " + n.status + ") — non notifié");
         }
       }
-      // brouillon : rien (retour après refus, notifié au renvoi)
+      // brouillon et validée : pas d'email
     });
 
     props.setProperty(NOTIF_PROP_KEY, JSON.stringify(next)); // les refs disparues sortent du suivi
@@ -106,7 +120,8 @@ function checkNotificationsNDF() {
       var enAttente = ndfs.filter(function (n) { return n.status === "envoyée"; }).length;
       envoyerEmailDirection_(pourDirection, enAttente);
     }
-    for (var email in pourSalaries) envoyerEmailSalarie_(email, pourSalaries[email]);
+    for (var ec in pourCoordos) envoyerEmailCoordo_(ec, pourCoordos[ec]);
+    for (var es in pourSalaries) envoyerEmailSalarie_(es, pourSalaries[es]);
   } finally {
     lock.releaseLock();
   }
@@ -126,7 +141,7 @@ function rappelHebdoNDF() {
       + (n.statusDate ? " — envoyée le " + formatDate_(n.statusDate) : "");
   });
   MailApp.sendEmail({
-    to: NOTIF_EMAIL_DIRECTION,
+    to: NOTIF_EMAILS_DIRECTION,
     subject: "⏰ Rappel : " + enRetard.length + " NDF en attente de revue depuis plus de " + NOTIF_RAPPEL_JOURS + " jours",
     body: "Bonjour,\n\nCes notes de frais attendent toujours une revue :\n\n"
       + lignes.join("\n") + "\n\nOuvrir l'outil direction :\n" + NOTIF_URL_DIRECTION + "\n"
@@ -193,7 +208,7 @@ function envoyerEmailDirection_(nouvelles, totalEnAttente) {
       + (n.coordo ? " — coordo : " + n.coordo : "");
   });
   MailApp.sendEmail({
-    to: NOTIF_EMAIL_DIRECTION,
+    to: NOTIF_EMAILS_DIRECTION,
     subject: sujet,
     body: "Bonjour,\n\n"
       + (nouvelles.length === 1 ? "Une nouvelle note de frais attend ta validation :\n\n" : "De nouvelles notes de frais attendent ta validation :\n\n")
@@ -203,13 +218,28 @@ function envoyerEmailDirection_(nouvelles, totalEnAttente) {
   });
 }
 
-/** Email salarié/prestataire : NDF validée, refusée ou réglée (groupé par personne). */
+/** Email coordo : un prestataire lui a transmis une NDF à vérifier (groupé). */
+function envoyerEmailCoordo_(email, ndfs) {
+  var lignes = ndfs.map(function (n) {
+    return "• " + n.ref + " — " + (n.prestaName || n.salarie) + " — " + n.total + " € (" + n.nbLines + " ligne(s))";
+  });
+  var sujet = ndfs.length === 1
+    ? "📥 NDF prestataire à vérifier : " + (ndfs[0].prestaName || ndfs[0].salarie) + " · " + ndfs[0].total + " €"
+    : "📥 " + ndfs.length + " NDF prestataires à vérifier";
+  MailApp.sendEmail({
+    to: email,
+    subject: sujet,
+    body: "Bonjour,\n\n"
+      + (ndfs.length === 1 ? "Un·e prestataire vous a transmis une note de frais :\n\n" : "Des prestataires vous ont transmis des notes de frais :\n\n")
+      + lignes.join("\n") + "\n\n"
+      + "Elle apparaît dans votre outil NDF (badge violet). Vérifiez-la puis transmettez-la à la direction :\n"
+      + NOTIF_URL_ACCUEIL + "\n\n— Notification automatique des outils Lit uP\n"
+  });
+}
+
+/** Email salarié/prestataire : NDF refusée ou réglée (groupé par personne). */
 function envoyerEmailSalarie_(email, ndfs) {
   var blocs = ndfs.map(function (n) {
-    if (n.status === "validée") {
-      return "✅ Votre note de frais " + n.ref + " (" + n.total + " €) a été validée par la direction.\n"
-        + "   Le remboursement sera effectué lors du prochain règlement.";
-    }
     if (n.status === "refusée") {
       return "❌ Votre note de frais " + n.ref + " (" + n.total + " €) a été refusée.\n"
         + "   Ouvrez l'outil pour consulter le motif, corriger puis renvoyer :\n   " + NOTIF_URL_ACCUEIL;
@@ -221,8 +251,7 @@ function envoyerEmailSalarie_(email, ndfs) {
   });
   var premier = ndfs[0];
   var sujet = ndfs.length === 1
-    ? { "validée": "✅ NDF " + premier.ref + " validée",
-        "refusée": "❌ NDF " + premier.ref + " refusée",
+    ? { "refusée": "❌ NDF " + premier.ref + " refusée",
         "réglée": "💸 NDF " + premier.ref + " réglée (" + premier.total + " €)" }[premier.status]
     : "Notes de frais : " + ndfs.length + " mises à jour";
   MailApp.sendEmail({
@@ -264,6 +293,6 @@ function testNotificationNDF() {
     + Object.keys(parStatut).map(function (s) { return "• " + s + " : " + parStatut[s]; }).join("\n")
     + "\n\nEmails salariés configurés (Config → notif_emails) : " + Object.keys(emails).length
     + (Object.keys(emails).length ? "\n" + Object.keys(emails).map(function (n) { return "• " + n + " → " + emails[n]; }).join("\n") : "\n(aucun : ajoutez la ligne notif_emails dans l'onglet Config)");
-  MailApp.sendEmail({ to: NOTIF_EMAIL_DIRECTION, subject: "✅ Test notifications NDF", body: corps });
-  Logger.log("Email de test envoyé à " + NOTIF_EMAIL_DIRECTION);
+  MailApp.sendEmail({ to: NOTIF_EMAILS_DIRECTION, subject: "✅ Test notifications NDF", body: corps });
+  Logger.log("Email de test envoyé à " + NOTIF_EMAILS_DIRECTION);
 }
