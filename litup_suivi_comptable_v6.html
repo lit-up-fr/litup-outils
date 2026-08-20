@@ -399,7 +399,14 @@ function toggleTheme(){
 })();
 const fmt=n=>{if(n===null||n===undefined||n==="")return"";const v=parseFloat(n);return isNaN(v)?"":v.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"};
 const fmtP=n=>{if(!n&&n!==0)return"";return Math.round(n)+"%"};
-const ds=v=>{if(v instanceof Date)return v.toISOString().split("T")[0];return String(v||"").split(" ")[0].split("T")[0]};
+// Date au format YYYY-MM-DD en HEURE LOCALE (toISOString décale d'un jour en France : minuit local = 22h UTC la veille)
+const dLocal=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const ds=v=>{
+  if(v instanceof Date)return dLocal(v);
+  const s=String(v||"");
+  if(/T\d{2}:\d{2}/.test(s)&&/Z$/.test(s)){const d=new Date(s);if(!isNaN(d))return dLocal(d)}
+  return s.split(" ")[0].split("T")[0];
+};
 const yrOf=dt=>dt?dt.substring(0,4):"2026";
 const moKey=dt=>dt?dt.substring(0,7):"";
 const MOS=["01","02","03","04","05","06","07","08","09","10","11","12"];
@@ -723,6 +730,8 @@ function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.g
   if(D.rows)D.rows.forEach(r=>{if(r.id&&/\s/.test(r.id))r.id=r.id.replace(/\s+/g,"")});
   // Fix duplicate IDs
   if(D.rows){const seen=new Set();D.rows.forEach(r=>{if(seen.has(r.id)){r.id=r.id+"_"+Math.random().toString(36).substr(2,5)}seen.add(r.id)})}
+  // Normalise les dates ISO UTC résiduelles (2026-04-15T22:00:00.000Z → date locale)
+  if(D.rows)D.rows.forEach(r=>{if(r.dt&&/T\d{2}:\d{2}/.test(String(r.dt)))r.dt=ds(r.dt)});
   // Merge cats: ensure all default codes are present
   if(defaultCats.length){const existing=new Set(D.cats.map(c=>c.substring(0,8)));defaultCats.forEach(c=>{if(!existing.has(c.substring(0,8)))D.cats.push(c)});D.cats.sort()}
   // Merge budget: add missing lines from defaults
@@ -812,7 +821,7 @@ async function loadComptaFromSheet(){
     // Load rows
     D.rows=res.rows.map(r=>({
       id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
-      dt:r.dt||"",yr:r.yr||"",lib:r.lib||"",four:r.four||"",
+      dt:ds(r.dt||""),yr:r.yr||"",lib:r.lib||"",four:r.four||"",
       cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
       modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
       src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""
