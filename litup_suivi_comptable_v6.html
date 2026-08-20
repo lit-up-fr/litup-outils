@@ -1047,7 +1047,10 @@ async function autoMatchJustifs(files){
             canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
             dataUrl=canvas.toDataURL("image/jpeg",0.70);
           }catch(e){}}
-          const res=await sheetAPI("ocrJustif",{fileData:dataUrl,fileType:f.type||"image/jpeg"});
+          const res=await Promise.race([
+            sheetAPI("ocrJustif",{fileData:dataUrl,fileType:f.type||"image/jpeg"}),
+            new Promise(r=>setTimeout(()=>r({error:"Timeout OCR (90 s) — fichier ignoré, analyse poursuivie"}),90000))
+          ]);
           if(res.error){ocrError=res.error}
           else if(res.ok&&res.data){const p=res.data;
             info.montant=p.montant!=null?parseFloat(p.montant):null;
