@@ -73,7 +73,7 @@ a{color:var(--accent-l);text-decoration:none}
 /* ─── TABLE ─── */
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600;position:relative}
-th .col-resize{position:absolute;right:0;top:0;bottom:0;width:4px;cursor:col-resize;background:transparent;z-index:11}
+th .col-resize{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:transparent;z-index:11}
 th .col-resize:hover{background:rgba(99,102,241,.5)}
 .filter-row td{padding:2px 3px;background:var(--bg-1)}
 .cf{width:100%;padding:2px 4px;font-size:8px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--text-1);outline:none}
@@ -1541,7 +1541,18 @@ function tglF(el){curFilt=curFilt===el.dataset.f?"":el.dataset.f;render()}
 function tglF2(f){curFilt=curFilt===f?"":f;render()}
 if(!window._colFilters)window._colFilters={};
 if(!window._colMultiFilters)window._colMultiFilters={};
-function setColFilter(key,val){window._colFilters[key]=val.toLowerCase();delete window._colMultiFilters[key];render()}
+function setColFilter(key,val){window._colFilters[key]=val;delete window._colMultiFilters[key];debouncedRender("cf_"+key)}
+
+// Render différé : attend la fin de la frappe (350 ms) puis restaure le focus et le curseur
+let _dbTimer=null;
+function debouncedRender(focusId){
+  clearTimeout(_dbTimer);
+  _dbTimer=setTimeout(()=>{
+    const hadFocus=focusId&&document.activeElement&&document.activeElement.id===focusId;
+    render();
+    if(hadFocus){const el=$(focusId);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(e){}}}
+  },350);
+}
 
 function toggleColDropdown(key,btn){
   // Close any existing dropdown
@@ -1610,7 +1621,7 @@ function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._c
   if(curFilt==="ndf"&&!r.src?.startsWith("ndf"))return false;
   if(curFilt==="noatt"&&((r.stat||"").startsWith("Classé")||(!r.deb&&!r.cre)))return false;
   if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q)&&!r.numj?.toLowerCase().includes(q)&&!r.comment?.toLowerCase().includes(q))return false;
-  for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(v))return false}
+  for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(String(v).toLowerCase()))return false}
   // Multi-select filters
   for(const[k,selected] of Object.entries(mf)){if(!selected.size)return false;const rv=String(r[k]||"").trim();if(!selected.has(rv))return false}
   return true})}
@@ -2069,7 +2080,7 @@ function render(){
   let tb='';tabs.forEach(t=>{
     tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="switchTab('${t.id}')">${t.l}</button>`});
   tb+=`<div style="width:1px;height:14px;background:#2d3148;margin:0 1px"></div>`;
-  tb+=`<input class="si" id="si" placeholder="🔍 Recherche globale" value="${$('si')?.value||''}" oninput="render()">`;
+  tb+=`<input class="si" id="si" placeholder="🔍 Recherche globale" value="${$('si')?.value||''}" oninput="debouncedRender('si')">`;
   tb+=`<button class="fb${curFilt===""?" on":""}" onclick="tglF2('')" title="Toutes les lignes">Tout</button>`;
   tb+=`<button class="fb${curFilt==="bank"?" on":""}" onclick="tglF2('bank')" title="Lignes bancaires">🏦</button>`;
   tb+=`<button class="fb${curFilt==="ndf"?" on":""}" onclick="tglF2('ndf')" title="Lignes NDF">🧾</button>`;
@@ -2093,7 +2104,7 @@ function render(){
   let h='<div style="overflow-x:auto"><table><thead><tr>';
   const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.","💬",""];
   const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","modal","stat","resp","numj","comment",""];
-  cols.forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)"></div></th>`);
+  cols.forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)" ondblclick="resetColWidth(event)" title="Glisser pour redimensionner, double-clic pour réinitialiser"></div></th>`);
   h+="</tr><tr class='filter-row'>";
   colKeys.forEach((k,i)=>{
     if(!k||k==="deb"||k==="cre"){h+="<td></td>"}
@@ -2131,6 +2142,7 @@ function render(){
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="6"></td></tr>`;
   h+="</tbody></table></div>";ct.innerHTML=h;
+  applyColWidths(ct.querySelector("table"));
   // Init fournisseur autocomplete
   setTimeout(()=>{
     const allFour=allFournisseurs();
@@ -2273,9 +2285,26 @@ async function dropJustif(event,rowId){
 }
 
 // ─── COLUMN RESIZE ───
+const COL_W_MIN=40,COL_W_MAX=600;
+window._colWidths=(()=>{try{return JSON.parse(localStorage.getItem("litup_colw")||"{}")}catch(e){return{}}})();
+function saveColWidths(){try{localStorage.setItem("litup_colw",JSON.stringify(window._colWidths))}catch(e){}}
+function applyColWidths(table){
+  const w=window._colWidths||{};
+  if(!table||!Object.keys(w).length)return;
+  table.style.tableLayout='fixed';
+  table.querySelectorAll('thead tr:first-child th').forEach((t,i)=>{if(w[i])t.style.width=w[i]+'px'});
+}
+function resetColWidth(e){
+  const th=e.target.parentElement;
+  const idx=Array.from(th.parentElement.children).indexOf(th);
+  delete window._colWidths[idx];saveColWidths();
+  th.style.width='';
+  if(!Object.keys(window._colWidths).length){const t=th.closest('table');if(t)t.style.tableLayout='auto'}
+}
 function startResize(e){
   e.preventDefault();
   const th=e.target.parentElement;
+  const idx=Array.from(th.parentElement.children).indexOf(th);
   const startX=e.pageX;
   const startW=th.offsetWidth;
   const handle=th.querySelector('.col-resize');
@@ -2284,11 +2313,12 @@ function startResize(e){
   if(table)table.style.tableLayout='fixed';
   const ths=table?table.querySelectorAll('th'):[];
   ths.forEach(t=>{if(!t.style.width)t.style.width=t.offsetWidth+'px'});
-  function onMove(ev){th.style.width=Math.max(30,startW+(ev.pageX-startX))+'px'}
+  function onMove(ev){th.style.width=Math.min(COL_W_MAX,Math.max(COL_W_MIN,startW+(ev.pageX-startX)))+'px'}
   function onUp(){
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
     if(handle)handle.style.background='';
+    window._colWidths[idx]=parseInt(th.style.width)||th.offsetWidth;saveColWidths();
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
