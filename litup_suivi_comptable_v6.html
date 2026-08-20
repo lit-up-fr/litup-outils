@@ -603,6 +603,7 @@ let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026"
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
 function setStatsYear(v){statsYear=v;try{localStorage.setItem("litup_statsYear",v)}catch(e){}render()}
+function mkStatCards(arr){return arr.map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("")}
 let tresFilt={versee:true,validee:true,attente:true,sollicitee:false};
 let openDD=null;
 
@@ -2120,17 +2121,21 @@ function render(){
     <select class="ms" style="margin-top:3px;width:70px" onchange="setStatsYear(this.value)">
       ${statsYrs.map(y=>`<option value="${y}"${y===statsYear?" selected":""}>${y}</option>`).join("")}
       <option value="all"${statsYear==="all"?" selected":""}>Toutes</option>
-    </select></div>`+[
+    </select></div>`+mkStatCards([
     {l:"Lignes",v:yRows.length,c:"#818cf8",f:"all"},
     {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
     {l:"À classer",v:aClasser,c:aClasser>0?"#ef4444":"#22c55e",f:"uncl"},
     {l:"Justif. manquant",v:justifManq,c:justifManq>0?"#f59e0b":"#22c55e",f:"noatt"},
     {l:"Charges "+yLbl,v:fmt(ch),c:"#f87171",f:"chg"},{l:"Produits "+yLbl,v:fmt(pr),c:"#4ade80",f:"prd"},
-    {l:"Solde "+yLbl,v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
+    {l:"Solde "+yLbl,v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""}
+  ])
+  // Saut de ligne : les soldes bancaires (toutes années) sur une 2e ligne
+  +`<div style="flex-basis:100%;height:0"></div>`
+  +mkStatCards([
     {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:"cc"},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:"livret"},
     {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:"cat"},
     {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
-  ].map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
+  ]);
 
   // No alerts banner — stats cards are sufficient
 
