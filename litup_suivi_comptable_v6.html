@@ -1000,7 +1000,7 @@ function addSelectedDups(){
     if(!four){const fac=parseFacilitateur(d.lib);if(fac)four=fac.four}
     if(!four){const ndf=parseNDF(d.lib);if(ndf&&ndf.four)four=ndf.four}
     D.rows.push({id:"dup"+Date.now()+"_"+i,dt:d.dt,yr:yrOf(d.dt),lib:d.lib,four,cat,act,
-      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:isSalaryLine(lib)?"Classé - Bulletin de salaire":"Justificatif manquant",
+      deb:d.deb,cre:d.cre,modal:detMod(d.lib),stat:isSalaryLine(d.lib)?"Classé - Bulletin de salaire":"Justificatif manquant",
       resp:d.sal||"",numj:d.numj||"",ndf:d.ndf||"",src:d.src});
     added++;
   });
