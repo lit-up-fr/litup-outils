@@ -636,8 +636,16 @@ function tempName(row){
   const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
   return dt+"-"+four+"-"+amt;
 }
-function nextN(p){D.ctr[p]=(D.ctr[p]||0)+1;return p+"2026-"+String(D.ctr[p]).padStart(3,"0")}
-function peekN(p){return p+"2026-"+String((D.ctr[p]||0)+1).padStart(3,"0")}
+// Numéros libérés par une suppression de justificatif, réutilisés en priorité
+if(!D.freedN)D.freedN={};
+function nextN(p){
+  const pool=(D.freedN||{})[p];
+  if(pool&&pool.length){pool.sort();return pool.shift()}
+  D.ctr[p]=(D.ctr[p]||0)+1;return p+"2026-"+String(D.ctr[p]).padStart(3,"0")}
+function peekN(p){
+  const pool=(D.freedN||{})[p];
+  if(pool&&pool.length)return[...pool].sort()[0];
+  return p+"2026-"+String((D.ctr[p]||0)+1).padStart(3,"0")}
 function promoteN(row){
   const p=row.cre&&row.cre>0?"S":"F";
   const seq=nextN(p);
@@ -705,7 +713,7 @@ function applyRulesToUnaffected(){
 }
 
 // Auto-save
-function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -771,7 +779,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -783,7 +791,7 @@ async function saveComptaToSheet(){
   if(!D.rows.length){alert("Rien à sauvegarder.");return}
   if(!confirm("☁️ Sauvegarder "+D.rows.length+" lignes vers Google Sheet ?\n\nCela remplace la version précédente dans le Sheet.\nLes métadonnées (compteurs, buffers, règles) sont aussi sauvegardées.")){return}
   try{
-    const meta={ctr:D.ctr,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
+    const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
       soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
@@ -813,6 +821,7 @@ async function loadComptaFromSheet(){
     if(res.meta){
       const m=res.meta;
       if(m.ctr)D.ctr=m.ctr;
+      if(m.freedN)D.freedN=m.freedN;
       if(m.ndfBuffer)D.ndfBuffer=m.ndfBuffer;
       if(m.depBuffer)D.depBuffer=m.depBuffer;
       if(m.soldeInitial)D.soldeInitial=m.soldeInitial;
@@ -2138,6 +2147,7 @@ function render(){
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:#f87171;width:65px" value="${r.deb||''}" onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
+      :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Voir le justificatif sur le Drive${r.numj?" ("+r.numj+")":""}">📄 Drive</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
         :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')"><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
     h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
@@ -2240,12 +2250,17 @@ function attMiss(i,nj){const fi=$("mf_"+i);if(!fi?.files?.length)return;const f=
 async function deleteJustif(rowId){
   const row=D.rows.find(r=>r.id===rowId);if(!row)return;
   const a=D.att[rowId];
-  const name=a?a.name:row.numj;
-  if(!confirm("Supprimer le justificatif ?\n\n"+name+"\n\nLe fichier sera aussi supprimé du Drive.")){return}
-  // Delete from Drive if we have driveFileId
-  if(row.driveFileId){
-    try{await sheetAPI("deleteDriveFile",{fileId:row.driveFileId})}catch(e){console.warn("Delete Drive error:",e)}
+  const name=a?a.name:row.numj||"(sans nom)";
+  const seqm=(row.numj||"").match(/^((F|S|P|RF|A)20\d{2}-\d{3})/);
+  if(!confirm("Supprimer le justificatif ?\n\n"+name+"\n\nLe fichier sera aussi supprimé du Drive."+(seqm?"\nLe numéro "+seqm[1]+" sera réutilisé pour la prochaine pièce chargée.":""))){return}
+  // Supprimer du Drive : driveFileId, ou extrait de l'URL après un rechargement
+  let fileId=row.driveFileId;
+  if(!fileId&&row.driveUrl){const m=row.driveUrl.match(/\/d\/([A-Za-z0-9_-]{20,})/)||row.driveUrl.match(/[?&]id=([A-Za-z0-9_-]{20,})/);if(m)fileId=m[1]}
+  if(fileId){
+    try{await sheetAPI("deleteDriveFile",{fileId})}catch(e){console.warn("Delete Drive error:",e)}
   }
+  // Libérer le numéro pour la prochaine pièce chargée
+  if(seqm){if(!D.freedN)D.freedN={};const pool=D.freedN[seqm[2]]=D.freedN[seqm[2]]||[];if(!pool.includes(seqm[1]))pool.push(seqm[1])}
   // Remove local attachment
   delete D.att[rowId];
   row.numj="";row.stat="Justificatif manquant";row.driveUrl="";row.driveFileId="";
@@ -2266,9 +2281,8 @@ async function dropJustif(event,rowId){
   }
   // Read file as dataURL
   const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
-  // Build definitive name with correct prefix
-  D.ctr[prefix]=(D.ctr[prefix]||0)+1;
-  const seq=prefix+"2026-"+String(D.ctr[prefix]).padStart(3,"0");
+  // Build definitive name with correct prefix (réutilise un numéro libéré si dispo)
+  const seq=nextN(prefix);
   const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
   const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
   const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
