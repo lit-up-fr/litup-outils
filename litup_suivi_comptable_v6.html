@@ -1322,13 +1322,20 @@ function getAlerts(){
 }
 
 // ─── AUTO-MATCH BANK ↔ NDF ───
+// La banque n'a que la réf courte (N2026-XXX) mais le Sheet stocke la réf
+// complète après règlement (N2026-XXX-NOM-MMJJ) : on matche aussi par préfixe.
+function findNdfBufferKey(shortRef){
+  const buf=D.ndfBuffer||{};
+  if(buf[shortRef])return shortRef;
+  return Object.keys(buf).find(k=>k.startsWith(shortRef+"-"))||null;
+}
 function autoMatchNDF(){
   if(!D.ndfBuffer||!Object.keys(D.ndfBuffer).length){alert("Aucune NDF dans le buffer à rapprocher.\nImportez d'abord un fichier NDF via 📥 NDF.");return}
   const matches=[];
   D.rows.filter(r=>r.src==="banque"&&parseNDF(r.lib)).forEach(bankRow=>{
     const m=bankRow.lib.match(/N20\d{2}-\d{2,4}/);if(!m)return;
-    const ndfRef=m[0];
-    const bufLines=(D.ndfBuffer||{})[ndfRef];if(!bufLines)return;
+    const ndfRef=findNdfBufferKey(m[0]);if(!ndfRef)return;
+    const bufLines=D.ndfBuffer[ndfRef];
     const bankAmt=bankRow.deb||0;
     const ndfTotal=bufLines.reduce((s,l)=>s+(l.deb||0),0);
     matches.push({bankId:bankRow.id,ndfRef,bankAmt,ndfTotal,lines:bufLines.length,match:Math.abs(bankAmt-ndfTotal)<0.02});
@@ -1422,7 +1429,7 @@ function splitNDF(bankId){
   const bankRow=D.rows.find(r=>r.id===bankId);if(!bankRow)return;
   const m=bankRow.lib.match(/N20\d{2}-\d{2,4}/);
   if(!m){alert("Pas de référence NDF trouvée dans le libellé.\nFormat attendu: VIR N2026-XXX - NOM");return}
-  const ndfRef=m[0];
+  const ndfRef=findNdfBufferKey(m[0])||m[0];
   // Extract salarié name from bank libellé: "VIR N2026-001 - QUIBOIS" → "QUIBOIS"
   const nameParts=bankRow.lib.split("-");
   let salName="";
@@ -1431,7 +1438,7 @@ function splitNDF(bankId){
     if(raw.length>1)salName=raw}
   // Look in ndfBuffer first, then fallback to D.rows
   const bufferLines=(D.ndfBuffer||{})[ndfRef]||[];
-  const rowLines=D.rows.filter(r=>r.src==="ndf"&&r.ndf===ndfRef);
+  const rowLines=D.rows.filter(r=>r.src==="ndf"&&(r.ndf===ndfRef||r.ndf===m[0]||(r.ndf||"").startsWith(m[0]+"-")));
   const ndfLines=bufferLines.length?bufferLines:rowLines;
   if(!ndfLines.length){alert("Aucune sous-ligne NDF trouvée pour "+ndfRef+".\n\nImportez d'abord le fichier Notes de frais via 📥 NDF.");return}
   // Check total
@@ -1443,7 +1450,7 @@ function splitNDF(bankId){
   pushUndo();
   const bankIdx=D.rows.findIndex(r=>r.id===bankId);
   D.rows.splice(bankIdx,1);
-  D.rows=D.rows.filter(r=>!(r.src==="ndf"&&r.ndf===ndfRef));
+  D.rows=D.rows.filter(r=>!(r.src==="ndf"&&(r.ndf===ndfRef||r.ndf===m[0]||(r.ndf||"").startsWith(m[0]+"-"))));
   ndfLines.forEach((nr,i)=>{
     // Libellé: "NDF N2026-001 - QUIBOIS - Kahoot !"
     const desc=nr.desc||"";
