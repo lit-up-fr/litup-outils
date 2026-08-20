@@ -1648,6 +1648,11 @@ function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._c
   if(curFilt==="bank"&&r.src!=="banque")return false;
   if(curFilt==="ndf"&&!r.src?.startsWith("ndf"))return false;
   if(curFilt==="noatt"&&((r.stat||"").startsWith("Classé")||(!r.deb&&!r.cre)))return false;
+  if(curFilt==="chg"&&(!(r.deb>0)||isVirInterne(r)))return false;
+  if(curFilt==="prd"&&(!(r.cre>0)||isVirInterne(r)))return false;
+  if(curFilt==="cc"&&!((r.compte||"").toLowerCase()==="cc"||!r.compte))return false;
+  if(curFilt==="livret"&&(r.compte||"").toLowerCase()!=="livret")return false;
+  if(curFilt==="cat"&&r.modal!=="Virement interne Cpte à terme")return false;
   if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q)&&!r.numj?.toLowerCase().includes(q)&&!r.comment?.toLowerCase().includes(q))return false;
   for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(String(v).toLowerCase()))return false}
   // Multi-select filters
@@ -2104,10 +2109,10 @@ function render(){
     {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
     {l:"À classer",v:aClasser,c:aClasser>0?"#ef4444":"#22c55e",f:"uncl"},
     {l:"Justif. manquant",v:justifManq,c:justifManq>0?"#f59e0b":"#22c55e",f:"noatt"},
-    {l:"Charges 2026",v:fmt(ch),c:"#f87171",f:""},{l:"Produits 2026",v:fmt(pr),c:"#4ade80",f:""},
+    {l:"Charges 2026",v:fmt(ch),c:"#f87171",f:"chg"},{l:"Produits 2026",v:fmt(pr),c:"#4ade80",f:"prd"},
     {l:"Solde 2026",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
-    {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:""},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:""},
-    {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:""},
+    {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:"cc"},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:"livret"},
+    {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:"cat"},
     {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
   ].map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
 
