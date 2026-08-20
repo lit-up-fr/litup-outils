@@ -1772,6 +1772,8 @@ function rBudget(el){
     <input class="ni" value="${D.soldeInitial}" onchange="D.soldeInitial=parseFloat(this.value)||0;autoSave()" style="width:90px">
     <span style="font-size:8px;color:#64748b;margin-left:8px">Livret : </span>
     <input class="ni" value="${D.soldeLivret||0}" onchange="D.soldeLivret=parseFloat(this.value)||0;autoSave()" style="width:90px">
+    <span style="font-size:8px;color:#64748b;margin-left:8px" title="Solde du livret avant la première ligne livret importée">Livret initial : </span>
+    <input class="ni" value="${D.soldeInitialLivret||0}" onchange="D.soldeInitialLivret=parseFloat(this.value)||0;autoSave();render()" style="width:90px">
     <span style="font-size:8px;color:#64748b;margin-left:8px">Cpte à terme initial : </span>
     <input class="ni" value="${D.soldeInitialCAT||0}" onchange="D.soldeInitialCAT=parseFloat(this.value)||0;autoSave();render()" style="width:90px">
     <button class="b bd" onclick="checkSolde()" title="Vérifier cohérence avec le fichier banque" style="font-size:7px">🔍 Vérif.</button>
