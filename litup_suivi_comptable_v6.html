@@ -600,6 +600,9 @@ const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
 let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
+// Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
+let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
+function setStatsYear(v){statsYear=v;try{localStorage.setItem("litup_statsYear",v)}catch(e){}render()}
 let tresFilt={versee:true,validee:true,attente:true,sollicitee:false};
 let openDD=null;
 
@@ -1642,7 +1645,11 @@ function clearColFilter(key){
   render();
 }
 
-function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};const mf=window._colMultiFilters||{};return D.rows.filter(r=>{
+function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};const mf=window._colMultiFilters||{};
+  // Les filtres des cartes de gauche sont limités à l'année sélectionnée (comme les chiffres affichés)
+  const yScoped=["all","cl","uncl","noatt","chg","prd"].includes(curFilt);
+  return D.rows.filter(r=>{
+  if(yScoped&&statsYear!=="all"&&String(r.yr||"")!==statsYear)return false;
   if(curFilt==="all"){}else if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
   if(curFilt==="cl"&&!((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
   if(curFilt==="bank"&&r.src!=="banque")return false;
@@ -2094,23 +2101,32 @@ function checkSolde(){
 // ─── MAIN RENDER ───
 function render(){
   // Compute stats
-  const classees=D.rows.filter(r=>(r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r))).length;
-  const aClasser=D.rows.filter(r=>!((r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)))&&(r.deb||r.cre)).length;
-  const justifManq=D.rows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
+  // Cartes de gauche : périmètre = année sélectionnée (statsYear). Les soldes bancaires restent toutes années.
+  const inStatsYear=r=>statsYear==="all"||String(r.yr||"")===statsYear;
+  const yRows=D.rows.filter(inStatsYear);
+  const classees=yRows.filter(r=>(r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r))).length;
+  const aClasser=yRows.filter(r=>!((r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)))&&(r.deb||r.cre)).length;
+  const justifManq=yRows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
   // Charges/Produits : hors virements internes (déplacements entre comptes, pas des flux réels)
-  const ch=D.rows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.deb||0)),0);const pr=D.rows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.cre||0)),0);
+  const ch=yRows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.deb||0)),0);const pr=yRows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.cre||0)),0);
+  const yLbl=statsYear==="all"?"(tout)":statsYear;
+  const statsYrs=[...new Set(D.rows.map(r=>String(r.yr||"")).filter(Boolean))].sort();
   // Comparaison de compte insensible à la casse : l'import écrit "cc"/"livret" en minuscules
   const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="cc"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
   const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
   // Cpte à terme : alimenté par les lignes C/C marquées "Virement interne Cpte à terme" (débit = placement, crédit = retrait)
   const soldeCAT=(D.soldeInitialCAT||0)+D.rows.filter(r=>r.modal==="Virement interne Cpte à terme").reduce((s,r)=>s+(r.deb||0)-(r.cre||0),0);
-  $("statsBar").innerHTML=[
-    {l:"Lignes",v:D.rows.length,c:"#818cf8",f:"all"},
+  $("statsBar").innerHTML=`<div class="sc"><div class="sl">Année</div>
+    <select class="ms" style="margin-top:3px;width:70px" onchange="setStatsYear(this.value)">
+      ${statsYrs.map(y=>`<option value="${y}"${y===statsYear?" selected":""}>${y}</option>`).join("")}
+      <option value="all"${statsYear==="all"?" selected":""}>Toutes</option>
+    </select></div>`+[
+    {l:"Lignes",v:yRows.length,c:"#818cf8",f:"all"},
     {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
     {l:"À classer",v:aClasser,c:aClasser>0?"#ef4444":"#22c55e",f:"uncl"},
     {l:"Justif. manquant",v:justifManq,c:justifManq>0?"#f59e0b":"#22c55e",f:"noatt"},
-    {l:"Charges 2026",v:fmt(ch),c:"#f87171",f:"chg"},{l:"Produits 2026",v:fmt(pr),c:"#4ade80",f:"prd"},
-    {l:"Solde 2026",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
+    {l:"Charges "+yLbl,v:fmt(ch),c:"#f87171",f:"chg"},{l:"Produits "+yLbl,v:fmt(pr),c:"#4ade80",f:"prd"},
+    {l:"Solde "+yLbl,v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
     {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:"cc"},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:"livret"},
     {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:"cat"},
     {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
