@@ -593,8 +593,10 @@ let D={
     {n:"ML Coudon Gapeau 9",s:"négo",mt:1755,dp:"2026-12-31",tp:"Jeunes"},
   ],
 };
-const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis"];
-const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Justificatif manquant","En attente","À créer","À demander","Absence"];
+const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis","Virement interne","Virement interne Cpte à terme"];
+const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Classé - Virement interne","Justificatif manquant","En attente","À créer","À demander","Absence"];
+// Virement interne (CC↔Livret, CC↔Cpte à terme) : ni charge ni produit
+const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
 let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
@@ -720,7 +722,7 @@ function applyRulesToUnaffected(){
 }
 
 // Auto-save
-function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -788,7 +790,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -802,7 +804,7 @@ async function saveComptaToSheet(){
   try{
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
       soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,
-      soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,
+      soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       rhAlloc:D.rhAlloc,savedBy:prompt("Votre nom (pour le suivi) :","Direction")||"?",
       savedAt:new Date().toISOString()};
@@ -838,6 +840,7 @@ async function loadComptaFromSheet(){
       if(m.soldeInitialCC)D.soldeInitialCC=m.soldeInitialCC;
       if(m.soldeInitialLivret)D.soldeInitialLivret=m.soldeInitialLivret;
       if(m.soldeLivret)D.soldeLivret=m.soldeLivret;
+      if(m.soldeInitialCAT)D.soldeInitialCAT=m.soldeInitialCAT;
       if(m.airtableSync)D.airtableSync=m.airtableSync;
       if(m.airtableSubs)D.airtableSubs=m.airtableSubs;
       if(m.airtablePrestas)D.airtablePrestas=m.airtablePrestas;
@@ -1769,6 +1772,8 @@ function rBudget(el){
     <input class="ni" value="${D.soldeInitial}" onchange="D.soldeInitial=parseFloat(this.value)||0;autoSave()" style="width:90px">
     <span style="font-size:8px;color:#64748b;margin-left:8px">Livret : </span>
     <input class="ni" value="${D.soldeLivret||0}" onchange="D.soldeLivret=parseFloat(this.value)||0;autoSave()" style="width:90px">
+    <span style="font-size:8px;color:#64748b;margin-left:8px">Cpte à terme initial : </span>
+    <input class="ni" value="${D.soldeInitialCAT||0}" onchange="D.soldeInitialCAT=parseFloat(this.value)||0;autoSave();render()" style="width:90px">
     <button class="b bd" onclick="checkSolde()" title="Vérifier cohérence avec le fichier banque" style="font-size:7px">🔍 Vérif.</button>
   </div>`;
 
@@ -2082,12 +2087,16 @@ function checkSolde(){
 // ─── MAIN RENDER ───
 function render(){
   // Compute stats
-  const classees=D.rows.filter(r=>(r.stat||"").startsWith("Classé")&&r.cat&&r.act).length;
-  const aClasser=D.rows.filter(r=>!((r.stat||"").startsWith("Classé")&&r.cat&&r.act)&&(r.deb||r.cre)).length;
+  const classees=D.rows.filter(r=>(r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r))).length;
+  const aClasser=D.rows.filter(r=>!((r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)))&&(r.deb||r.cre)).length;
   const justifManq=D.rows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
-  const ch=D.rows.reduce((s,r)=>s+(r.deb||0),0);const pr=D.rows.reduce((s,r)=>s+(r.cre||0),0);
-  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>r.compte==="CC"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
-  const soldeLivret=D.soldeInitialLivret||0;
+  // Charges/Produits : hors virements internes (déplacements entre comptes, pas des flux réels)
+  const ch=D.rows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.deb||0)),0);const pr=D.rows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.cre||0)),0);
+  // Comparaison de compte insensible à la casse : l'import écrit "cc"/"livret" en minuscules
+  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="cc"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  // Cpte à terme : alimenté par les lignes C/C marquées "Virement interne Cpte à terme" (débit = placement, crédit = retrait)
+  const soldeCAT=(D.soldeInitialCAT||0)+D.rows.filter(r=>r.modal==="Virement interne Cpte à terme").reduce((s,r)=>s+(r.deb||0)-(r.cre||0),0);
   $("statsBar").innerHTML=[
     {l:"Lignes",v:D.rows.length,c:"#818cf8",f:"all"},
     {l:"Classées",v:classees,c:"#22c55e",f:"cl"},
@@ -2096,7 +2105,8 @@ function render(){
     {l:"Charges 2026",v:fmt(ch),c:"#f87171",f:""},{l:"Produits 2026",v:fmt(pr),c:"#4ade80",f:""},
     {l:"Solde 2026",v:fmt(pr-ch),c:pr-ch>=0?"#22c55e":"#ef4444",f:""},
     {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:""},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:""},
-    {l:"Total banque",v:fmt(soldeCC+soldeLivret),c:"#60a5fa",f:""}
+    {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:""},
+    {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
   ].map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("");
 
   // No alerts banner — stats cards are sufficient
@@ -2184,7 +2194,7 @@ function rSynth(el){
   let h=`<div style="padding:8px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid #1e2030"><span style="font-size:9px;color:#94a3b8">Année :</span>
     <select id="sYr" class="ms" style="width:70px" onchange="render()"><option value="">Toutes</option>${yrs.map(y=>`<option${y===($("sYr")?.value||"")?" selected":""}>${y}</option>`).join("")}</select></div>`;
   const yrF=$("sYr")?.value||"";const fR=D.rows.filter(r=>!yrF||r.yr===yrF);
-  const g={};fR.forEach(r=>{const t=r.act?r.act.split(" ")[0].replace(/[0-9]/g,"")||"?":"⚠";if(!g[t])g[t]={ch:0,pr:0,n:0};g[t].ch+=r.deb||0;g[t].pr+=r.cre||0;g[t].n++});
+  const g={};fR.forEach(r=>{if(isVirInterne(r))return;const t=r.act?r.act.split(" ")[0].replace(/[0-9]/g,"")||"?":"⚠";if(!g[t])g[t]={ch:0,pr:0,n:0};g[t].ch+=r.deb||0;g[t].pr+=r.cre||0;g[t].n++});
   const s=Object.entries(g).sort((a,b)=>b[1].ch-a[1].ch);const mx=Math.max(...s.map(([,d])=>d.ch),1);
   h+='<div class="sg">';s.forEach(([t,d])=>{const p=(d.ch/mx*100).toFixed(1);
     h+=`<div class="scard"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:700;font-size:11px">${t}</span><span style="font-size:7px;color:#64748b">${d.n}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#f87171;font-weight:600;font-size:10px">${fmt(d.ch)}</span>${d.pr>0?`<span style="color:#4ade80;font-weight:600;font-size:10px">+${fmt(d.pr)}</span>`:""}</div><div class="sbar"><div class="sbar-f" style="width:${p}%;background:linear-gradient(90deg,#6366f1,#818cf8)"></div></div></div>`});
