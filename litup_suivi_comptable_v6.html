@@ -2176,68 +2176,103 @@ async function syncAirtable(){
   }catch(e){closeM();alert("❌ Erreur : "+e.message)}
 }
 
-// ─── BUDGET PRÉVISIONNEL PRODUITS DEPUIS AIRTABLE (à confirmer manuellement) ───
+// ─── BUDGET PRÉVISIONNEL PRODUITS DEPUIS AIRTABLE (ligne à ligne, à confirmer manuellement) ───
+function bfaSelect(mode){
+  (window._bfaItems||[]).forEach((it,i)=>{const cb=$("bfaOn_"+i);if(!cb)return;
+    cb.checked=mode==="all"?true:mode==="none"?false:it.secured});
+}
 function budgetFromAirtable(){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
   if(!subs.length&&!prestas.length){alert("Aucune donnée Airtable chargée.\nActualisez d'abord via 🔄 Actualisation → ☁️ Airtable (codes + financements).");return}
   const prodLines=D.budget.map((b,i)=>({b,i})).filter(x=>x.b.type==="produit");
   if(!prodLines.length){alert("Le budget prévisionnel n'a aucune ligne de type Produit.\nCréez d'abord les lignes (onglet Budget prévi. → + Ligne) : subventions publiques, privées, prestations...");return}
   const vIdx=D.budgetVersions.length-1;
-  const sum=a=>Math.round(a.reduce((s,x)=>s+((x.ob!==undefined&&x.ob!==null?x.ob:x.mt)||0),0)*100)/100;
-  const secured=s=>s.s==="versée"||s.s==="validée";
-  const engagedP=p=>p.s==="payé"||p.s==="facturé"||p.s==="signé";
-  const agg=[
-    {label:"Subventions PUBLIQUES sécurisées",detail:"statuts versée + validée",amt:sum(subs.filter(s=>secured(s)&&s.k==="PUB")),n:subs.filter(s=>secured(s)&&s.k==="PUB").length,kw:/74[01]|publi|état|etat|collectivi/i},
-    {label:"Subventions PRIVÉES sécurisées",detail:"statuts versée + validée",amt:sum(subs.filter(s=>secured(s)&&s.k==="PRIV")),n:subs.filter(s=>secured(s)&&s.k==="PRIV").length,kw:/priv|fondation|dotation|mécénat|mecenat/i},
-    {label:"Subventions sécurisées (type non précisé)",detail:"statuts versée + validée",amt:sum(subs.filter(s=>secured(s)&&!s.k)),n:subs.filter(s=>secured(s)&&!s.k).length,kw:/^74/},
-    {label:"Prestations engagées",detail:"statuts signé + facturé + payé",amt:sum(prestas.filter(engagedP)),n:prestas.filter(engagedP).length,kw:/^70|prest/i}
-  ].filter(a=>a.amt>0);
-  const pipeline=sum(subs.filter(s=>s.s==="sollicitée"||s.s==="attente"))+sum(prestas.filter(p=>p.s==="négo"));
-  window._budgetAgg=agg;
-  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:780px">
+  const amtOf=x=>Math.round(((x.ob!==undefined&&x.ob!==null?x.ob:x.mt)||0)*100)/100;
+  // Une entrée par financement Airtable (pas d'agrégat)
+  const items=[
+    ...subs.map((s,idx)=>({src:"sub",idx,n:s.n,st:s.s,k:s.k||"",amt:amtOf(s),cc:s.cc||"",
+      secured:s.s==="versée"||s.s==="validée"})),
+    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.n,st:p.s,k:"",amt:amtOf(p),cc:p.cc||"",
+      secured:p.s==="payé"||p.s==="facturé"||p.s==="signé"}))
+  ].filter(it=>it.amt>0);
+  if(!items.length){alert("Aucun financement Airtable avec un montant.");return}
+  window._bfaItems=items;
+  const kwFor=it=>it.src==="presta"?/^70|prest/i:it.k==="PRIV"?/priv|fondation|dotation|mécénat|mecenat/i:it.k==="PUB"?/74[01]|publi|état|etat|collectivi/i:/^74/;
+  const stCol={"versée":"#22c55e","validée":"#60a5fa","payé":"#22c55e","facturé":"#818cf8","signé":"#60a5fa","sollicitée":"#fb923c","attente":"#facc15","négo":"#fb923c"};
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1000px">
     <h3>📋 Mise à jour du budget prévisionnel depuis Airtable</h3>
-    <p style="font-size:10px;color:var(--text-2);margin-bottom:10px">Sync du ${D.airtableSync||"?"} · version budget active : « ${D.budgetVersions[vIdx]} ».
-    Choisissez pour chaque total la ligne produit du budget à mettre à jour (ou « Ne pas mettre à jour »). Rien n'est appliqué sans votre validation.
-    Pour info, pipeline non sécurisé (sollicitées, en attente, négos) : <strong>${fmt(pipeline)}</strong> — non proposé au budget.</p>
-    <table><thead><tr><th>Total Airtable</th><th style="text-align:right">Montant</th><th>Ligne du budget à mettre à jour</th></tr></thead><tbody>`;
-  agg.forEach((a,i)=>{
-    let pre="";prodLines.forEach(x=>{if(pre===""&&a.kw.test(x.b.cat||""))pre=String(x.i)});
-    h+=`<tr><td style="font-size:10px">${a.label}<div style="font-size:8px;color:var(--text-3)">${a.n} ligne(s) · ${a.detail}</div></td>
-      <td class="cre" style="font-family:var(--mono);white-space:nowrap;text-align:right">${fmt(a.amt)}</td>
-      <td><select class="ms" id="bfa_${i}" style="max-width:320px">
-        <option value="">— Ne pas mettre à jour —</option>
-        ${prodLines.map(x=>`<option value="${x.i}"${String(x.i)===pre?" selected":""}>${(x.b.cat||"(sans code)").substring(0,42)} — actuel : ${fmt(x.b.versions?.[vIdx]||0)}</option>`).join("")}
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Sync du ${D.airtableSync||"?"} · version budget active : « ${D.budgetVersions[vIdx]} ».
+    ${items.length} financement(s) listé(s) individuellement. Cochez ceux à intégrer et choisissez pour chacun la ligne produit du budget.
+    Les montants des lignes affectées à une même ligne budgétaire sont additionnés. Le code choisi est mémorisé pour les prochaines synchros.</p>
+    <div style="display:flex;gap:4px;margin-bottom:6px">
+      <button class="b bd" style="font-size:9px" onclick="bfaSelect('secured')">Sécurisés seulement</button>
+      <button class="b bd" style="font-size:9px" onclick="bfaSelect('all')">Tout cocher</button>
+      <button class="b bd" style="font-size:9px" onclick="bfaSelect('none')">Aucun</button>
+    </div>
+    <div style="max-height:420px;overflow:auto"><table><thead><tr><th style="width:26px">✓</th><th>Financement Airtable</th><th>Statut</th><th style="text-align:right">Montant</th><th>Ligne du budget prévisionnel</th></tr></thead><tbody>`;
+  items.forEach((it,i)=>{
+    let pre="";
+    if(it.cc)prodLines.forEach(x=>{if(pre===""&&(x.b.cat||"").substring(0,8)===it.cc.substring(0,8))pre=String(x.i)});
+    if(pre==="")prodLines.forEach(x=>{if(pre===""&&kwFor(it).test(x.b.cat||""))pre=String(x.i)});
+    h+=`<tr><td><input type="checkbox" class="mo-check" id="bfaOn_${i}"${it.secured?" checked":""}></td>
+      <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(it.n||"").replace(/"/g,"&quot;")}">${it.src==="presta"?"🏢":"📋"} ${it.n}${it.k?' <span style="color:var(--text-3)">('+it.k+')</span>':""}</td>
+      <td style="font-size:9px;color:${stCol[it.st]||"#94a3b8"};font-weight:600;white-space:nowrap">${it.st}</td>
+      <td><input class="ni" id="bfaAmt_${i}" value="${it.amt}" style="width:80px;text-align:right"></td>
+      <td><select class="ms" id="bfaSel_${i}" style="max-width:300px">
+        <option value="">— Ne pas intégrer —</option>
+        ${prodLines.map(x=>`<option value="${x.i}"${String(x.i)===pre?" selected":""}>${(x.b.cat||"(sans code)").substring(0,42)}</option>`).join("")}
       </select></td></tr>`;
   });
-  h+=`</tbody></table>
-    <label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-size:10px;color:var(--text-2);cursor:pointer">
-      <input type="checkbox" id="bfaNewVer"> Créer une nouvelle version du budget avant d'appliquer (conserve « ${D.budgetVersions[vIdx]} » intact)
+  h+=`</tbody></table></div>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:10px;color:var(--text-2);cursor:pointer">
+      <input type="checkbox" id="bfaNewVer" checked> Créer une nouvelle version du budget avant d'appliquer (conserve « ${D.budgetVersions[vIdx]} » intact)
     </label>
-    <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
       <button class="b bd" onclick="closeM()">Annuler</button>
-      <button class="b bp" onclick="applyBudgetAirtable()">✅ Appliquer la mise à jour</button>
+      <button class="b bp" onclick="applyBudgetAirtable()">✅ Voir le récapitulatif et appliquer</button>
     </div></div></div>`;
   $("modalC").innerHTML=h;
 }
 
 function applyBudgetAirtable(){
-  const agg=window._budgetAgg||[];
-  const sel=agg.map((a,i)=>$("bfa_"+i)?.value??"");
-  if(sel.every(v=>v==="")){alert("Aucune ligne sélectionnée, rien à appliquer.");return}
+  const items=window._bfaItems||[];
+  // Regroupement des lignes cochées par ligne budgétaire cible
+  const byBudget={};let picked=0;
+  items.forEach((it,i)=>{
+    if(!$("bfaOn_"+i)?.checked)return;
+    const v=$("bfaSel_"+i)?.value||"";if(v==="")return;
+    const amt=parseFloat(String($("bfaAmt_"+i)?.value||"").replace(",","."))||0;
+    if(!byBudget[v])byBudget[v]={amt:0,n:0};
+    byBudget[v].amt=Math.round((byBudget[v].amt+amt)*100)/100;byBudget[v].n++;
+    it._target=v;it._amt=amt;picked++;
+  });
+  if(!picked){alert("Aucune ligne cochée et affectée, rien à appliquer.");return}
   const mkVer=$("bfaNewVer")?.checked;
-  pushUndo();
   let vIdx=D.budgetVersions.length-1;
+  const recap=Object.entries(byBudget).map(([bi,o])=>{
+    const b=D.budget[parseInt(bi)];
+    return "• "+(b?.cat||"?").substring(0,40)+" : "+fmt(o.amt)+"  ("+o.n+" financement(s), avant : "+fmt(b?.versions?.[vIdx]||0)+")";
+  }).join("\n");
+  if(!confirm("Récapitulatif de la mise à jour ("+picked+" financement(s) sur "+Object.keys(byBudget).length+" ligne(s) budgétaire(s)) :\n\n"+recap+"\n\nAppliquer ?")){return}
+  pushUndo();
   if(mkVer){
     D.budgetVersions.push("Airtable "+new Date().toISOString().split("T")[0]);
     D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(b.versions[vIdx]||0)});
     vIdx=D.budgetVersions.length-1;
   }
   let applied=0;
-  agg.forEach((a,i)=>{
-    if(sel[i]==="")return;
-    const b=D.budget[parseInt(sel[i])];if(!b)return;
+  Object.entries(byBudget).forEach(([bi,o])=>{
+    const b=D.budget[parseInt(bi)];if(!b)return;
     if(!b.versions)b.versions=[];
-    b.versions[vIdx]=a.amt;applied++;
+    b.versions[vIdx]=o.amt;applied++;
+  });
+  // Mémorise le code comptable choisi sur chaque financement Airtable
+  items.forEach(it=>{
+    if(!it._target)return;
+    const cat=D.budget[parseInt(it._target)]?.cat||"";
+    if(!cat)return;
+    if(it.src==="sub"&&D.airtableSubs[it.idx])D.airtableSubs[it.idx].cc=cat;
+    if(it.src==="presta"&&D.airtablePrestas[it.idx])D.airtablePrestas[it.idx].cc=cat;
   });
   autoSave();closeM();switchTab("budget");
   alert("✅ "+applied+" ligne(s) du budget prévisionnel mise(s) à jour"+(mkVer?" (nouvelle version « "+D.budgetVersions[vIdx]+" » créée)":" (version « "+D.budgetVersions[vIdx]+" »)")+".");
