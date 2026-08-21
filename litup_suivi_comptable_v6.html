@@ -1358,22 +1358,21 @@ function autoMatchFinancements(onlyRowId){
   if(!credits.length){alert("Aucun crédit bancaire non affecté à rapprocher.");return}
   window._finList=fins;
   window._finCredits=credits.map(r=>r.id);
+  window._finSel={};window._finAmts={};
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
     <h3>🔗 Rapprochement banque ↔ financements Airtable</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:10px">${credits.length} crédit(s) non affecté(s) · ${fins.length} financement(s) Airtable (sync ${D.airtableSync||"?"}).
-    Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
+    Cliquez sur le bouton de la colonne « Financement Airtable » pour ouvrir le sélecteur avec filtres (type, public/privé, statut, montant). Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
     (versement pluriannuel), réduisez « Part exercice » : la ligne sera scindée en deux et le solde passera sur l'année indiquée.</p>
     <div style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th><th>Financement Airtable</th><th>Part exercice</th><th>Année solde</th></tr></thead><tbody>`;
   credits.forEach((r,i)=>{
     let pre=-1;
     fins.forEach((f,fi)=>{if(pre<0&&Math.abs((f.ob||f.mt||0)-r.cre)<0.02)pre=fi});
+    window._finAmts[i]=r.cre;if(pre>=0)window._finSel[i]=pre;
     h+=`<tr><td style="font-size:9px;white-space:nowrap">${(String(r.dt||"")).split("T")[0]}</td>
       <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib}</td>
       <td class="cre" style="font-family:var(--mono);white-space:nowrap">${fmt(r.cre)}</td>
-      <td><select class="ms" id="fin_${i}" style="max-width:280px">
-        <option value="">— Ne pas affecter —</option>
-        ${fins.map((f,fi)=>`<option value="${fi}"${fi===pre?" selected":""}>[${f.type}] ${f.n} · ${fmt(f.ob||f.mt||0)}${f.s?" · "+f.s:""}</option>`).join("")}
-      </select></td>
+      <td><button class="b bd" id="finBtn_${i}" style="max-width:290px;font-size:9px;text-align:left;white-space:normal;${pre>=0?"color:var(--green)":""}" onclick="openFinPicker(${i})">${pre>=0?finBtnLabel(fins[pre]):"🔍 Choisir un financement…"}</button></td>
       <td><input class="ni" id="finPart_${i}" value="${r.cre}" style="width:80px" title="Part affectée à l'exercice de la ligne"></td>
       <td><input class="cj" id="finYr_${i}" value="${(parseInt(r.yr)||new Date().getFullYear())+1}" style="width:50px;text-align:center" title="Année du solde si scission"></td></tr>`;
   });
@@ -1385,13 +1384,77 @@ function autoMatchFinancements(onlyRowId){
   $("modalC").innerHTML=h;
 }
 
+// ─── SÉLECTEUR DE FINANCEMENT AVEC FILTRES (modale au-dessus du rapprochement) ───
+function finBtnLabel(f){return (f.type==="Presta"?"🏢":"📋")+" "+f.n+" · "+fmt(f.ob||f.mt||0)+(f.s?" · "+f.s:"")}
+function finPickC(){let c=$("pickC");if(!c){c=document.createElement("div");c.id="pickC";document.body.appendChild(c)}return c}
+function closePick(){const c=$("pickC");if(c)c.innerHTML=""}
+function pickFin(i,fi){
+  if(fi===""||fi===null||fi===undefined)delete window._finSel[i];
+  else window._finSel[i]=parseInt(fi);
+  const b=$("finBtn_"+i);
+  if(b){const f=(window._finList||[])[window._finSel[i]];
+    b.innerHTML=f?finBtnLabel(f):"🔍 Choisir un financement…";
+    b.style.color=f?"var(--green)":""}
+  closePick();
+}
+function renderFinPickRows(i){
+  const fins=window._finList||[];const amt=(window._finAmts||{})[i]||0;
+  const q=($("finPq")?.value||"").toLowerCase();
+  const ty=$("finPtype")?.value||"",k=$("finPk")?.value||"",st=$("finPst")?.value||"";
+  const near=$("finPnear")?.checked;
+  const cur=(window._finSel||{})[i];
+  const list=fins.map((f,fi)=>({f,fi,ec:Math.abs((f.ob||f.mt||0)-amt)}))
+    .filter(x=>{const f=x.f;
+      if(ty&&f.type!==ty)return false;
+      if(k&&(f.k||"")!==k)return false;
+      if(st&&(f.s||"")!==st)return false;
+      if(near&&x.ec>0.02)return false;
+      if(q&&!(f.n||"").toLowerCase().includes(q))return false;
+      return true})
+    .sort((a,b)=>a.ec-b.ec||(a.f.n||"").localeCompare(b.f.n||""));
+  const body=$("finPickBody");if(!body)return;
+  body.innerHTML=list.length?list.map(x=>{const f=x.f;const exact=x.ec<0.02;
+    return `<tr style="cursor:pointer${x.fi===cur?";outline:2px solid var(--accent)":""}" onclick="pickFin(${i},${x.fi})" title="Cliquer pour affecter ce financement">
+      <td style="font-size:9px">${f.type==="Presta"?"🏢":"📋"} ${f.n}</td>
+      <td style="font-size:8px;color:var(--text-3)">${f.k||""}</td>
+      <td style="font-size:9px">${f.s||""}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(f.ob||f.mt||0)}</td>
+      <td style="font-size:9px;white-space:nowrap;color:${exact?"var(--green)":"var(--text-3)"}">${exact?"✅ exact":"± "+fmt(x.ec)}</td></tr>`}).join("")
+    :`<tr><td colspan="5" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement ne correspond à ces filtres.</td></tr>`;
+  const cnt=$("finPcount");if(cnt)cnt.textContent=list.length+" / "+fins.length;
+}
+function openFinPicker(i){
+  const fins=window._finList||[];
+  const row=D.rows.find(r=>r.id===(window._finCredits||[])[i])||{};
+  const amt=(window._finAmts||{})[i]||row.cre||0;
+  const sts=[...new Set(fins.map(f=>f.s).filter(Boolean))].sort();
+  finPickC().innerHTML=`<div class="modal-bg" style="z-index:1100" onclick="if(event.target===this)closePick()"><div class="modal" style="max-width:780px">
+    <h3>🔍 Choisir le financement</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Virement : <strong>${(String(row.dt||"")).split("T")[0]}</strong> · ${(row.lib||"").substring(0,60)} · <strong class="cre">${fmt(amt)}</strong></p>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+      <input class="cf" id="finPq" placeholder="🔍 Nom du financeur" style="width:170px;font-size:10px;padding:4px 6px" oninput="renderFinPickRows(${i})">
+      <select class="ms" id="finPtype" onchange="renderFinPickRows(${i})"><option value="">Tous types</option><option>Subvention</option><option>Presta</option></select>
+      <select class="ms" id="finPk" onchange="renderFinPickRows(${i})"><option value="">Public + privé</option><option value="PUB">Public</option><option value="PRIV">Privé</option></select>
+      <select class="ms" id="finPst" onchange="renderFinPickRows(${i})"><option value="">Tous statuts</option>${sts.map(s=>`<option>${s}</option>`).join("")}</select>
+      <label style="font-size:9px;color:var(--text-2);cursor:pointer;display:flex;gap:3px;align-items:center" title="N'afficher que les financements du montant exact du virement"><input type="checkbox" id="finPnear" onchange="renderFinPickRows(${i})"> montant exact</label>
+      <span id="finPcount" style="font-size:9px;color:var(--text-3);margin-left:auto"></span>
+    </div>
+    <div style="max-height:340px;overflow:auto"><table><thead><tr><th>Financement</th><th>Nature</th><th>Statut</th><th style="text-align:right">Montant</th><th>Écart</th></tr></thead><tbody id="finPickBody"></tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:space-between">
+      <button class="b bd" onclick="pickFin(${i},'')">✖ Ne pas affecter</button>
+      <button class="b bd" onclick="closePick()">Fermer</button>
+    </div></div></div>`;
+  renderFinPickRows(i);
+  const q=$("finPq");if(q)q.focus();
+}
+
 function applyFinMatches(){
   const fins=window._finList||[];const ids=window._finCredits||[];
   let done=0,split=0;
   pushUndo();
   ids.forEach((id,i)=>{
-    const sel=$("fin_"+i);if(!sel||sel.value==="")return;
-    const f=fins[parseInt(sel.value)];if(!f)return;
+    const si=window._finSel?.[i];if(si===undefined||si===null)return;
+    const f=fins[si];if(!f)return;
     const row=D.rows.find(r=>r.id===id);if(!row)return;
     const part=parseFloat(String($("finPart_"+i)?.value||"").replace(",","."))||row.cre;
     const yr2=String($("finYr_"+i)?.value||"").trim();
