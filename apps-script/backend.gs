@@ -592,7 +592,8 @@ function getAirtableData() {
   // Subventions (3.2) — les refus sont exclus
   var subs = airtableFetchAll(AIRTABLE_TBL_SUBS,
     ["Name", "Statut subvention", "Montant attendu", "Montant obtenu",
-     "Date effective versement subvention", "Date prévue versement subvention", "Territoire affectation"])
+     "Date effective versement subvention", "Date prévue versement subvention", "Territoire affectation",
+     "Date début financement", "Date fin financement"])
     .map(function(r) {
       var f = r.fields || {};
       var st = f["Statut subvention"] || "";
@@ -603,12 +604,18 @@ function getAirtableData() {
       if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
       o.dp = f["Date effective versement subvention"] || f["Date prévue versement subvention"] || "";
       if (f["Territoire affectation"]) o.t = f["Territoire affectation"];
+      // Période de financement Airtable → année d'affectation
+      if (f["Date début financement"]) o.db = f["Date début financement"];
+      if (f["Date fin financement"]) o.df = f["Date fin financement"];
+      var ybase = o.db || o.dp || "";
+      if (ybase) o.yr = String(ybase).substring(0, 4);
       return o;
     }).filter(function(x) { return x; });
 
   // Prestas (3.4)
   var prestas = airtableFetchAll(AIRTABLE_TBL_PRESTAS,
-    ["Name", "Statut presta", "Montant attendu", "Montant obtenu", "Date effective paiement", "virement effectué", "Année action"])
+    ["Name", "Statut presta", "Montant attendu", "Montant obtenu", "Date effective paiement",
+     "virement effectué", "Année action", "Date prévue financement"])
     .map(function(r) {
       var f = r.fields || {};
       if (!f["Name"]) return null;
@@ -623,8 +630,9 @@ function getAirtableData() {
         : "négo";
       var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
       if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
-      o.dp = f["Date effective paiement"] || "";
+      o.dp = f["Date effective paiement"] || f["Date prévue financement"] || "";
       if (f["Année action"]) o.yr = String(f["Année action"]);
+      else if (o.dp) o.yr = String(o.dp).substring(0, 4);
       return o;
     }).filter(function(x) { return x; });
 

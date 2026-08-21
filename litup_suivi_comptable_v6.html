@@ -1362,7 +1362,7 @@ function autoMatchFinancements(onlyRowId){
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
     <h3>🔗 Rapprochement banque ↔ financements Airtable</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:10px">${credits.length} crédit(s) non affecté(s) · ${fins.length} financement(s) Airtable (sync ${D.airtableSync||"?"}).
-    Cliquez sur le bouton de la colonne « Financement Airtable » pour ouvrir le sélecteur avec filtres (type, public/privé, statut, montant). Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
+    Cliquez sur le bouton de la colonne « Financement Airtable » pour ouvrir le sélecteur avec filtres (type, public/privé, statut, année d'affectation, période de versement, montant). L'année d'affectation Airtable est reprise comme année du solde en cas de scission. Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
     (versement pluriannuel), réduisez « Part exercice » : la ligne sera scindée en deux et le solde passera sur l'année indiquée.</p>
     <div style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th><th>Financement Airtable</th><th>Part exercice</th><th>Année solde</th></tr></thead><tbody>`;
   credits.forEach((r,i)=>{
@@ -1385,22 +1385,27 @@ function autoMatchFinancements(onlyRowId){
 }
 
 // ─── SÉLECTEUR DE FINANCEMENT AVEC FILTRES (modale au-dessus du rapprochement) ───
-function finBtnLabel(f){return (f.type==="Presta"?"🏢":"📋")+" "+f.n+" · "+fmt(f.ob||f.mt||0)+(f.s?" · "+f.s:"")}
+// Année d'affectation Airtable : "Année action" (prestas) ou année de début de financement (subventions)
+function finYear(f){const y=String(f.yr||"").trim();if(/^\d{4}$/.test(y))return y;const d=String(f.db||f.dp||"");return /^\d{4}/.test(d)?d.substring(0,4):""}
+function finBtnLabel(f){const y=finYear(f);return (f.type==="Presta"?"🏢":"📋")+" "+f.n+" · "+fmt(f.ob||f.mt||0)+(f.s?" · "+f.s:"")+(y?" · "+y:"")}
 function finPickC(){let c=$("pickC");if(!c){c=document.createElement("div");c.id="pickC";document.body.appendChild(c)}return c}
 function closePick(){const c=$("pickC");if(c)c.innerHTML=""}
 function pickFin(i,fi){
   if(fi===""||fi===null||fi===undefined)delete window._finSel[i];
   else window._finSel[i]=parseInt(fi);
   const b=$("finBtn_"+i);
-  if(b){const f=(window._finList||[])[window._finSel[i]];
-    b.innerHTML=f?finBtnLabel(f):"🔍 Choisir un financement…";
+  const f=(window._finList||[])[window._finSel[i]];
+  if(b){b.innerHTML=f?finBtnLabel(f):"🔍 Choisir un financement…";
     b.style.color=f?"var(--green)":""}
+  // L'année d'affectation Airtable devient l'année proposée pour le solde en cas de scission
+  if(f){const y=finYear(f);const yi=$("finYr_"+i);if(y&&yi)yi.value=y}
   closePick();
 }
 function renderFinPickRows(i){
   const fins=window._finList||[];const amt=(window._finAmts||{})[i]||0;
   const q=($("finPq")?.value||"").toLowerCase();
   const ty=$("finPtype")?.value||"",k=$("finPk")?.value||"",st=$("finPst")?.value||"";
+  const yr=$("finPyr")?.value||"",d1=$("finPd1")?.value||"",d2=$("finPd2")?.value||"";
   const near=$("finPnear")?.checked;
   const cur=(window._finSel||{})[i];
   const list=fins.map((f,fi)=>({f,fi,ec:Math.abs((f.ob||f.mt||0)-amt)}))
@@ -1408,6 +1413,10 @@ function renderFinPickRows(i){
       if(ty&&f.type!==ty)return false;
       if(k&&(f.k||"")!==k)return false;
       if(st&&(f.s||"")!==st)return false;
+      if(yr&&finYear(f)!==yr)return false;
+      const dp=String(f.dp||"").split("T")[0];
+      if(d1&&(!dp||dp<d1))return false;
+      if(d2&&(!dp||dp>d2))return false;
       if(near&&x.ec>0.02)return false;
       if(q&&!(f.n||"").toLowerCase().includes(q))return false;
       return true})
@@ -1418,9 +1427,11 @@ function renderFinPickRows(i){
       <td style="font-size:9px">${f.type==="Presta"?"🏢":"📋"} ${f.n}</td>
       <td style="font-size:8px;color:var(--text-3)">${f.k||""}</td>
       <td style="font-size:9px">${f.s||""}</td>
+      <td style="font-size:9px;text-align:center;white-space:nowrap">${finYear(f)||"—"}</td>
+      <td style="font-size:8px;color:var(--text-3);white-space:nowrap" title="${f.db?"Financement du "+String(f.db).split("T")[0]+(f.df?" au "+String(f.df).split("T")[0]:""):""}">${String(f.dp||"").split("T")[0]||"—"}</td>
       <td style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(f.ob||f.mt||0)}</td>
       <td style="font-size:9px;white-space:nowrap;color:${exact?"var(--green)":"var(--text-3)"}">${exact?"✅ exact":"± "+fmt(x.ec)}</td></tr>`}).join("")
-    :`<tr><td colspan="5" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement ne correspond à ces filtres.</td></tr>`;
+    :`<tr><td colspan="7" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement ne correspond à ces filtres.</td></tr>`;
   const cnt=$("finPcount");if(cnt)cnt.textContent=list.length+" / "+fins.length;
 }
 function openFinPicker(i){
@@ -1428,7 +1439,8 @@ function openFinPicker(i){
   const row=D.rows.find(r=>r.id===(window._finCredits||[])[i])||{};
   const amt=(window._finAmts||{})[i]||row.cre||0;
   const sts=[...new Set(fins.map(f=>f.s).filter(Boolean))].sort();
-  finPickC().innerHTML=`<div class="modal-bg" style="z-index:1100" onclick="if(event.target===this)closePick()"><div class="modal" style="max-width:780px">
+  const yrs=[...new Set(fins.map(finYear).filter(Boolean))].sort();
+  finPickC().innerHTML=`<div class="modal-bg" style="z-index:1100" onclick="if(event.target===this)closePick()"><div class="modal" style="max-width:920px">
     <h3>🔍 Choisir le financement</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Virement : <strong>${(String(row.dt||"")).split("T")[0]}</strong> · ${(row.lib||"").substring(0,60)} · <strong class="cre">${fmt(amt)}</strong></p>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
@@ -1436,10 +1448,14 @@ function openFinPicker(i){
       <select class="ms" id="finPtype" onchange="renderFinPickRows(${i})"><option value="">Tous types</option><option>Subvention</option><option>Presta</option></select>
       <select class="ms" id="finPk" onchange="renderFinPickRows(${i})"><option value="">Public + privé</option><option value="PUB">Public</option><option value="PRIV">Privé</option></select>
       <select class="ms" id="finPst" onchange="renderFinPickRows(${i})"><option value="">Tous statuts</option>${sts.map(s=>`<option>${s}</option>`).join("")}</select>
+      <select class="ms" id="finPyr" onchange="renderFinPickRows(${i})" title="Année d'affectation Airtable"><option value="">Toutes années</option>${yrs.map(y=>`<option>${y}</option>`).join("")}</select>
+      <span style="font-size:9px;color:var(--text-3)">versement</span>
+      <input class="cf" type="date" id="finPd1" style="width:110px;font-size:9px;padding:3px 4px" title="Versement à partir de" onchange="renderFinPickRows(${i})">
+      <input class="cf" type="date" id="finPd2" style="width:110px;font-size:9px;padding:3px 4px" title="Versement jusqu'à" onchange="renderFinPickRows(${i})">
       <label style="font-size:9px;color:var(--text-2);cursor:pointer;display:flex;gap:3px;align-items:center" title="N'afficher que les financements du montant exact du virement"><input type="checkbox" id="finPnear" onchange="renderFinPickRows(${i})"> montant exact</label>
       <span id="finPcount" style="font-size:9px;color:var(--text-3);margin-left:auto"></span>
     </div>
-    <div style="max-height:340px;overflow:auto"><table><thead><tr><th>Financement</th><th>Nature</th><th>Statut</th><th style="text-align:right">Montant</th><th>Écart</th></tr></thead><tbody id="finPickBody"></tbody></table></div>
+    <div style="max-height:340px;overflow:auto"><table><thead><tr><th>Financement</th><th>Nature</th><th>Statut</th><th>Année</th><th>Versement</th><th style="text-align:right">Montant</th><th>Écart</th></tr></thead><tbody id="finPickBody"></tbody></table></div>
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:space-between">
       <button class="b bd" onclick="pickFin(${i},'')">✖ Ne pas affecter</button>
       <button class="b bd" onclick="closePick()">Fermer</button>
