@@ -177,6 +177,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <div class="dd-menu" id="dd_rappr">
       <button onclick="autoMatchNDF();closeDD()">🔗 Rapprocher NDF</button>
       <button onclick="autoMatchDepenses();closeDD()">🔗 Rapprocher dépenses</button>
+      <button onclick="autoMatchFinancements();closeDD()">🔗 Rapprocher financements</button>
     </div>
   </div>
   <button class="b bg" onclick="saveComptaToSheet()" style="font-weight:700" title="Sauvegarder vers Google Sheet">☁️ Sauvegarder</button>
@@ -1346,6 +1347,71 @@ function getAlerts(){
   return alerts;
 }
 
+// ─── RAPPROCHEMENT BANQUE ↔ FINANCEMENTS AIRTABLE (subventions + prestas) ───
+// L'affectation est tracée dans le commentaire ("Airtable: ...") : persistée au Sheet sans changer le backend.
+function finAffected(r){return (r.comment||"").includes("Airtable:")}
+function autoMatchFinancements(onlyRowId){
+  const fins=[...(D.airtableSubs||[]).map(s=>({...s,type:"Subvention"})),...(D.airtablePrestas||[]).map(p=>({...p,type:"Presta"}))];
+  if(!fins.length){alert("Aucune donnée Airtable chargée.\n\nImportez d'abord le fichier de sync via 🔄 Actualisation → 📥 Données Airtable.");return}
+  const credits=D.rows.filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!finAffected(r)&&(!onlyRowId||r.id===onlyRowId));
+  if(!credits.length){alert("Aucun crédit bancaire non affecté à rapprocher.");return}
+  window._finList=fins;
+  window._finCredits=credits.map(r=>r.id);
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
+    <h3>🔗 Rapprochement banque ↔ financements Airtable</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:10px">${credits.length} crédit(s) non affecté(s) · ${fins.length} financement(s) Airtable (sync ${D.airtableSync||"?"}).
+    Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
+    (versement pluriannuel), réduisez « Part exercice » : la ligne sera scindée en deux et le solde passera sur l'année indiquée.</p>
+    <div style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th><th>Financement Airtable</th><th>Part exercice</th><th>Année solde</th></tr></thead><tbody>`;
+  credits.forEach((r,i)=>{
+    let pre=-1;
+    fins.forEach((f,fi)=>{if(pre<0&&Math.abs((f.ob||f.mt||0)-r.cre)<0.02)pre=fi});
+    h+=`<tr><td style="font-size:9px;white-space:nowrap">${(String(r.dt||"")).split("T")[0]}</td>
+      <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib}</td>
+      <td class="cre" style="font-family:var(--mono);white-space:nowrap">${fmt(r.cre)}</td>
+      <td><select class="ms" id="fin_${i}" style="max-width:280px">
+        <option value="">— Ne pas affecter —</option>
+        ${fins.map((f,fi)=>`<option value="${fi}"${fi===pre?" selected":""}>[${f.type}] ${f.n} · ${fmt(f.ob||f.mt||0)}${f.s?" · "+f.s:""}</option>`).join("")}
+      </select></td>
+      <td><input class="ni" id="finPart_${i}" value="${r.cre}" style="width:80px" title="Part affectée à l'exercice de la ligne"></td>
+      <td><input class="cj" id="finYr_${i}" value="${(parseInt(r.yr)||new Date().getFullYear())+1}" style="width:50px;text-align:center" title="Année du solde si scission"></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Annuler</button>
+      <button class="b bp" onclick="applyFinMatches()">✅ Affecter</button>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function applyFinMatches(){
+  const fins=window._finList||[];const ids=window._finCredits||[];
+  let done=0,split=0;
+  pushUndo();
+  ids.forEach((id,i)=>{
+    const sel=$("fin_"+i);if(!sel||sel.value==="")return;
+    const f=fins[parseInt(sel.value)];if(!f)return;
+    const row=D.rows.find(r=>r.id===id);if(!row)return;
+    const part=parseFloat(String($("finPart_"+i)?.value||"").replace(",","."))||row.cre;
+    const yr2=String($("finYr_"+i)?.value||"").trim();
+    if(!row.four)row.four=f.n.replace(/^[\d._]+/,"").trim()||f.n;
+    if(!row.stat||row.stat.includes("manquant"))row.stat=f.type==="Subvention"?"Classé - Convention":"Classé - Facture";
+    row.comment=(row.comment?row.comment+" · ":"")+"Airtable: "+f.n;
+    if(part>0&&part<row.cre-0.009){
+      const reste=Math.round((row.cre-part)*100)/100;
+      row.cre=part;
+      const idx=D.rows.findIndex(r=>r.id===id);
+      D.rows.splice(idx+1,0,{...row,id:"fin"+Date.now()+"_"+i,cre:reste,yr:yr2||row.yr,
+        stat:"En attente",numj:"",driveUrl:"",driveFileId:"",
+        comment:"Airtable: "+f.n+" · part exercice "+(yr2||"suivant")});
+      split++;
+    }
+    done++;
+  });
+  autoSave();closeM();render();
+  alert(done+" crédit(s) affecté(s)"+(split?", dont "+split+" scindé(s) sur deux exercices":"")+".");
+}
+
 // ─── AUTO-MATCH BANK ↔ NDF ───
 // La banque n'a que la réf courte (N2026-XXX) mais le Sheet stocke la réf
 // complète après règlement (N2026-XXX-NOM-MMJJ) : on matche aussi par préfixe.
@@ -2201,7 +2267,7 @@ function render(){
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
-    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}${(r.cre||0)>0&&!isVirInterne(r)&&!finAffected(r)?`<button class="ib" onclick="autoMatchFinancements('${r.id}')" title="Associer à un financement Airtable">🔗</button>`:""}</td></tr>`});
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="6"></td></tr>`;
