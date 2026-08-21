@@ -598,6 +598,8 @@ function getAirtableData() {
       var st = f["Statut subvention"] || "";
       if (st === "Refus" || !f["Name"]) return null;
       var o = { n: airtableCleanName(f["Name"]), s: mapSub[st] || st || "attente", mt: f["Montant attendu"] || 0 };
+      var km = String(f["Name"]).match(/_(PUB|PRIV)"?\s*$/);
+      if (km) o.k = km[1]; // PUB / PRIV — utilisé pour la mise à jour du budget prévisionnel
       if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
       o.dp = f["Date effective versement subvention"] || f["Date prévue versement subvention"] || "";
       if (f["Territoire affectation"]) o.t = f["Territoire affectation"];
