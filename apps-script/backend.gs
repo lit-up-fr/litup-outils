@@ -584,6 +584,16 @@ function airtableCleanName(raw) {
 // Lookups Airtable : les valeurs arrivent en tableau
 function airtableFirst(v) { return Array.isArray(v) ? (v.length ? v[0] : "") : (v || ""); }
 function airtableJoin(v) { return Array.isArray(v) ? v.filter(function(x) { return x; }).join(", ") : (v || ""); }
+// Année d'affectation : déduite de la période de financement.
+// Convention Lit uP : une fin au 1er janvier borne l'exercice précédent
+// (01/01/2025 → 01/01/2026 = subvention de l'exercice 2025).
+function airtableYearEnd(df) {
+  var s = String(df || "").substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "";
+  var parts = s.split("-");
+  if (parts[1] === "01" && parts[2] === "01") return String(parseInt(parts[0], 10) - 1);
+  return parts[0];
+}
 // Montant retenu : obtenu pour un financement acquis (validé / versé / engagé), attendu sinon
 function airtableAmount(statut, obtenu, attendu) {
   var acquis = ["versée", "validée", "payé", "facturé", "signé"].indexOf(statut) >= 0;
@@ -630,8 +640,12 @@ function getAirtableData() {
       // Période de financement Airtable → année d'affectation
       if (f["Date début financement"]) o.db = f["Date début financement"];
       if (f["Date fin financement"]) o.df = f["Date fin financement"];
-      var ybase = o.db || o.dp || "";
-      if (ybase) o.yr = String(ybase).substring(0, 4);
+      if (o.db) {
+        o.yr = String(o.db).substring(0, 4);            // année de début de financement
+        o.yre = airtableYearEnd(o.df) || o.yr;          // année de fin (1er janvier = exercice précédent)
+      } else if (o.dp) {
+        o.yr = String(o.dp).substring(0, 4);
+      }
       // Montant retenu : obtenu si la subvention est validée, attendu sinon
       o.am = airtableAmount(s, o.ob, o.mt);
       return o;

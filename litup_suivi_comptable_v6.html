@@ -1393,8 +1393,27 @@ function finAmt(f){
   const hasMt=f.mt!==undefined&&f.mt!==null&&f.mt!=="";
   return acquis?(hasOb?f.ob:(hasMt?f.mt:0)):(hasMt?f.mt:(hasOb?f.ob:0));
 }
-// Année d'affectation Airtable : "Année action" (prestas) ou année de début de financement (subventions)
-function finYear(f){const y=String(f.yr||"").trim();if(/^\d{4}$/.test(y))return y;const d=String(f.db||f.dp||"");return /^\d{4}/.test(d)?d.substring(0,4):""}
+// Années d'affectation couvertes par un financement Airtable.
+// Période de financement en priorité ; convention Lit uP : une fin au 1er janvier
+// borne l'exercice précédent (01/01/2025 → 01/01/2026 = exercice 2025).
+function finYearList(f){
+  const db=String(f.db||"").substring(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(db)){
+    const a=parseInt(db.substring(0,4),10);
+    const df=String(f.df||"").substring(0,10);
+    let b=a;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(df)){
+      const p=df.split("-");
+      b=(p[1]==="01"&&p[2]==="01")?parseInt(p[0],10)-1:parseInt(p[0],10);
+    }
+    if(b<a)b=a;
+    const out=[];for(let y=a;y<=b&&y-a<8;y++)out.push(String(y));
+    return out;
+  }
+  const y=String(f.yr||"").trim();if(/^\d{4}$/.test(y))return [y];
+  const d=String(f.dp||"");return /^\d{4}/.test(d)?[d.substring(0,4)]:[];
+}
+function finYear(f){const l=finYearList(f);return l.length?(l.length>1?l[0]+"→"+l[l.length-1]:l[0]):""}
 function finBtnLabel(f){const y=finYear(f);return (f.type==="Presta"?"🏢":"📋")+" "+(f.fr||f.n)+" · "+fmt(finAmt(f))+(f.s?" · "+f.s:"")+(y?" · "+y:"")}
 function finPickC(){let c=$("pickC");if(!c){c=document.createElement("div");c.id="pickC";document.body.appendChild(c)}return c}
 function closePick(){const c=$("pickC");if(c)c.innerHTML=""}
@@ -1406,7 +1425,13 @@ function pickFin(i,fi){
   if(b){b.innerHTML=f?finBtnLabel(f):"🔍 Choisir un financement…";
     b.style.color=f?"var(--green)":""}
   // L'année d'affectation Airtable devient l'année proposée pour le solde en cas de scission
-  if(f){const y=finYear(f);const yi=$("finYr_"+i);if(y&&yi)yi.value=y}
+  if(f){
+    const yi=$("finYr_"+i);const ys=finYearList(f);
+    if(yi&&ys.length){
+      const rowYr=String((D.rows.find(r=>r.id===(window._finCredits||[])[i])||{}).yr||"");
+      yi.value=ys.filter(y=>y!==rowYr).pop()||ys[ys.length-1];
+    }
+  }
   closePick();
 }
 function renderFinPickRows(i){
@@ -1421,7 +1446,7 @@ function renderFinPickRows(i){
       if(ty&&f.type!==ty)return false;
       if(k&&(f.k||"")!==k)return false;
       if(st&&(f.s||"")!==st)return false;
-      if(yr&&finYear(f)!==yr)return false;
+      if(yr&&!finYearList(f).includes(yr))return false;
       const dp=String(f.dp||"").split("T")[0];
       if(d1&&(!dp||dp<d1))return false;
       if(d2&&(!dp||dp>d2))return false;
@@ -1435,7 +1460,7 @@ function renderFinPickRows(i){
       <td style="font-size:9px;max-width:230px;overflow:hidden">${f.type==="Presta"?"🏢":"📋"} ${f.fr||f.n}${f.fr?`<div style="font-size:8px;color:var(--text-3)">${f.n}</div>`:""}</td>
       <td style="font-size:8px;color:var(--text-3)">${f.k||""}</td>
       <td style="font-size:9px">${f.s||""}</td>
-      <td style="font-size:9px;text-align:center;white-space:nowrap">${finYear(f)||"—"}</td>
+      <td style="font-size:9px;text-align:center;white-space:nowrap" title="${f.db?"Période de financement : "+String(f.db).split("T")[0]+(f.df?" → "+String(f.df).split("T")[0]:""):"Année déduite (pas de période de financement renseignée)"}">${finYear(f)||"—"}</td>
       <td style="font-size:8px;white-space:nowrap;color:${f.dev?"var(--green)":"var(--text-3)"}" title="${f.db?"Financement du "+String(f.db).split("T")[0]+(f.df?" au "+String(f.df).split("T")[0]:""):""}${f.dpv?" · versement prévu "+String(f.dpv).split("T")[0]:""}">${f.dev?String(f.dev).split("T")[0]+" ✓":(String(f.dpv||f.dp||"").split("T")[0]?String(f.dpv||f.dp).split("T")[0]+" (prév.)":"—")}</td>
       <td style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap" title="${["versée","validée","payé","facturé","signé"].includes(f.s)?"Montant obtenu":"Montant attendu"}${f.ob!==undefined?" · obtenu "+fmt(f.ob):""}${f.mt!==undefined?" · attendu "+fmt(f.mt):""}">${fmt(finAmt(f))}</td>
       <td style="font-size:9px;white-space:nowrap;color:${exact?"var(--green)":"var(--text-3)"}">${exact?"✅ exact":"± "+fmt(x.ec)}</td></tr>`}).join("")
@@ -1447,7 +1472,7 @@ function openFinPicker(i){
   const row=D.rows.find(r=>r.id===(window._finCredits||[])[i])||{};
   const amt=(window._finAmts||{})[i]||row.cre||0;
   const sts=[...new Set(fins.map(f=>f.s).filter(Boolean))].sort();
-  const yrs=[...new Set(fins.map(finYear).filter(Boolean))].sort();
+  const yrs=[...new Set(fins.flatMap(finYearList))].sort();
   finPickC().innerHTML=`<div class="modal-bg" style="z-index:1100" onclick="if(event.target===this)closePick()"><div class="modal" style="max-width:920px">
     <h3>🔍 Choisir le financement</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Virement : <strong>${(String(row.dt||"")).split("T")[0]}</strong> · ${(row.lib||"").substring(0,60)} · <strong class="cre">${fmt(amt)}</strong></p>
