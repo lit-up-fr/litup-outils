@@ -1,0 +1,756 @@
+// ============================================
+// Lit uP — Backend Google Apps Script
+// Version : 21 août 2026 (meta en tranches 45k + sync Airtable getAirtableData)
+// Fichier versionné dans le repo : apps-script/backend.gs
+// ============================================
+
+// Configuration
+const SHEET_NDF = "NDF";
+const SHEET_COMPTA = "Compta";
+const SHEET_CONFIG = "Config";
+const SHEET_DEPENSES = "Depenses";
+
+// ─── INITIALISATION ───
+function onOpen() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName(SHEET_NDF)) {
+    const sh = ss.insertSheet(SHEET_NDF);
+    sh.getRange(1, 1, 1, 16).setValues([["ref", "salarie", "date", "status", "statusDate", "paymentDate", "isPresta", "prestaName", "lines_json", "exportDate", "modifiedBy", "modifiedAt", "total", "nbLines", "comment", "coordo"]]);
+    sh.getRange(1, 1, 1, 16).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName(SHEET_COMPTA)) {
+    const sh = ss.insertSheet(SHEET_COMPTA);
+    sh.getRange(1, 1, 1, 14).setValues([["id", "dt", "yr", "lib", "four", "cat", "act", "deb", "cre", "modal", "stat", "resp", "numj", "src"]]);
+    sh.getRange(1, 1, 1, 14).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName(SHEET_CONFIG)) {
+    const sh = ss.insertSheet(SHEET_CONFIG);
+    sh.getRange(1, 1, 1, 3).setValues([["key", "value", "updatedAt"]]);
+    sh.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName(SHEET_DEPENSES)) {
+    const sh = ss.insertSheet(SHEET_DEPENSES);
+    sh.getRange(1, 1, 1, 11).setValues([["date", "mode", "four", "desc", "amount", "code", "projet", "fileName", "driveUrl", "driveFileId", "createdAt"]]);
+    sh.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+}
+
+// ─── WEB APP ENDPOINTS ───
+function doGet(e) { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+
+function handleRequest(e) {
+  try {
+    const params = e.parameter || {};
+    const action = params.action || "";
+    const postData = e.postData ? JSON.parse(e.postData.contents) : {};
+    let result;
+    switch (action) {
+      case "getNDF": result = getNDF(params.salarie); break;
+      case "getAllNDF": result = getAllNDF(); break;
+      case "saveNDF": result = saveNDF(postData); break;
+      case "deleteNDF": result = deleteNDF(postData); break;
+      case "deleteNDFSheetOnly": result = deleteNDFSheetOnly(postData); break;
+      case "updateStatus": result = updateStatus(postData); break;
+      case "getLastNDFNumber": result = getLastNDFNumber(); break;
+      case "generateNDFPDF": result = generateNDFPDF(postData); break;
+      case "deleteDriveFile": result = deleteDriveFile(postData); break;
+      case "getConfig": result = getConfig(params.key); break;
+      case "setConfig": result = setConfig(postData.key, postData.value); break;
+      case "getCompta": result = getCompta(); break;
+      case "saveCompta": result = saveCompta(postData); break;
+      case "getDepenses": result = getDepenses(); break;
+      case "saveDepenses": result = saveDepenses(postData); break;
+      case "init": onOpen(); result = { ok: true, message: "Onglets initialisés" }; break;
+      case "uploadJustif": result = uploadJustif(postData); break;
+      case "ocrJustif": result = ocrJustif(postData); break;
+      case "renameDriveFolder": result = renameDriveFolder(postData); break;
+      case "getCodesCompta": result = getCodesCompta(); break;
+      case "setCodesCompta": result = setCodesCompta(postData); break;
+      case "getAirtableData": result = getAirtableData(); break;
+      default: result = { error: "Action inconnue: " + action };
+    }
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.message, stack: (err.stack || "").substring(0, 500) })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ─── NDF FUNCTIONS ───
+function getNDF(salarie) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NDF);
+  if (!sh) return { ndfs: [] };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const ndfs = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((h, j) => row[h] = data[i][j]);
+    if (!salarie || row.salarie === salarie) {
+      try { row.lines = JSON.parse(row.lines_json || "[]"); } catch (e) { row.lines = []; }
+      delete row.lines_json;
+      ndfs.push(row);
+    }
+  }
+  return { ndfs };
+}
+
+function getAllNDF() { return getNDF(null); }
+
+function saveNDF(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_NDF);
+  if (!sh) { onOpen(); sh = ss.getSheetByName(SHEET_NDF); }
+  const ndfs = data.ndfs || [data];
+  const salarie = data.salarie || "";
+  const now = new Date().toISOString();
+  let saved = 0;
+  ndfs.forEach(ndf => {
+    const ref = ndf.ref || "";
+    if (!ref) return;
+    const total = (ndf.lines || []).reduce((s, l) => s + (l.amount || l.deb || 0), 0);
+    const rowData = [
+      ref, ndf.salarie || salarie, ndf.date || "", ndf.status || "à envoyer",
+      ndf.statusDate || "", ndf.paymentDate || "",
+      ndf.isPresta ? "TRUE" : "FALSE", ndf.isPresta ? (ndf.salarie || "") : "",
+      JSON.stringify(ndf.lines || []), now.split("T")[0],
+      data.modifiedBy || salarie, now, total, (ndf.lines || []).length,
+      ndf.prestaComment || "", ndf.coordo || data.coordo || ""
+    ];
+    var allData = sh.getDataRange().getValues();
+    var found = false;
+    for (var i = 1; i < allData.length; i++) {
+      if (allData[i][0] === ref && allData[i][1] === (ndf.salarie || salarie)) {
+        sh.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+        found = true; break;
+      }
+    }
+    if (!found) {
+      // ANTI-DOUBLON: si c'est un ref provisoire (NDF-xxx ou IK-xxx),
+      // vérifier qu'il n'existe pas déjà une ligne officielle (N2026-xxx)
+      // pour le même salarié avec un statut plus avancé (validée/réglée)
+      var dominated = false;
+      if (ref.match(/^(NDF|IK)-/)) {
+        var ndfSalarie = ndf.salarie || salarie;
+        var ndfDate = (ndf.date || "").toString().split("T")[0];
+        for (var j = 1; j < allData.length; j++) {
+          var existRef = (allData[j][0] || "").toString();
+          var existSalarie = (allData[j][1] || "").toString();
+          var existDate = (allData[j][2] || "").toString().split("T")[0];
+          var existStatus = (allData[j][3] || "").toString();
+          if (existRef.match(/^N2026-/) && existSalarie === ndfSalarie && existDate === ndfDate
+              && (existStatus === "réglée" || existStatus === "validée")) {
+            dominated = true;
+            break;
+          }
+        }
+      }
+      if (!dominated) {
+        sh.appendRow(rowData);
+      }
+    }
+    saved++;
+  });
+  return { ok: true, saved };
+}
+
+function deleteNDF(data) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NDF);
+  if (!sh) return { error: "Onglet NDF non trouvé" };
+  var ref = data.ref || "";
+  var salarie = data.salarie || "";
+  if (!ref) return { error: "Ref manquante" };
+  var allData = sh.getDataRange().getValues();
+  for (var i = allData.length - 1; i >= 1; i--) {
+    if (allData[i][0] === ref && (!salarie || allData[i][1] === salarie)) {
+      sh.deleteRow(i + 1);
+      // Also try to trash the Drive folder
+      try {
+        var parentId = "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P";
+        var parent = DriveApp.getFolderById(parentId);
+        var folders = parent.getFoldersByName(ref);
+        if (folders.hasNext()) {
+          var folder = folders.next();
+          folder.setTrashed(true);
+        }
+      } catch (e) { /* ignore Drive errors */ }
+      return { ok: true, deleted: ref };
+    }
+  }
+  return { ok: true, notFound: ref };
+}
+
+// Delete NDF from Sheet ONLY (no Drive deletion — used during règlement/renaming)
+function deleteNDFSheetOnly(data) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NDF);
+  if (!sh) return { error: "Onglet NDF non trouvé" };
+  var ref = data.ref || "";
+  if (!ref) return { error: "Ref manquante" };
+  var allData = sh.getDataRange().getValues();
+  for (var i = allData.length - 1; i >= 1; i--) {
+    if (allData[i][0] === ref) {
+      sh.deleteRow(i + 1);
+      return { ok: true, deleted: ref };
+    }
+  }
+  return { ok: true, notFound: ref };
+}
+
+// FIX: updateStatus ne crée JAMAIS de nouvelles lignes — mise à jour uniquement
+function updateStatus(data) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NDF);
+  if (!sh) return { error: "Onglet NDF non trouvé" };
+  const updates = data.updates || [];
+  const director = data.director || "Direction";
+  let updated = 0, skipped = 0;
+  updates.forEach(u => {
+    var allData = sh.getDataRange().getValues();
+    var found = false;
+    for (let i = 1; i < allData.length; i++) {
+      if (allData[i][0] === u.ref) {
+        sh.getRange(i + 1, 4).setValue(u.status);
+        sh.getRange(i + 1, 5).setValue(u.statusDate);
+        sh.getRange(i + 1, 6).setValue(u.paymentDate);
+        sh.getRange(i + 1, 11).setValue(director);
+        sh.getRange(i + 1, 12).setValue(new Date().toISOString());
+        updated++; found = true; break;
+      }
+    }
+    // NE PLUS CRÉER de ligne si non trouvée — évite les doublons fantômes
+    if (!found) skipped++;
+  });
+  return { ok: true, updated, skipped };
+}
+
+// ─── GET LAST NDF NUMBER ───
+function getLastNDFNumber() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NDF);
+  if (!sh) return { lastNumber: 0 };
+  var allData = sh.getDataRange().getValues();
+  var maxNum = 0;
+  for (var i = 1; i < allData.length; i++) {
+    var ref = allData[i][0] || "";
+    var m = ref.match(/^N2026-(\d+)/);
+    if (m) {
+      var num = parseInt(m[1]);
+      if (num > maxNum) maxNum = num;
+    }
+  }
+  return { lastNumber: maxNum };
+}
+
+// ─── CONFIG FUNCTIONS ───
+function getConfig(key) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
+  if (!sh) return { value: null };
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === key) return { key, value: data[i][1] };
+  }
+  return { key, value: null };
+}
+
+function setConfig(key, value) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_CONFIG);
+  if (!sh) { onOpen(); sh = ss.getSheetByName(SHEET_CONFIG); }
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === key) {
+      sh.getRange(i + 1, 2).setValue(value);
+      sh.getRange(i + 1, 3).setValue(new Date().toISOString());
+      return { ok: true };
+    }
+  }
+  sh.appendRow([key, value, new Date().toISOString()]);
+  return { ok: true };
+}
+
+// ─── CONFIG EN TRANCHES (contournement limite 50 000 caractères par cellule) ───
+// Une valeur longue est découpée en tranches de 45 000 caractères :
+// baseKey (tranche 0), baseKey_1, baseKey_2..., et baseKey_count = nombre de tranches.
+// Rétrocompatible : sans baseKey_count, on lit la cellule unique comme avant.
+var META_CHUNK_SIZE = 45000;
+
+function setConfigChunked(baseKey, str) {
+  str = str || "";
+  var n = Math.max(1, Math.ceil(str.length / META_CHUNK_SIZE));
+  for (var i = 0; i < n; i++) {
+    var key = i === 0 ? baseKey : baseKey + "_" + i;
+    setConfig(key, str.substring(i * META_CHUNK_SIZE, (i + 1) * META_CHUNK_SIZE));
+  }
+  // Vider les anciennes tranches devenues inutiles
+  var j = n;
+  while (j < 50 && (getConfig(baseKey + "_" + j).value || "") !== "") {
+    setConfig(baseKey + "_" + j, "");
+    j++;
+  }
+  setConfig(baseKey + "_count", String(n));
+  return n;
+}
+
+function getConfigChunked(baseKey) {
+  var count = parseInt(getConfig(baseKey + "_count").value || "1", 10);
+  if (isNaN(count) || count < 1) count = 1;
+  var s = getConfig(baseKey).value || "";
+  for (var i = 1; i < count; i++) {
+    s += getConfig(baseKey + "_" + i).value || "";
+  }
+  return s;
+}
+
+// ─── COMPTA FUNCTIONS ───
+function getCompta() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_COMPTA);
+  if (!sh) return { rows: [] };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const rows = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((h, j) => row[h] = data[i][j]);
+    rows.push(row);
+  }
+  // Also load metadata from Config (recollée depuis les tranches)
+  var meta = {};
+  try {
+    var metaStr = getConfigChunked("compta_meta");
+    if (metaStr) meta = JSON.parse(metaStr);
+  } catch(e) {}
+  return { rows, meta };
+}
+
+function saveCompta(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_COMPTA);
+  if (!sh) { onOpen(); sh = ss.getSheetByName(SHEET_COMPTA); }
+  if (data.rows && data.rows.length) {
+    const headers = ["id", "dt", "yr", "lib", "four", "cat", "act", "deb", "cre", "modal", "stat", "resp", "numj", "src", "ndf", "compte", "driveUrl", "comment"];
+    sh.clear();
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+    const rowData = data.rows.map(r => headers.map(h => r[h] !== undefined && r[h] !== null ? r[h] : ""));
+    if (rowData.length) sh.getRange(2, 1, rowData.length, headers.length).setValues(rowData);
+  }
+  // Save metadata (ctr, ndfBuffer, depBuffer, rules, etc.) — en tranches de 45k
+  var metaError = "";
+  var metaChunks = 0;
+  if (data.meta) {
+    try {
+      metaChunks = setConfigChunked("compta_meta", JSON.stringify(data.meta));
+    } catch(e) { metaError = e.message; }
+  }
+  var result = { ok: true, saved: (data.rows||[]).length, metaChunks: metaChunks, timestamp: new Date().toISOString() };
+  if (metaError) result.metaError = "Lignes sauvées mais métadonnées en échec : " + metaError;
+  return result;
+}
+
+// ─── DEPENSES FUNCTIONS ───
+function getDepenses() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_DEPENSES);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_DEPENSES);
+    sh.getRange(1, 1, 1, 11).setValues([["date", "mode", "four", "desc", "amount", "code", "projet", "fileName", "driveUrl", "driveFileId", "createdAt"]]);
+    sh.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+  var data = sh.getDataRange().getValues();
+  var headers = data[0];
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = {};
+    headers.forEach(function(h, j) { row[h] = data[i][j]; });
+    rows.push(row);
+  }
+  return { rows: rows };
+}
+
+function saveDepenses(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_DEPENSES);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_DEPENSES);
+    sh.getRange(1, 1, 1, 11).setValues([["date", "mode", "four", "desc", "amount", "code", "projet", "fileName", "driveUrl", "driveFileId", "createdAt"]]);
+    sh.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#f3f4f6");
+    sh.setFrozenRows(1);
+  }
+  var rows = data.rows || [];
+  if (!rows.length) return { error: "Pas de données" };
+  var headers = ["date", "mode", "four", "desc", "amount", "code", "projet", "fileName", "driveUrl", "driveFileId", "createdAt"];
+  sh.clear();
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold").setBackground("#f3f4f6");
+  sh.setFrozenRows(1);
+  var rowData = rows.map(function(r) { return headers.map(function(h) { return r[h] || ""; }); });
+  if (rowData.length) sh.getRange(2, 1, rowData.length, headers.length).setValues(rowData);
+  return { ok: true, saved: rowData.length };
+}
+
+// ─── DRIVE UPLOAD ───
+function uploadJustif(data) {
+  var folderId = data.folderId || "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P";
+  var folder = DriveApp.getFolderById(folderId);
+  var fileName = data.fileName || "justif.pdf";
+  var fileData = data.fileData;
+  var ndfRef = data.ndfRef || "";
+  var base64 = fileData.replace(/^data:[^;]+;base64,/, "");
+  var contentType = fileData.match(/^data:([^;]+);/);
+  contentType = contentType ? contentType[1] : "application/octet-stream";
+  var targetFolder;
+  if (ndfRef) {
+    var subFolders = folder.getFoldersByName(ndfRef);
+    targetFolder = subFolders.hasNext() ? subFolders.next() : folder.createFolder(ndfRef);
+  } else {
+    targetFolder = folder;
+  }
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64), contentType, fileName);
+  var file = targetFolder.createFile(blob);
+  return { ok: true, fileId: file.getId(), fileUrl: file.getUrl(), fileName: fileName };
+}
+
+// ─── OCR VIA ANTHROPIC API (CÔTÉ SERVEUR) ───
+function ocrJustif(data) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
+  if (!apiKey) return { error: "Clé API Anthropic non configurée dans les propriétés du script" };
+
+  var fileData = data.fileData || "";
+  var fileType = data.fileType || "image/jpeg";
+  if (!fileData) return { error: "Pas de fichier" };
+
+  var base64 = fileData.replace(/^data:[^;]+;base64,/, "");
+  var contentTypeMatch = fileData.match(/^data:([^;]+);/);
+  var mediaType = contentTypeMatch ? contentTypeMatch[1] : fileType;
+
+  var content = [];
+  var isImage = mediaType.indexOf("image/") === 0;
+  var isPDF = mediaType === "application/pdf";
+
+  if (isImage) {
+    if (mediaType === "image/jpg") mediaType = "image/jpeg";
+    if (["image/jpeg", "image/png", "image/gif", "image/webp"].indexOf(mediaType) < 0) mediaType = "image/jpeg";
+    content.push({ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } });
+  } else if (isPDF) {
+    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } });
+  } else {
+    return { error: "Type de fichier non supporté: " + mediaType };
+  }
+
+  content.push({
+    type: "text",
+    text: "Analyse ce justificatif (facture, ticket, reçu). Extrais et réponds UNIQUEMENT avec un objet JSON:\n{\"date\":\"YYYY-MM-DD\",\"montant\":12.50,\"fournisseur\":\"Nom\",\"description\":\"Objet de la dépense\"}\nRègles: date au format ISO, montant en nombre décimal, fournisseur = nom de l'enseigne/société. Si une info est illisible ou absente, mettre null."
+  });
+
+  try {
+    var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      payload: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: content }] }),
+      muteHttpExceptions: true
+    });
+
+    var respCode = response.getResponseCode();
+    var respBody = response.getContentText();
+    if (respCode !== 200) return { error: "API Anthropic HTTP " + respCode + ": " + respBody.substring(0, 200) };
+
+    var respData = JSON.parse(respBody);
+    var text = "";
+    (respData.content || []).forEach(function(c) { if (c.text) text += c.text; });
+
+    var jsonMatch = text.match(/\{[\s\S]*?\}/);
+    if (!jsonMatch) return { error: "Pas de JSON dans la réponse", raw: text.substring(0, 200) };
+
+    var parsed = JSON.parse(jsonMatch[0].replace(/```json|```/g, "").trim());
+    return { ok: true, data: parsed };
+  } catch (e) {
+    return { error: "OCR error: " + e.message };
+  }
+}
+
+// ─── RENAME DRIVE FOLDER ───
+function renameDriveFolder(data) {
+  var parentFolderId = data.parentFolderId || "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P";
+  var oldName = data.oldName || "";
+  var newName = data.newName || "";
+  if (!oldName || !newName) return { error: "oldName et newName requis" };
+  try {
+    var parent = DriveApp.getFolderById(parentFolderId);
+    // Try folders first
+    var folders = parent.getFoldersByName(oldName);
+    if (folders.hasNext()) {
+      var folder = folders.next();
+      folder.setName(newName);
+      return { ok: true, renamed: true, type: "folder", oldName: oldName, newName: newName, id: folder.getId() };
+    }
+    // Then try files (for renaming justificatifs)
+    var files = parent.getFilesByName(oldName);
+    if (files.hasNext()) {
+      var file = files.next();
+      file.setName(newName);
+      return { ok: true, renamed: true, type: "file", oldName: oldName, newName: newName, id: file.getId() };
+    }
+    // Also search recursively in subfolders (1 level deep)
+    var subFolders = parent.getFolders();
+    while (subFolders.hasNext()) {
+      var sub = subFolders.next();
+      var subFiles = sub.getFilesByName(oldName);
+      if (subFiles.hasNext()) {
+        var sf = subFiles.next();
+        sf.setName(newName);
+        return { ok: true, renamed: true, type: "file-in-subfolder", oldName: oldName, newName: newName, id: sf.getId(), folder: sub.getName() };
+      }
+    }
+    return { ok: true, notFound: oldName, message: "Ni dossier ni fichier trouvé" };
+  } catch (e) {
+    return { error: "Erreur renommage: " + e.message };
+  }
+}
+
+// ─── CODES COMPTA (cats, acts, rules) ───
+function getCodesCompta() {
+  var catsStr = getConfig("compta_cats");
+  var actsStr = getConfig("compta_acts");
+  var rulesStr = getConfig("compta_rules");
+  return {
+    cats: catsStr.value ? JSON.parse(catsStr.value) : null,
+    acts: actsStr.value ? JSON.parse(actsStr.value) : null,
+    rules: rulesStr.value ? JSON.parse(rulesStr.value) : null
+  };
+}
+
+function setCodesCompta(data) {
+  var now = new Date().toISOString();
+  if (data.cats) setConfig("compta_cats", JSON.stringify(data.cats));
+  if (data.acts) setConfig("compta_acts", JSON.stringify(data.acts));
+  if (data.rules) setConfig("compta_rules", JSON.stringify(data.rules));
+  return { ok: true, saved: true };
+}
+
+// ─── DELETE DRIVE FILE ───
+function deleteDriveFile(data) {
+  var fileId = data.fileId;
+  if (!fileId) return { error: "fileId requis" };
+  try {
+    var file = DriveApp.getFileById(fileId);
+    file.setTrashed(true);
+    return { ok: true, deleted: fileId };
+  } catch (e) {
+    return { error: "Erreur suppression: " + e.message };
+  }
+}
+
+// ─── SYNC AIRTABLE (codes projets + subventions + prestas) ───
+// Jeton en LECTURE SEULE à créer sur https://airtable.com/create/tokens
+// (scope data.records:read, accès à la base "Bases de données Lit uP"),
+// puis à coller dans Apps Script → ⚙️ Paramètres du projet → Propriétés du script → AIRTABLE_TOKEN
+var AIRTABLE_BASE_ID = "appWof91rLGFIUnrT";
+var AIRTABLE_TBL_SUBS = "tbl580knux5PUZxfm";      // 3.2 Suivi subventions
+var AIRTABLE_TBL_PRESTAS = "tblUC6S6JiCDNJI2G";   // 3.4 Suivi prestas commanditaires
+var AIRTABLE_TBL_PARCOURS = "tbl7jv5UM8DPR5Sa6";  // 4. Parcours (codes projets)
+
+function airtableFetchAll(tableId, fields) {
+  var token = PropertiesService.getScriptProperties().getProperty("AIRTABLE_TOKEN");
+  if (!token) throw new Error("AIRTABLE_TOKEN non configuré dans les propriétés du script");
+  var records = [];
+  var offset = "";
+  do {
+    var url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/" + tableId + "?pageSize=100"
+      + fields.map(function(f) { return "&fields%5B%5D=" + encodeURIComponent(f); }).join("")
+      + (offset ? "&offset=" + encodeURIComponent(offset) : "");
+    var resp = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token }, muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) {
+      throw new Error("Airtable HTTP " + resp.getResponseCode() + " : " + resp.getContentText().substring(0, 200));
+    }
+    var data = JSON.parse(resp.getContentText());
+    records = records.concat(data.records || []);
+    offset = data.offset || "";
+  } while (offset);
+  return records;
+}
+
+// "1_Préfecture de Paris_PUB" → "Préfecture de Paris 1"
+function airtableCleanName(raw) {
+  var s = String(raw || "").replace(/\s+/g, " ").trim();
+  s = s.replace(/_(PUB|PRIV|MLDS|E2C|Mission Locale|Autres)"?$/, "").replace(/^"|"$/g, "");
+  var m = s.match(/^([\d.]*)_(.*)$/);
+  if (m) return (m[2].trim() + (m[1] ? " " + m[1] : "")).trim();
+  return s;
+}
+
+function getAirtableData() {
+  var mapSub = {
+    "validée et versée": "versée",
+    "validée et non versée": "validée",
+    "attente retour dépôt dossier": "sollicitée",
+    "prévue mais non validée": "attente",
+    "Renouvellement - dossier à déposer": "attente"
+  };
+  // Subventions (3.2) — les refus sont exclus
+  var subs = airtableFetchAll(AIRTABLE_TBL_SUBS,
+    ["Name", "Statut subvention", "Montant attendu", "Montant obtenu",
+     "Date effective versement subvention", "Date prévue versement subvention", "Territoire affectation"])
+    .map(function(r) {
+      var f = r.fields || {};
+      var st = f["Statut subvention"] || "";
+      if (st === "Refus" || !f["Name"]) return null;
+      var o = { n: airtableCleanName(f["Name"]), s: mapSub[st] || st || "attente", mt: f["Montant attendu"] || 0 };
+      if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
+      o.dp = f["Date effective versement subvention"] || f["Date prévue versement subvention"] || "";
+      if (f["Territoire affectation"]) o.t = f["Territoire affectation"];
+      return o;
+    }).filter(function(x) { return x; });
+
+  // Prestas (3.4)
+  var prestas = airtableFetchAll(AIRTABLE_TBL_PRESTAS,
+    ["Name", "Statut presta", "Montant attendu", "Montant obtenu", "Date effective paiement", "virement effectué", "Année action"])
+    .map(function(r) {
+      var f = r.fields || {};
+      if (!f["Name"]) return null;
+      var st = String(f["Statut presta"] || "");
+      var s = f["virement effectué"] ? "payé"
+        : st.indexOf("1.") === 0 ? "négo"
+        : st.indexOf("2.") === 0 ? "signé"
+        : st.indexOf("3.") === 0 ? "signé"
+        : st.indexOf("4.") === 0 ? "facturé"
+        : st.indexOf("5.") === 0 ? "facturé"
+        : st.indexOf("6.") === 0 ? "payé"
+        : "négo";
+      var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
+      if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
+      o.dp = f["Date effective paiement"] || "";
+      if (f["Année action"]) o.yr = String(f["Année action"]);
+      return o;
+    }).filter(function(x) { return x; });
+
+  // Codes projets (4. Parcours) : label "BU92 - MLDS - Hyères 3" + territoire
+  var acts = airtableFetchAll(AIRTABLE_TBL_PARCOURS, ["Parcours", "Territoire_texte"])
+    .map(function(r) {
+      var f = r.fields || {};
+      var l = String(f["Parcours"] || "").replace(/\s+/g, " ").trim();
+      if (!l) return null;
+      return { l: l, t: String(f["Territoire_texte"] || "NAT").trim() || "NAT" };
+    }).filter(function(x) { return x; });
+
+  return { ok: true, subs: subs, prestas: prestas, acts: acts, syncedAt: new Date().toISOString() };
+}
+
+// ─── GENERATE NDF PDF RECAP ───
+function generateNDFPDF(data) {
+  var ref = data.ref || "";
+  var salarie = data.salarie || "";
+  var date = (data.date || "").split("T")[0];
+  var lines = data.lines || [];
+  var status = data.status || "réglée";
+  var paymentDate = (data.paymentDate || "").split("T")[0];
+  var validationDate = (data.statusDate || "").split("T")[0];
+  var director = data.director || "Direction";
+  var isPresta = data.isPresta || false;
+  var comment = data.prestaComment || "";
+  
+  if (!ref || !salarie) return { error: "Ref et salarie requis" };
+  
+  var total = 0;
+  lines.forEach(function(l) { total += (l.amount || 0); });
+  
+  // Check if there are IK lines and get CV
+  var hasIK = false;
+  var cvValue = "";
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].type === "ik") { hasIK = true; cvValue = lines[i].cv || ""; break; }
+  }
+  
+  // Build simple HTML for PDF conversion
+  var rows = "";
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    var type = l.type === "ik" ? "IK" : "Dépense";
+    var amt = (l.amount || 0).toFixed(2).replace(".", ",");
+    var d = (l.date || "").split("T")[0];
+    var km = l.type === "ik" && l.km ? " (" + l.km + " km)" : "";
+    var justif = l.fileName ? l.fileName : "<i style='color:#888'>Ce récapitulatif tient lieu de justificatif</i>";
+    rows += "<tr><td>" + (i+1) + "</td><td>" + d + "</td><td>" + type + "</td><td>" + (l.desc || "") + km + "</td><td>" + (l.four || "") + "</td><td style='text-align:right'>" + amt + " EUR</td><td>" + (l.code || "") + "</td><td>" + justif + "</td></tr>";
+  }
+  
+  var commentHtml = comment ? "<p style='background:#fffbeb;padding:8px;border:1px solid #fde68a;border-radius:4px;font-size:10px'><b>Commentaire :</b> " + comment + "</p>" : "";
+  
+  var html = "<html><head><style>"
+    + "body{font-family:Helvetica,Arial,sans-serif;font-size:11px;color:#333;margin:30px}"
+    + "h1{font-size:16px;color:#00989D;margin-bottom:2px}"
+    + "h2{font-size:12px;color:#666;margin-top:0;font-weight:normal}"
+    + ".info{margin:12px 0;padding:10px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:4px;font-size:10px}"
+    + "table{width:100%;border-collapse:collapse;margin-top:10px;font-size:9px}"
+    + "th{background:#00989D;color:white;padding:4px 6px;text-align:left}"
+    + "td{padding:3px 6px;border-bottom:1px solid #eee}"
+    + ".total{font-size:13px;font-weight:bold;text-align:right;margin-top:8px;color:#00989D}"
+    + ".footer{margin-top:20px;padding-top:8px;border-top:1px solid #ddd;font-size:8px;color:#999}"
+    + "</style></head><body>"
+    + "<h1>Note de Frais " + ref + "</h1>"
+    + "<h2>" + salarie + (isPresta ? " (Prestataire)" : "") + "</h2>"
+    + "<div class='info'>"
+    + "<b>Date :</b> " + date + " | "
+    + "<b>Lignes :</b> " + lines.length + " | "
+    + "<b>Total TTC :</b> " + total.toFixed(2).replace(".",",") + " EUR | "
+    + "<b>Statut :</b> " + status
+    + (paymentDate ? " | <b>Réglée le :</b> " + paymentDate : "")
+    + "</div>"
+    + (hasIK ? "<div class='info' style='margin-top:6px'><b>Indemnités kilométriques :</b> barème fiscal " + (cvValue || "?") + " CV</div>" : "")
+    + commentHtml
+    + "<table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Description</th><th>Fournisseur</th><th style='text-align:right'>Montant</th><th>Code projet</th><th>Justificatif</th></tr></thead><tbody>"
+    + rows
+    + "</tbody></table>"
+    + "<div class='total'>Total : " + total.toFixed(2).replace(".",",") + " EUR</div>"
+    + "<div class='footer'>Valide par " + director + (validationDate ? " le " + validationDate : "") + " | Genere le " + new Date().toISOString().split("T")[0] + " | Lit uP - Association loi 1901 - SIRET 903 045 987 00018</div>"
+    + "</body></html>";
+  
+  var blob = HtmlService.createHtmlOutput(html).getBlob().setName(ref + "_recap.pdf").getAs("application/pdf");
+  
+  // Find or create the NDF folder
+  var parentId = "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P";
+  var parent = DriveApp.getFolderById(parentId);
+  var folders = parent.getFoldersByName(ref);
+  var folder = folders.hasNext() ? folders.next() : parent.createFolder(ref);
+  
+  // Delete existing recap
+  var existing = folder.getFilesByName(ref + "_recap.pdf");
+  while (existing.hasNext()) existing.next().setTrashed(true);
+  
+  var file = folder.createFile(blob);
+  return { ok: true, fileId: file.getId(), fileUrl: file.getUrl(), fileName: ref + "_recap.pdf" };
+}
+
+// ─── TEST FUNCTIONS ───
+function testUpload() {
+  var result = uploadJustif({ ndfRef: "TEST6", fileName: "test.txt", fileData: "data:text/plain;base64,SGVsbG8gTGl0IHVQ" });
+  Logger.log(JSON.stringify(result));
+}
+
+function testOCR() {
+  var result = ocrJustif({ fileData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5CYII=", fileType: "image/png" });
+  Logger.log(JSON.stringify(result));
+}
+
+function forceDriveAuth() {
+  var folder = DriveApp.getFolderById("17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P");
+  Logger.log("Folder name: " + folder.getName());
+}
+
+// ─── TEST : vérifier l'écriture meta en tranches ───
+function testMetaChunked() {
+  var big = "";
+  for (var i = 0; i < 60000; i++) big += "x";
+  var n = setConfigChunked("test_meta", big);
+  var back = getConfigChunked("test_meta");
+  Logger.log("Tranches écrites : " + n + " | Relu identique : " + (back === big) + " (" + back.length + " caractères)");
+}
+
+// ─── TEST : vérifier la sync Airtable ───
+function testAirtable() {
+  var r = getAirtableData();
+  Logger.log((r.subs ? r.subs.length : 0) + " subventions | " + (r.prestas ? r.prestas.length : 0) + " prestas | " + (r.acts ? r.acts.length : 0) + " codes projets");
+  Logger.log("Exemple sub : " + JSON.stringify((r.subs || [])[0]));
+  Logger.log("Exemple code : " + JSON.stringify((r.acts || [])[0]));
+}
