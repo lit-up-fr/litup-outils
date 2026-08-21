@@ -581,6 +581,18 @@ function airtableCleanName(raw) {
   return s;
 }
 
+// Lookups Airtable : les valeurs arrivent en tableau
+function airtableFirst(v) { return Array.isArray(v) ? (v.length ? v[0] : "") : (v || ""); }
+function airtableJoin(v) { return Array.isArray(v) ? v.filter(function(x) { return x; }).join(", ") : (v || ""); }
+// Montant retenu : obtenu pour un financement acquis (validé / versé / engagé), attendu sinon
+function airtableAmount(statut, obtenu, attendu) {
+  var acquis = ["versée", "validée", "payé", "facturé", "signé"].indexOf(statut) >= 0;
+  var hasOb = obtenu !== undefined && obtenu !== null && obtenu !== "";
+  var hasMt = attendu !== undefined && attendu !== null && attendu !== "";
+  if (acquis) return hasOb ? obtenu : (hasMt ? attendu : 0);
+  return hasMt ? attendu : (hasOb ? obtenu : 0);
+}
+
 function getAirtableData() {
   var mapSub = {
     "validée et versée": "versée",
@@ -593,22 +605,35 @@ function getAirtableData() {
   var subs = airtableFetchAll(AIRTABLE_TBL_SUBS,
     ["Name", "Statut subvention", "Montant attendu", "Montant obtenu",
      "Date effective versement subvention", "Date prévue versement subvention", "Territoire affectation",
-     "Date début financement", "Date fin financement"])
+     "Date début financement", "Date fin financement",
+     "Financeur (from Notes)", "Type financeur (from Notes)"])
     .map(function(r) {
       var f = r.fields || {};
-      var st = f["Statut subvention"] || "";
-      if (st === "Refus" || !f["Name"]) return null;
-      var o = { n: airtableCleanName(f["Name"]), s: mapSub[st] || st || "attente", mt: f["Montant attendu"] || 0 };
-      var km = String(f["Name"]).match(/_(PUB|PRIV)"?\s*$/);
-      if (km) o.k = km[1]; // PUB / PRIV — utilisé pour la mise à jour du budget prévisionnel
+      var st = String(f["Statut subvention"] || "");
+      // Les refus ne sont jamais remontés
+      if (/refus/i.test(st) || !f["Name"]) return null;
+      var s = mapSub[st] || st || "attente";
+      var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
       if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
-      o.dp = f["Date effective versement subvention"] || f["Date prévue versement subvention"] || "";
+      // Type de financeur : champ Airtable dédié, sinon suffixe du nom
+      var tf = airtableFirst(f["Type financeur (from Notes)"]);
+      var km = String(f["Name"]).match(/_(PUB|PRIV)"?\s*$/);
+      if (tf) o.k = String(tf).toUpperCase(); else if (km) o.k = km[1];
+      // Financeur (nom lisible, plusieurs possibles)
+      var fr = airtableJoin(f["Financeur (from Notes)"]);
+      if (fr) o.fr = fr;
+      // Dates de versement : prévue et effective conservées séparément
+      if (f["Date prévue versement subvention"]) o.dpv = f["Date prévue versement subvention"];
+      if (f["Date effective versement subvention"]) o.dev = f["Date effective versement subvention"];
+      o.dp = o.dev || o.dpv || "";
       if (f["Territoire affectation"]) o.t = f["Territoire affectation"];
       // Période de financement Airtable → année d'affectation
       if (f["Date début financement"]) o.db = f["Date début financement"];
       if (f["Date fin financement"]) o.df = f["Date fin financement"];
       var ybase = o.db || o.dp || "";
       if (ybase) o.yr = String(ybase).substring(0, 4);
+      // Montant retenu : obtenu si la subvention est validée, attendu sinon
+      o.am = airtableAmount(s, o.ob, o.mt);
       return o;
     }).filter(function(x) { return x; });
 
@@ -630,9 +655,12 @@ function getAirtableData() {
         : "négo";
       var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
       if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
-      o.dp = f["Date effective paiement"] || f["Date prévue financement"] || "";
+      if (f["Date prévue financement"]) o.dpv = f["Date prévue financement"];
+      if (f["Date effective paiement"]) o.dev = f["Date effective paiement"];
+      o.dp = o.dev || o.dpv || "";
       if (f["Année action"]) o.yr = String(f["Année action"]);
       else if (o.dp) o.yr = String(o.dp).substring(0, 4);
+      o.am = airtableAmount(s, o.ob, o.mt);
       return o;
     }).filter(function(x) { return x; });
 

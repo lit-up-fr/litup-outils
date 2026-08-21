@@ -1367,7 +1367,7 @@ function autoMatchFinancements(onlyRowId){
     <div style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th><th>Financement Airtable</th><th>Part exercice</th><th>Année solde</th></tr></thead><tbody>`;
   credits.forEach((r,i)=>{
     let pre=-1;
-    fins.forEach((f,fi)=>{if(pre<0&&Math.abs((f.ob||f.mt||0)-r.cre)<0.02)pre=fi});
+    fins.forEach((f,fi)=>{if(pre<0&&Math.abs(finAmt(f)-r.cre)<0.02)pre=fi});
     window._finAmts[i]=r.cre;if(pre>=0)window._finSel[i]=pre;
     h+=`<tr><td style="font-size:9px;white-space:nowrap">${(String(r.dt||"")).split("T")[0]}</td>
       <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib}</td>
@@ -1385,9 +1385,17 @@ function autoMatchFinancements(onlyRowId){
 }
 
 // ─── SÉLECTEUR DE FINANCEMENT AVEC FILTRES (modale au-dessus du rapprochement) ───
+// Montant retenu : obtenu si le financement est acquis (validée/versée/engagé), attendu sinon
+function finAmt(f){
+  if(f.am!==undefined&&f.am!==null&&f.am!=="")return f.am;
+  const acquis=["versée","validée","payé","facturé","signé"].includes(f.s);
+  const hasOb=f.ob!==undefined&&f.ob!==null&&f.ob!=="";
+  const hasMt=f.mt!==undefined&&f.mt!==null&&f.mt!=="";
+  return acquis?(hasOb?f.ob:(hasMt?f.mt:0)):(hasMt?f.mt:(hasOb?f.ob:0));
+}
 // Année d'affectation Airtable : "Année action" (prestas) ou année de début de financement (subventions)
 function finYear(f){const y=String(f.yr||"").trim();if(/^\d{4}$/.test(y))return y;const d=String(f.db||f.dp||"");return /^\d{4}/.test(d)?d.substring(0,4):""}
-function finBtnLabel(f){const y=finYear(f);return (f.type==="Presta"?"🏢":"📋")+" "+f.n+" · "+fmt(f.ob||f.mt||0)+(f.s?" · "+f.s:"")+(y?" · "+y:"")}
+function finBtnLabel(f){const y=finYear(f);return (f.type==="Presta"?"🏢":"📋")+" "+(f.fr||f.n)+" · "+fmt(finAmt(f))+(f.s?" · "+f.s:"")+(y?" · "+y:"")}
 function finPickC(){let c=$("pickC");if(!c){c=document.createElement("div");c.id="pickC";document.body.appendChild(c)}return c}
 function closePick(){const c=$("pickC");if(c)c.innerHTML=""}
 function pickFin(i,fi){
@@ -1408,7 +1416,7 @@ function renderFinPickRows(i){
   const yr=$("finPyr")?.value||"",d1=$("finPd1")?.value||"",d2=$("finPd2")?.value||"";
   const near=$("finPnear")?.checked;
   const cur=(window._finSel||{})[i];
-  const list=fins.map((f,fi)=>({f,fi,ec:Math.abs((f.ob||f.mt||0)-amt)}))
+  const list=fins.map((f,fi)=>({f,fi,ec:Math.abs(finAmt(f)-amt)}))
     .filter(x=>{const f=x.f;
       if(ty&&f.type!==ty)return false;
       if(k&&(f.k||"")!==k)return false;
@@ -1418,18 +1426,18 @@ function renderFinPickRows(i){
       if(d1&&(!dp||dp<d1))return false;
       if(d2&&(!dp||dp>d2))return false;
       if(near&&x.ec>0.02)return false;
-      if(q&&!(f.n||"").toLowerCase().includes(q))return false;
+      if(q&&!((f.n||"")+" "+(f.fr||"")).toLowerCase().includes(q))return false;
       return true})
     .sort((a,b)=>a.ec-b.ec||(a.f.n||"").localeCompare(b.f.n||""));
   const body=$("finPickBody");if(!body)return;
   body.innerHTML=list.length?list.map(x=>{const f=x.f;const exact=x.ec<0.02;
     return `<tr style="cursor:pointer${x.fi===cur?";outline:2px solid var(--accent)":""}" onclick="pickFin(${i},${x.fi})" title="Cliquer pour affecter ce financement">
-      <td style="font-size:9px">${f.type==="Presta"?"🏢":"📋"} ${f.n}</td>
+      <td style="font-size:9px;max-width:230px;overflow:hidden">${f.type==="Presta"?"🏢":"📋"} ${f.fr||f.n}${f.fr?`<div style="font-size:8px;color:var(--text-3)">${f.n}</div>`:""}</td>
       <td style="font-size:8px;color:var(--text-3)">${f.k||""}</td>
       <td style="font-size:9px">${f.s||""}</td>
       <td style="font-size:9px;text-align:center;white-space:nowrap">${finYear(f)||"—"}</td>
-      <td style="font-size:8px;color:var(--text-3);white-space:nowrap" title="${f.db?"Financement du "+String(f.db).split("T")[0]+(f.df?" au "+String(f.df).split("T")[0]:""):""}">${String(f.dp||"").split("T")[0]||"—"}</td>
-      <td style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(f.ob||f.mt||0)}</td>
+      <td style="font-size:8px;white-space:nowrap;color:${f.dev?"var(--green)":"var(--text-3)"}" title="${f.db?"Financement du "+String(f.db).split("T")[0]+(f.df?" au "+String(f.df).split("T")[0]:""):""}${f.dpv?" · versement prévu "+String(f.dpv).split("T")[0]:""}">${f.dev?String(f.dev).split("T")[0]+" ✓":(String(f.dpv||f.dp||"").split("T")[0]?String(f.dpv||f.dp).split("T")[0]+" (prév.)":"—")}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap" title="${["versée","validée","payé","facturé","signé"].includes(f.s)?"Montant obtenu":"Montant attendu"}${f.ob!==undefined?" · obtenu "+fmt(f.ob):""}${f.mt!==undefined?" · attendu "+fmt(f.mt):""}">${fmt(finAmt(f))}</td>
       <td style="font-size:9px;white-space:nowrap;color:${exact?"var(--green)":"var(--text-3)"}">${exact?"✅ exact":"± "+fmt(x.ec)}</td></tr>`}).join("")
     :`<tr><td colspan="7" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement ne correspond à ces filtres.</td></tr>`;
   const cnt=$("finPcount");if(cnt)cnt.textContent=list.length+" / "+fins.length;
@@ -2108,7 +2116,7 @@ function rTreasury(el){
     const show=(s.s==="versée"&&fV)||(s.s==="validée"&&fA2)||(s.s==="attente"&&fAt)||(s.s==="sollicitée"&&fS);
     if(!show)return;
     const mi=parseInt(dp.substring(5,7))-1;
-    if(mi>=0&&mi<12)airtableSub[mi]+=(s.ob||s.mt||0);
+    if(mi>=0&&mi<12)airtableSub[mi]+=finAmt(s);
   });
 
   // Prestations from Airtable (with filters: signé/payé=validée, facturé=validée, négo=sollicitée)
@@ -2119,7 +2127,7 @@ function rTreasury(el){
     const show=(isConfirmed&&(fA2||fV))||(isNego&&fS);
     if(!show)return;
     const mi=parseInt(dp.substring(5,7))-1;
-    if(mi>=0&&mi<12)airtablePrest[mi]+=(p.ob||p.mt||0);
+    if(mi>=0&&mi<12)airtablePrest[mi]+=finAmt(p);
   });
 
   // Non-subvention/presta produits from budget (dons, cotisations, etc.)
@@ -2208,7 +2216,7 @@ function rTreasury(el){
       h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtableSubs[${si}].yr=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtableSubs[${si}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totSub=subs.filter(s=>(s.dp||"").startsWith(compYear)).reduce((a,s)=>a+(s.ob||s.mt||0),0);
+    const totSub=subs.filter(s=>(s.dp||"").startsWith(compYear)).reduce((a,s)=>a+finAmt(s),0);
     h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td style="text-align:right">${fmt(totSub)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
     h+='</tbody></table></div>';
   }
@@ -2224,7 +2232,7 @@ function rTreasury(el){
       h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtablePrestas[${pi}].yr=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtablePrestas[${pi}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totPres=prestas.filter(p=>(p.dp||"").startsWith(compYear)).reduce((a,p)=>a+(p.ob||p.mt||0),0);
+    const totPres=prestas.filter(p=>(p.dp||"").startsWith(compYear)).reduce((a,p)=>a+finAmt(p),0);
     h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td></td><td style="text-align:right">${fmt(totPres)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
     h+='</tbody></table></div>';
   }
@@ -2266,7 +2274,7 @@ function budgetFromAirtable(){
   const prodLines=D.budget.map((b,i)=>({b,i})).filter(x=>x.b.type==="produit");
   if(!prodLines.length){alert("Le budget prévisionnel n'a aucune ligne de type Produit.\nCréez d'abord les lignes (onglet Budget prévi. → + Ligne) : subventions publiques, privées, prestations...");return}
   const vIdx=D.budgetVersions.length-1;
-  const amtOf=x=>Math.round(((x.ob!==undefined&&x.ob!==null?x.ob:x.mt)||0)*100)/100;
+  const amtOf=x=>Math.round((finAmt(x)||0)*100)/100;
   // Une entrée par financement Airtable (pas d'agrégat)
   const items=[
     ...subs.map((s,idx)=>({src:"sub",idx,n:s.n,st:s.s,k:s.k||"",amt:amtOf(s),cc:s.cc||"",
