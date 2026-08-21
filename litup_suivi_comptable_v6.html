@@ -158,7 +158,8 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <button class="b by dd-trigger" onclick="toggleDD('dd_actual')">🔄 Actualisation ▾</button>
     <div class="dd-menu" id="dd_actual">
       <button onclick="loadComptaFromSheet();closeDD()">☁️ Dernière sauvegarde</button>
-      <button onclick="importAirtable();closeDD()">📥 Données Airtable</button>
+      <button onclick="syncAirtable();closeDD()">☁️ Airtable (codes + financements)</button>
+      <button onclick="importAirtable();closeDD()">📥 Données Airtable (fichier)</button>
       <button onclick="loadNDFFromSheet();closeDD()">☁️ NDF Cloud</button>
       <button onclick="loadDepensesFromSheet();closeDD()">☁️ Dépenses Cloud</button>
       <button onclick="applyRulesToUnaffected();closeDD()">🔄 Appliquer les règles</button>
@@ -2141,6 +2142,29 @@ function rTreasury(el){
 }
 
 // ─── AIRTABLE SYNC ───
+// Actualisation directe via le backend Apps Script (jeton AIRTABLE_TOKEN côté serveur)
+async function syncAirtable(){
+  $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:380px">
+    <h3>☁️ Actualisation Airtable...</h3>
+    <p style="font-size:10px;color:#94a3b8">Codes projets · subventions · prestas</p></div></div>`;
+  try{
+    const res=await sheetAPI("getAirtableData");
+    closeM();
+    if(res.error){alert("❌ "+res.error+(String(res.error).includes("AIRTABLE_TOKEN")?"\n\nConfigurez le jeton dans Apps Script → ⚙️ Paramètres du projet → Propriétés du script.":""));return}
+    pushUndo();
+    let actsAdded=0;
+    if(res.acts&&res.acts.length){
+      const existing=new Set(D.acts.map(a=>a.l.split(" - ")[0].trim()));
+      res.acts.forEach(a=>{if(a.l&&!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);actsAdded++}});
+    }
+    if(res.subs)D.airtableSubs=res.subs;
+    if(res.prestas)D.airtablePrestas=res.prestas;
+    D.airtableSync=new Date().toISOString().split("T")[0];
+    autoSave();render();
+    alert("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nPensez à ☁️ Sauvegarder pour partager ces données.");
+  }catch(e){closeM();alert("❌ Erreur : "+e.message)}
+}
+
 function importAirtable(){
   const inp=document.createElement("input");inp.type="file";inp.accept=".json";
   inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
