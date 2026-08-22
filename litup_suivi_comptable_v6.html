@@ -2342,36 +2342,47 @@ function catForCode(code){
   const hit=(D.cats||[]).find(x=>String(x).substring(0,8)===k.substring(0,8));
   return hit||k;
 }
-function budgetFromAirtable(newVersion){
+function budgetFromAirtable(newVersion,exYear){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
   if(!subs.length&&!prestas.length){alert("Aucune donnée Airtable chargée.\nActualisez d'abord via 🔄 Actualisation → ☁️ Airtable (codes + financements).");return}
   const vIdx=curVerIdx();
+  // Un budget prévisionnel porte sur un exercice : on ne reprend que les financements de cette année
+  const exo=String(exYear||compYear||new Date().getFullYear());
+  window._bfaExo=exo;
   const prodLines=D.budget.map((b,i)=>({b,i})).filter(x=>x.b.type==="produit");
   const amtOf=x=>Math.round((finAmt(x)||0)*100)/100;
   // Une entrée par financement Airtable (pas d'agrégat)
   const items=[
-    ...subs.map((s,idx)=>({src:"sub",idx,n:s.fr||s.n,ref:s.n,st:s.s,k:s.k||"",yr:finYear(s),amt:amtOf(s),
+    ...subs.map((s,idx)=>({src:"sub",idx,n:s.fr||s.n,ref:s.n,st:s.s,k:s.k||"",yr:finYear(s),years:finYearList(s),amt:amtOf(s),
       cc:finCompte(s).code,ccSrc:finCompte(s).src,secured:s.s==="versée"||s.s==="validée"})),
-    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.fr||p.n,ref:p.n,st:p.s,k:p.cr||"",yr:finYear(p),amt:amtOf(p),
+    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.fr||p.n,ref:p.n,st:p.s,k:p.cr||"",yr:finYear(p),years:finYearList(p),amt:amtOf(p),
       cc:finCompte(p).code,ccSrc:finCompte(p).src,secured:p.s==="payé"||p.s==="facturé"||p.s==="signé"}))
-  ].filter(it=>it.amt>0);
-  if(!items.length){alert("Aucun financement Airtable avec un montant.");return}
+  ].filter(it=>it.amt>0&&it.years.includes(exo));
+  if(!items.length){
+    alert("Aucun financement Airtable affecté à l'exercice "+exo+".\n\nVérifiez les périodes de financement dans Airtable, ou choisissez un autre exercice.");
+    return}
   window._bfaItems=items;
   window._bfaNewVer=!!newVersion;
   const kwFor=it=>it.src==="presta"?/^70|prest/i:it.k==="PRIV"?/priv|fondation|dotation|mécénat|mecenat/i:it.k==="PUB"?/74[01]|publi|état|etat|collectivi/i:/^74/;
   const stCol={"versée":"#22c55e","validée":"#60a5fa","payé":"#22c55e","facturé":"#818cf8","signé":"#60a5fa","sollicitée":"#fb923c","attente":"#facc15","négo":"#fb923c"};
   const nbAt=items.filter(it=>it.ccSrc==="Airtable").length;
+  const exoYears=[...new Set([...subs.flatMap(finYearList),...prestas.flatMap(finYearList),exo])].filter(Boolean).sort();
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1080px">
     <h3>${newVersion?"🆕 Nouveau budget prévisionnel daté — recettes Airtable":"📥 Mise à jour des recettes depuis Airtable"}</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">Sync du ${D.airtableSync||"?"} · ${newVersion?"une nouvelle version datée sera créée (les charges de « "+D.budgetVersions[vIdx]+" » sont reprises telles quelles)":"version mise à jour : « "+D.budgetVersions[vIdx]+" »"}.
-    ${items.length} financement(s) · <strong>${nbAt}</strong> avec un compte comptable renseigné dans Airtable${nbAt<items.length?` · <span style="color:var(--orange,#fb923c)">${items.length-nbAt} sans compte Airtable</span> (code mémorisé ou à choisir ici)`:""}.
-    Les montants affectés au même compte sont additionnés. Les comptes absents du budget peuvent être créés (option ➕).</p>
+    <strong>${items.length}</strong> financement(s) affecté(s) à l'exercice <strong>${exo}</strong> · <strong>${nbAt}</strong> avec un compte comptable renseigné dans Airtable${nbAt<items.length?` · <span style="color:#fb923c">${items.length-nbAt} sans compte Airtable</span> (code mémorisé ou à choisir ici)`:""}.
+    Les montants affectés au même compte sont additionnés. Les comptes absents du budget peuvent être créés (option ➕).
+    Un financement pluriannuel apparaît pour chaque exercice couvert : ajustez son montant à la part de l'année.</p>
     <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center">
+      <span style="font-size:9px;color:var(--text-3)">Exercice :</span>
+      <select class="ms" style="width:80px" onchange="budgetFromAirtable(${!!newVersion},this.value)" title="Seuls les financements affectés à cet exercice sont proposés">
+        ${exoYears.map(y=>`<option${y===exo?" selected":""}>${y}</option>`).join("")}
+      </select>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('secured')">Sécurisés seulement</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('all')">Tout cocher</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('none')">Aucun</button>
       ${newVersion?`<span style="font-size:9px;color:var(--text-3);margin-left:8px">Nom de la version :</span>
-      <input class="cf" id="bfaVerName" value="Budget révisé" style="width:180px;font-size:10px;padding:3px 5px">`:""}
+      <input class="cf" id="bfaVerName" value="Budget ${exo}" style="width:180px;font-size:10px;padding:3px 5px">`:""}
     </div>
     <div style="max-height:400px;overflow:auto"><table><thead><tr><th style="width:26px">✓</th><th>Financement</th><th>Statut</th><th>Année</th><th style="text-align:right">Montant</th><th>Compte Airtable</th><th>Ligne du budget</th></tr></thead><tbody>`;
   items.forEach((it,i)=>{
@@ -2417,7 +2428,7 @@ function applyBudgetAirtable(){
   });
   if(!picked){alert("Aucune ligne cochée et affectée, rien à appliquer.");return}
   const mkVer=window._bfaNewVer||$("bfaNewVer")?.checked;
-  const verName=$("bfaVerName")?.value?.trim()||"Budget révisé";
+  const verName=$("bfaVerName")?.value?.trim()||("Budget "+(window._bfaExo||""));
   let vIdx=curVerIdx();
   const recap=Object.entries(byTarget).map(([k,o])=>{
     if(k.startsWith("new:"))return "➕ "+catForCode(k.slice(4)).substring(0,40)+" : "+fmt(o.amt)+"  ("+o.n+" financement(s), nouvelle ligne)";
@@ -2425,7 +2436,7 @@ function applyBudgetAirtable(){
     return "• "+(b?.cat||"?").substring(0,40)+" : "+fmt(o.amt)+"  ("+o.n+" financement(s), avant : "+fmt(b?.versions?.[vIdx]||0)+")";
   }).join("\n");
   const nNew=Object.keys(byTarget).filter(k=>k.startsWith("new:")).length;
-  if(!confirm((mkVer?"Nouvelle version « "+budgetVerLabel(verName)+" »\n\n":"Version « "+D.budgetVersions[vIdx]+" »\n\n")
+  if(!confirm("Exercice "+(window._bfaExo||"?")+"\n"+(mkVer?"Nouvelle version « "+budgetVerLabel(verName)+" »\n\n":"Version « "+D.budgetVersions[vIdx]+" »\n\n")
     +picked+" financement(s) sur "+Object.keys(byTarget).length+" ligne(s) budgétaire(s)"+(nNew?", dont "+nNew+" ligne(s) à créer":"")+" :\n\n"+recap+"\n\nAppliquer ?")){return}
   pushUndo();
   if(mkVer){
