@@ -2326,7 +2326,7 @@ async function syncAirtable(){
 // ─── BUDGET PRÉVISIONNEL : RECETTES DEPUIS AIRTABLE (ligne à ligne, à confirmer) ───
 function bfaSelect(mode){
   (window._bfaItems||[]).forEach((it,i)=>{const cb=$("bfaOn_"+i);if(!cb)return;
-    cb.checked=mode==="all"?true:mode==="none"?false:it.secured});
+    cb.checked=mode==="all"?true:mode==="none"?false:mode==="withcode"?!!it.cc:(it.secured&&!!it.cc)});
 }
 // Compte comptable d'un financement : Airtable fait référence, sinon le code mémorisé dans l'outil
 function finCompte(f){
@@ -2340,7 +2340,7 @@ function finCompte(f){
 function catForCode(code){
   const k=String(code||"").trim();if(!k)return"";
   const hit=(D.cats||[]).find(x=>String(x).substring(0,8)===k.substring(0,8));
-  return hit||k;
+  return hit||(k+" - à nommer");   // compte venu d'Airtable, absent du plan comptable de l'outil
 }
 function budgetFromAirtable(newVersion,exYear){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
@@ -2363,7 +2363,6 @@ function budgetFromAirtable(newVersion,exYear){
     return}
   window._bfaItems=items;
   window._bfaNewVer=!!newVersion;
-  const kwFor=it=>it.src==="presta"?/^70|prest/i:it.k==="PRIV"?/priv|fondation|dotation|mécénat|mecenat/i:it.k==="PUB"?/74[01]|publi|état|etat|collectivi/i:/^74/;
   const stCol={"versée":"#22c55e","validée":"#60a5fa","payé":"#22c55e","facturé":"#818cf8","signé":"#60a5fa","sollicitée":"#fb923c","attente":"#facc15","négo":"#fb923c"};
   const nbAt=items.filter(it=>it.ccSrc==="Airtable").length;
   const exoYears=[...new Set([...subs.flatMap(finYearList),...prestas.flatMap(finYearList),exo])].filter(Boolean).sort();
@@ -2372,13 +2371,15 @@ function budgetFromAirtable(newVersion,exYear){
     <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">Sync du ${D.airtableSync||"?"} · ${newVersion?"une nouvelle version datée sera créée (les charges de « "+D.budgetVersions[vIdx]+" » sont reprises telles quelles)":"version mise à jour : « "+D.budgetVersions[vIdx]+" »"}.
     <strong>${items.length}</strong> financement(s) affecté(s) à l'exercice <strong>${exo}</strong> · <strong>${nbAt}</strong> avec un compte comptable renseigné dans Airtable${nbAt<items.length?` · <span style="color:#fb923c">${items.length-nbAt} sans compte Airtable</span> (code mémorisé ou à choisir ici)`:""}.
     Les montants affectés au même compte sont additionnés. Les comptes absents du budget peuvent être créés (option ➕).
-    Un financement pluriannuel apparaît pour chaque exercice couvert : ajustez son montant à la part de l'année.</p>
+    Un financement pluriannuel apparaît pour chaque exercice couvert : ajustez son montant à la part de l'année.
+    ${items.filter(it=>!it.cc).length?`<br><span style="color:#fb923c">⚠️ ${items.filter(it=>!it.cc).length} financement(s) sans compte comptable connu</span> : lignes surlignées, décochées par défaut. Aucun compte n'est deviné — renseignez-le dans Airtable (3.1 Suivi financeurs) puis resynchronisez, ou choisissez-le ici.`:""}</p>
     <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center">
       <span style="font-size:9px;color:var(--text-3)">Exercice :</span>
       <select class="ms" style="width:80px" onchange="budgetFromAirtable(${!!newVersion},this.value)" title="Seuls les financements affectés à cet exercice sont proposés">
         ${exoYears.map(y=>`<option${y===exo?" selected":""}>${y}</option>`).join("")}
       </select>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('secured')">Sécurisés seulement</button>
+      <button class="b bd" style="font-size:9px" onclick="bfaSelect('withcode')" title="Ne cocher que les financements dont le compte comptable est connu">Avec compte connu</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('all')">Tout cocher</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('none')">Aucun</button>
       ${newVersion?`<span style="font-size:9px;color:var(--text-3);margin-left:8px">Nom de la version :</span>
@@ -2388,16 +2389,17 @@ function budgetFromAirtable(newVersion,exYear){
   items.forEach((it,i)=>{
     let pre="";
     if(it.cc)prodLines.forEach(x=>{if(pre===""&&(x.b.cat||"").substring(0,8)===it.cc.substring(0,8))pre=String(x.i)});
-    if(pre===""&&it.cc)pre="new:"+it.cc;                                   // compte connu mais absent du budget
-    if(pre==="")prodLines.forEach(x=>{if(pre===""&&kwFor(it).test(x.b.cat||""))pre=String(x.i)});
+    if(pre===""&&it.cc)pre="new:"+it.cc;   // compte connu (Airtable ou mémorisé) mais absent du budget
+    // Aucune déduction automatique : sans compte connu, la ligne reste à renseigner à la main
     const newOpt=it.cc&&!prodLines.some(x=>(x.b.cat||"").substring(0,8)===it.cc.substring(0,8))
       ?`<option value="new:${it.cc}"${pre==="new:"+it.cc?" selected":""}>➕ Créer la ligne ${catForCode(it.cc).substring(0,40)}</option>`:"";
-    h+=`<tr><td><input type="checkbox" class="mo-check" id="bfaOn_${i}"${it.secured?" checked":""}></td>
+    const noCode=!it.cc;
+    h+=`<tr${noCode?' style="background:rgba(251,146,60,.07);border-left:3px solid #fb923c"':""}><td><input type="checkbox" class="mo-check" id="bfaOn_${i}"${it.secured&&!noCode?" checked":""}></td>
       <td style="font-size:9px;max-width:210px;overflow:hidden"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.src==="presta"?"🏢":"📋"} ${it.n}${it.k?' <span style="color:var(--text-3)">('+it.k+')</span>':""}</div>${it.ref&&it.ref!==it.n?`<div style="font-size:8px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.ref}</div>`:""}</td>
       <td style="font-size:9px;color:${stCol[it.st]||"#94a3b8"};font-weight:600;white-space:nowrap">${it.st}</td>
       <td style="font-size:9px;text-align:center;white-space:nowrap">${it.yr||"—"}</td>
       <td><input class="ni" id="bfaAmt_${i}" value="${it.amt}" style="width:80px;text-align:right"></td>
-      <td style="font-size:8px;white-space:nowrap;color:${it.ccSrc==="Airtable"?"var(--green)":"var(--text-3)"}" title="${it.ccSrc==="Airtable"?"Compte comptable saisi dans Airtable (référence)":it.ccSrc==="mémorisé"?"Code mémorisé dans l'outil lors d'une affectation précédente":"Aucun compte renseigné : à choisir ici"}">${it.cc?it.cc+" · "+it.ccSrc:"—"}</td>
+      <td style="font-size:8px;white-space:nowrap;color:${it.ccSrc==="Airtable"?"var(--green)":it.ccSrc==="mémorisé"?"var(--text-2)":"#fb923c"}" title="${it.ccSrc==="Airtable"?"Compte comptable saisi dans Airtable (référence)":it.ccSrc==="mémorisé"?"Code mémorisé dans l'outil lors d'une affectation précédente":"Aucun compte dans Airtable : à choisir ici, ou à renseigner dans Airtable (3.1 Suivi financeurs) puis resynchroniser"}">${it.cc?it.cc+" · "+it.ccSrc:"⚠️ à renseigner"}</td>
       <td><select class="ms" id="bfaSel_${i}" style="max-width:290px">
         <option value="">— Ne pas intégrer —</option>
         ${newOpt}
