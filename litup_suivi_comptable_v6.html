@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22c</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1979,6 +1979,7 @@ function rBudget(el){
     <button class="b bb" onclick="addBudgetVersion()">+ Version vierge</button>
     <button class="b bp" onclick="budgetFromAirtable(true)" title="Créer une nouvelle version datée et y injecter les recettes Airtable (comptes Airtable prioritaires, création des comptes manquants)">🆕 Nouveau budget daté (recettes Airtable)</button>
     <button class="b bb" onclick="budgetFromAirtable(false)" title="Mettre à jour les recettes de la version affichée">📥 Recettes Airtable</button>
+    <button class="b bd" onclick="nameAccountsFromAirtable()" title="Donner un libellé aux comptes créés à partir d'un code Airtable (74194100 → Subv. privées Crédit mutuel)">🏷️ Nommer les comptes</button>
     <button class="b bp" onclick="autoSave();switchTab('comp')" title="Valider et voir Prévi. vs Réalisé">✓ Valider & Comparer</button>
     <span style="font-size:8px;color:#64748b;margin-left:auto">Solde C/C au </span>
     <input class="cj" type="date" value="${D.soldeDate||'2026-01-01'}" onchange="D.soldeDate=this.value;autoSave()" style="width:100px;font-size:8px">
@@ -2337,10 +2338,97 @@ function finCompte(f){
   return{code:"",src:""};
 }
 // Retrouve le libellé complet d'un code dans les codes comptables de l'outil (74110000 → "74110000 - ...")
+// Nom de financeur lisible : "Crédit mutuel - Alliance fédéral, ... 6" → "Crédit mutuel - Alliance fédéral"
+function finNiceName(n){
+  let s=String(n||"").replace(/^"|"$/g,"").trim();
+  s=s.split(",")[0].trim();                 // un seul financeur si plusieurs
+  s=s.replace(/\s+[\d.]+$/,"").trim();       // retire l'index de la ligne Airtable
+  return s;
+}
+// Libellé proposé pour un compte comptable, à partir des financeurs Airtable qui l'utilisent
+function labelForCode(code){
+  const k=String(code||"").trim();if(!k)return"";
+  const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
+  const match=x=>String(x.ccAt||x.cc||"").substring(0,8)===k.substring(0,8);
+  const s=subs.filter(match),p=prestas.filter(match);
+  if(s.length){
+    const noms=[...new Set(s.map(x=>finNiceName(x.n)))].filter(Boolean);
+    const pub=s.some(x=>x.k==="PUB"),priv=s.some(x=>x.k==="PRIV");
+    const pref=pub&&!priv?"Subv. pub. ":priv&&!pub?"Subv. privées ":"Subv. ";
+    if(noms.length)return k+" - "+pref+noms.slice(0,2).join(" / ");
+  }
+  if(p.length){
+    const noms=[...new Set(p.map(x=>finNiceName(x.n)))].filter(Boolean);
+    const lucr=p.some(x=>String(x.cr||"").toLowerCase()==="lucratif");
+    const pref=lucr?"Prestations lucratives ":"Prestations ";
+    if(noms.length)return k+" - "+pref+noms.slice(0,2).join(" / ");
+  }
+  return "";
+}
 function catForCode(code){
   const k=String(code||"").trim();if(!k)return"";
   const hit=(D.cats||[]).find(x=>String(x).substring(0,8)===k.substring(0,8));
-  return hit||(k+" - à nommer");   // compte venu d'Airtable, absent du plan comptable de l'outil
+  if(hit)return hit;
+  return labelForCode(k)||(k+" - à nommer");   // compte venu d'Airtable, absent du plan comptable
+}
+
+// ─── NOMMER LES COMPTES CRÉÉS À NU (code seul ou « à nommer ») ───
+function nameAccountsFromAirtable(){
+  const isBare=s=>/^\d{6,8}\s*$/.test(String(s||""))||/ - à nommer\s*$/.test(String(s||""));
+  const codes=[...new Set([
+    ...(D.budget||[]).filter(b=>isBare(b.cat)).map(b=>String(b.cat).substring(0,8)),
+    ...(D.cats||[]).filter(isBare).map(x=>String(x).substring(0,8))
+  ])].filter(Boolean).sort();
+  if(!codes.length){alert("Aucun compte sans libellé.\n\nLes comptes créés depuis Airtable portent déjà un nom.");return}
+  window._nacCodes=codes;
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:760px">
+    <h3>🏷️ Nommer les comptes comptables</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">${codes.length} compte(s) sans libellé (créés depuis un code Airtable).
+    Le libellé proposé vient des financeurs Airtable qui utilisent ce compte ; corrigez-le librement.
+    Le nouveau libellé est appliqué au plan comptable, aux lignes du budget et aux lignes déjà classées.</p>
+    <div style="max-height:400px;overflow:auto"><table><thead><tr><th>Compte</th><th>Financeurs Airtable</th><th>Libellé</th></tr></thead><tbody>`;
+  codes.forEach((k,i)=>{
+    const prop=labelForCode(k)||k+" - ";
+    const users=[...(D.airtableSubs||[]),...(D.airtablePrestas||[])]
+      .filter(x=>String(x.ccAt||x.cc||"").substring(0,8)===k).map(x=>finNiceName(x.n));
+    const uniq=[...new Set(users)].filter(Boolean);
+    h+=`<tr><td style="font-family:var(--mono);font-size:10px;white-space:nowrap">${k}</td>
+      <td style="font-size:8px;color:var(--text-3);max-width:240px;overflow:hidden">${uniq.length?uniq.slice(0,3).join(", ")+(uniq.length>3?" +"+(uniq.length-3):""):"—"}</td>
+      <td><input class="cf" id="nac_${i}" value="${prop.replace(/"/g,"&quot;")}" style="width:330px;font-size:10px;padding:3px 5px"></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Annuler</button>
+      <button class="b bp" onclick="applyAccountNames()">✅ Appliquer les libellés</button>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+
+function applyAccountNames(){
+  const codes=window._nacCodes||[];
+  const changes=[];
+  codes.forEach((k,i)=>{
+    const v=String($("nac_"+i)?.value||"").trim();
+    if(!v||v===k)return;
+    changes.push({k,v});
+  });
+  if(!changes.length){alert("Aucun libellé modifié.");return}
+  pushUndo();
+  let nb=0,nbRows=0;
+  changes.forEach(({k,v})=>{
+    // plan comptable
+    const ci=(D.cats||[]).findIndex(x=>String(x).substring(0,8)===k);
+    if(ci>=0)D.cats[ci]=v;else D.cats.push(v);
+    // lignes du budget
+    (D.budget||[]).forEach(b=>{if(String(b.cat||"").substring(0,8)===k){b.cat=v;nb++}});
+    // lignes déjà classées (le rapprochement prévi/réalisé compare le libellé complet)
+    (D.rows||[]).forEach(r=>{if(String(r.cat||"").substring(0,8)===k){r.cat=v;nbRows++}});
+    // financements Airtable dont le compte est mémorisé
+    (D.airtableSubs||[]).forEach(s=>{if(String(s.cc||"").substring(0,8)===k)s.cc=v});
+    (D.airtablePrestas||[]).forEach(pp=>{if(String(pp.cc||"").substring(0,8)===k)pp.cc=v});
+  });
+  D.cats.sort();sortBudget();autoSave();closeM();render();
+  alert("✅ "+changes.length+" compte(s) renommé(s)\n"+nb+" ligne(s) de budget · "+nbRows+" ligne(s) classée(s) mise(s) à jour\n\nPensez à ☁️ Sauvegarder.");
 }
 function budgetFromAirtable(newVersion,exYear){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];

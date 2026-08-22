@@ -1,7 +1,7 @@
 // Service worker Lit uP Outils
 // Stratégie : réseau d'abord, cache en secours (jamais de HTML périmé quand on est en ligne).
 // Incrémenter CACHE_VERSION à chaque évolution notable des fichiers.
-const CACHE_VERSION = "litup-outils-v1";
+const CACHE_VERSION = "litup-outils-v2";
 
 const PRECACHE = [
   "./",
@@ -41,8 +41,11 @@ self.addEventListener("fetch", (e) => {
   // Cross-origin (Apps Script, fonts, CDN) : réseau direct, pas d'interception
   if (url.origin !== self.location.origin) return;
 
+  // Les pages HTML sont toujours redemandées au réseau sans passer par le cache HTTP
+  // (GitHub Pages autorise 10 min de cache navigateur : sinon une mise à jour n'apparaît pas tout de suite)
+  const isDoc = req.destination === "document" || (req.headers.get("accept") || "").includes("text/html");
   e.respondWith(
-    fetch(req)
+    fetch(isDoc ? new Request(req, { cache: "no-store" }) : req)
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
