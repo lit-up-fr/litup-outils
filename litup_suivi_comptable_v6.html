@@ -2352,7 +2352,7 @@ function budgetFromAirtable(newVersion){
   const items=[
     ...subs.map((s,idx)=>({src:"sub",idx,n:s.fr||s.n,ref:s.n,st:s.s,k:s.k||"",yr:finYear(s),amt:amtOf(s),
       cc:finCompte(s).code,ccSrc:finCompte(s).src,secured:s.s==="versée"||s.s==="validée"})),
-    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.fr||p.n,ref:p.n,st:p.s,k:"",yr:finYear(p),amt:amtOf(p),
+    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.fr||p.n,ref:p.n,st:p.s,k:p.cr||"",yr:finYear(p),amt:amtOf(p),
       cc:finCompte(p).code,ccSrc:finCompte(p).src,secured:p.s==="payé"||p.s==="facturé"||p.s==="signé"}))
   ].filter(it=>it.amt>0);
   if(!items.length){alert("Aucun financement Airtable avec un montant.");return}

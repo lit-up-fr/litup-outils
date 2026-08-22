@@ -553,13 +553,34 @@ var AIRTABLE_TBL_PRESTAS = "tblUC6S6JiCDNJI2G";   // 3.4 Suivi prestas commandit
 var AIRTABLE_TBL_PARCOURS = "tbl7jv5UM8DPR5Sa6";  // 4. Parcours (codes projets)
 var AIRTABLE_TBL_ORGS = "tblN4fV5i1qwaHdf6";      // 3. Organisation partenaire (Nom + Code compta)
 
-function airtableFetchAll(tableId, fields) {
+// Champs de 3.2 Suivi subventions (IDs : robustes aux renommages de colonnes)
+var F_SUB = {
+  nom:"fldvKNv0sBS4gcjzM", statut:"fld8NUVDHdpxxD39D",
+  attendu:"fldH0o0d0M6RJOLI8", obtenu:"fld4PNd9jzYPEBkF5",
+  dateEff:"fldz716nw2nEA9i2A", datePrev:"fldWCT3DtpCBBaNdU",
+  debut:"fldOK6lBHBIOSUnZD", fin:"fldEV5mmuNomjh4Rj",
+  territoire:"fldLEW5bfpOn5mxdp", typeFin:"fldUXkQuUXi9rEREh",
+  codeCompta:"fldSN87ivIU0Vknp0"   // Code compta remonté depuis 3.1 Suivi financeurs
+};
+// Champs de 3.4 Suivi prestas commanditaires
+var F_PRE = {
+  nom:"fldkeT3JHmpS9Wum6", statut:"fldXh0tmWYWlqneWX",
+  attendu:"fldwuuyWfxDFCyWvs", obtenu:"fldTjTLSykvDxlvsp",
+  annee:"fld5RGANZhNvywSy1", datePrev:"fldDecTkWmfCLEyMX",
+  dateEff:"fldoB7E6LNUstTtPU", virement:"fldrH5eQmwRlTqfob",
+  categorieRecette:"fldmBaEZ4ytmu9nMI"   // Non lucratif / Lucratif
+};
+// Catégorie Recette → compte comptable (règle Lit uP)
+var CAT_RECETTE_COMPTE = { "non lucratif":"70600000", "lucratif":"70601000" };
+
+function airtableFetchAll(tableId, fields, byId) {
   var token = PropertiesService.getScriptProperties().getProperty("AIRTABLE_TOKEN");
   if (!token) throw new Error("AIRTABLE_TOKEN non configuré dans les propriétés du script");
   var records = [];
   var offset = "";
   do {
     var url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/" + tableId + "?pageSize=100"
+      + (byId ? "&returnFieldsByFieldId=true" : "")
       + fields.map(function(f) { return "&fields%5B%5D=" + encodeURIComponent(f); }).join("")
       + (offset ? "&offset=" + encodeURIComponent(offset) : "");
     var resp = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token }, muteHttpExceptions: true });
@@ -634,34 +655,31 @@ function getAirtableData() {
     "Renouvellement - dossier à déposer": "attente"
   };
   // Subventions (3.2) — les refus sont exclus
-  var subs = airtableFetchAll(AIRTABLE_TBL_SUBS,
-    ["Name", "Statut subvention", "Montant attendu", "Montant obtenu",
-     "Date effective versement subvention", "Date prévue versement subvention", "Territoire affectation",
-     "Date début financement", "Date fin financement",
-     "Financeur (from Notes)", "Type financeur (from Notes)"])
+  var subFields = [];
+  for (var kf in F_SUB) subFields.push(F_SUB[kf]);
+  var subs = airtableFetchAll(AIRTABLE_TBL_SUBS, subFields, true)
     .map(function(r) {
       var f = r.fields || {};
-      var st = String(f["Statut subvention"] || "");
+      var st = String(airtableFirst(f[F_SUB.statut]) || "");
       // Les refus ne sont jamais remontés
-      if (/refus/i.test(st) || !f["Name"]) return null;
+      if (/refus/i.test(st) || !f[F_SUB.nom]) return null;
       var s = mapSub[st] || st || "attente";
-      var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
-      if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
+      var nom = String(f[F_SUB.nom]);
+      var o = { n: airtableCleanName(nom), s: s, mt: f[F_SUB.attendu] || 0 };
+      if (f[F_SUB.obtenu] !== undefined) o.ob = f[F_SUB.obtenu];
       // Type de financeur : champ Airtable dédié, sinon suffixe du nom
-      var tf = airtableFirst(f["Type financeur (from Notes)"]);
-      var km = String(f["Name"]).match(/_(PUB|PRIV)"?\s*$/);
+      var tf = airtableFirst(f[F_SUB.typeFin]);
+      var km = nom.match(/_(PUB|PRIV)"?\s*$/);
       if (tf) o.k = String(tf).toUpperCase(); else if (km) o.k = km[1];
-      // Financeur (nom lisible, plusieurs possibles)
-      var fr = airtableJoin(f["Financeur (from Notes)"]);
-      if (fr) o.fr = fr;
       // Dates de versement : prévue et effective conservées séparément
-      if (f["Date prévue versement subvention"]) o.dpv = f["Date prévue versement subvention"];
-      if (f["Date effective versement subvention"]) o.dev = f["Date effective versement subvention"];
+      if (f[F_SUB.datePrev]) o.dpv = f[F_SUB.datePrev];
+      if (f[F_SUB.dateEff]) o.dev = f[F_SUB.dateEff];
       o.dp = o.dev || o.dpv || "";
-      if (f["Territoire affectation"]) o.t = f["Territoire affectation"];
+      var terr = airtableFirst(f[F_SUB.territoire]);
+      if (terr) o.t = terr;
       // Période de financement Airtable → année d'affectation
-      if (f["Date début financement"]) o.db = f["Date début financement"];
-      if (f["Date fin financement"]) o.df = f["Date fin financement"];
+      if (f[F_SUB.debut]) o.db = f[F_SUB.debut];
+      if (f[F_SUB.fin]) o.df = f[F_SUB.fin];
       if (o.db) {
         o.yr = String(o.db).substring(0, 4);            // année de début de financement
         o.yre = airtableYearEnd(o.df) || o.yr;          // année de fin (1er janvier = exercice précédent)
@@ -670,21 +688,21 @@ function getAirtableData() {
       }
       // Montant retenu : obtenu si la subvention est validée, attendu sinon
       o.am = airtableAmount(s, o.ob, o.mt);
-      // Compte comptable Airtable (référence)
-      var cc = codeFor(o.fr, f["Name"]);
+      // Compte comptable : celui d'Airtable (3.1 Suivi financeurs) fait référence
+      var cc = String(airtableFirst(f[F_SUB.codeCompta]) || "").trim() || codeFor("", nom);
       if (cc) o.ccAt = cc;
       return o;
     }).filter(function(x) { return x; });
 
   // Prestas (3.4)
-  var prestas = airtableFetchAll(AIRTABLE_TBL_PRESTAS,
-    ["Name", "Statut presta", "Montant attendu", "Montant obtenu", "Date effective paiement",
-     "virement effectué", "Année action", "Date prévue financement"])
+  var preFields = [];
+  for (var kp in F_PRE) preFields.push(F_PRE[kp]);
+  var prestas = airtableFetchAll(AIRTABLE_TBL_PRESTAS, preFields, true)
     .map(function(r) {
       var f = r.fields || {};
-      if (!f["Name"]) return null;
-      var st = String(f["Statut presta"] || "");
-      var s = f["virement effectué"] ? "payé"
+      if (!f[F_PRE.nom]) return null;
+      var st = String(airtableFirst(f[F_PRE.statut]) || "");
+      var s = f[F_PRE.virement] ? "payé"
         : st.indexOf("1.") === 0 ? "négo"
         : st.indexOf("2.") === 0 ? "signé"
         : st.indexOf("3.") === 0 ? "signé"
@@ -692,15 +710,21 @@ function getAirtableData() {
         : st.indexOf("5.") === 0 ? "facturé"
         : st.indexOf("6.") === 0 ? "payé"
         : "négo";
-      var o = { n: airtableCleanName(f["Name"]), s: s, mt: f["Montant attendu"] || 0 };
-      if (f["Montant obtenu"] !== undefined) o.ob = f["Montant obtenu"];
-      if (f["Date prévue financement"]) o.dpv = f["Date prévue financement"];
-      if (f["Date effective paiement"]) o.dev = f["Date effective paiement"];
+      var nomP = String(f[F_PRE.nom]);
+      var o = { n: airtableCleanName(nomP), s: s, mt: f[F_PRE.attendu] || 0 };
+      if (f[F_PRE.obtenu] !== undefined) o.ob = f[F_PRE.obtenu];
+      if (f[F_PRE.datePrev]) o.dpv = f[F_PRE.datePrev];
+      if (f[F_PRE.dateEff]) o.dev = f[F_PRE.dateEff];
       o.dp = o.dev || o.dpv || "";
-      if (f["Année action"]) o.yr = String(f["Année action"]);
+      var an = airtableFirst(f[F_PRE.annee]);
+      if (an) o.yr = String(an);
       else if (o.dp) o.yr = String(o.dp).substring(0, 4);
       o.am = airtableAmount(s, o.ob, o.mt);
-      var ccp = codeFor("", f["Name"]);
+      // Catégorie Recette Airtable → compte comptable
+      // Non lucratif = 70600000 · Lucratif = 70601000
+      var cr = String(airtableFirst(f[F_PRE.categorieRecette]) || "").trim();
+      if (cr) o.cr = cr;
+      var ccp = CAT_RECETTE_COMPTE[cr.toLowerCase()] || codeFor("", nomP);
       if (ccp) o.ccAt = ccp;
       return o;
     }).filter(function(x) { return x; });
@@ -831,6 +855,9 @@ function testMetaChunked() {
 // ─── TEST : vérifier la sync Airtable ───
 function testAirtable() {
   var r = getAirtableData();
+  var withCode = (r.subs || []).filter(function(s) { return s.ccAt; }).length
+               + (r.prestas || []).filter(function(p) { return p.ccAt; }).length;
+  Logger.log("Financements avec compte comptable Airtable : " + withCode);
   Logger.log((r.subs ? r.subs.length : 0) + " subventions | " + (r.prestas ? r.prestas.length : 0) + " prestas | " + (r.acts ? r.acts.length : 0) + " codes projets");
   Logger.log("Exemple sub : " + JSON.stringify((r.subs || [])[0]));
   Logger.log("Exemple code : " + JSON.stringify((r.acts || [])[0]));
