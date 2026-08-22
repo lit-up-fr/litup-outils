@@ -551,6 +551,7 @@ var AIRTABLE_BASE_ID = "appWof91rLGFIUnrT";
 var AIRTABLE_TBL_SUBS = "tbl580knux5PUZxfm";      // 3.2 Suivi subventions
 var AIRTABLE_TBL_PRESTAS = "tblUC6S6JiCDNJI2G";   // 3.4 Suivi prestas commanditaires
 var AIRTABLE_TBL_PARCOURS = "tbl7jv5UM8DPR5Sa6";  // 4. Parcours (codes projets)
+var AIRTABLE_TBL_ORGS = "tblN4fV5i1qwaHdf6";      // 3. Organisation partenaire (Nom + Code compta)
 
 function airtableFetchAll(tableId, fields) {
   var token = PropertiesService.getScriptProperties().getProperty("AIRTABLE_TOKEN");
@@ -604,6 +605,27 @@ function airtableAmount(statut, obtenu, attendu) {
 }
 
 function getAirtableData() {
+  // Comptes comptables saisis dans Airtable (3. Organisation partenaire → Code compta).
+  // Ce sont eux qui font référence : ils prennent le pas sur les codes mémorisés dans l'outil.
+  var orgCodes = {};
+  airtableFetchAll(AIRTABLE_TBL_ORGS, ["Nom", "Code compta"]).forEach(function(r) {
+    var f = r.fields || {};
+    if (f["Nom"] && f["Code compta"]) orgCodes[String(f["Nom"]).trim().toLowerCase()] = String(f["Code compta"]).trim();
+  });
+  var orgKeys = Object.keys(orgCodes);
+  // Résolution par nom exact (financeur) puis par inclusion (libellé de la ligne)
+  function codeFor(names, label) {
+    var list = String(names || "").split(",");
+    for (var i = 0; i < list.length; i++) {
+      var k = list[i].trim().toLowerCase();
+      if (k && orgCodes[k]) return orgCodes[k];
+    }
+    var lab = String(label || "").toLowerCase();
+    for (var j = 0; j < orgKeys.length; j++) {
+      if (orgKeys[j].length > 3 && lab.indexOf(orgKeys[j]) >= 0) return orgCodes[orgKeys[j]];
+    }
+    return "";
+  }
   var mapSub = {
     "validée et versée": "versée",
     "validée et non versée": "validée",
@@ -648,6 +670,9 @@ function getAirtableData() {
       }
       // Montant retenu : obtenu si la subvention est validée, attendu sinon
       o.am = airtableAmount(s, o.ob, o.mt);
+      // Compte comptable Airtable (référence)
+      var cc = codeFor(o.fr, f["Name"]);
+      if (cc) o.ccAt = cc;
       return o;
     }).filter(function(x) { return x; });
 
@@ -675,6 +700,8 @@ function getAirtableData() {
       if (f["Année action"]) o.yr = String(f["Année action"]);
       else if (o.dp) o.yr = String(o.dp).substring(0, 4);
       o.am = airtableAmount(s, o.ob, o.mt);
+      var ccp = codeFor("", f["Name"]);
+      if (ccp) o.ccAt = ccp;
       return o;
     }).filter(function(x) { return x; });
 
@@ -687,7 +714,9 @@ function getAirtableData() {
       return { l: l, t: String(f["Territoire_texte"] || "NAT").trim() || "NAT" };
     }).filter(function(x) { return x; });
 
-  return { ok: true, subs: subs, prestas: prestas, acts: acts, syncedAt: new Date().toISOString() };
+  return { ok: true, subs: subs, prestas: prestas, acts: acts,
+           orgCodes: orgCodes, orgCodesCount: orgKeys.length,
+           syncedAt: new Date().toISOString() };
 }
 
 // ─── GENERATE NDF PDF RECAP ───

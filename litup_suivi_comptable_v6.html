@@ -604,6 +604,10 @@ const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOU
 let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
+// Version du budget affichée (null = la plus récente). Préférence locale, pas une donnée partagée.
+let budgetVer=(()=>{try{const v=localStorage.getItem("litup_budgetVer");return v===null?null:parseInt(v)}catch(e){return null}})();
+function curVerIdx(){const n=(D.budgetVersions||[]).length;if(budgetVer===null||isNaN(budgetVer)||budgetVer<0||budgetVer>=n)return n-1;return budgetVer}
+function setBudgetVer(v){budgetVer=(v===""||v===null)?null:parseInt(v);try{(v===""||v===null)?localStorage.removeItem("litup_budgetVer"):localStorage.setItem("litup_budgetVer",String(budgetVer))}catch(e){}render()}
 function setStatsYear(v){statsYear=v;try{localStorage.setItem("litup_statsYear",v)}catch(e){}render()}
 function mkStatCards(arr){return arr.map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("")}
 let tresFilt={versee:true,validee:true,attente:true,sollicitee:false};
@@ -1321,7 +1325,7 @@ function exportFEC(){
 // ─── ALERTS DASHBOARD ───
 function getAlerts(){
   const alerts=[];
-  const vIdx=D.budgetVersions.length-1;
+  const vIdx=curVerIdx();
   const now=new Date();const elapsed=(now.getMonth()+1)/12;
   // NDF en attente dans le buffer
   const ndfCount=Object.keys(D.ndfBuffer||{}).length;
@@ -1962,12 +1966,19 @@ function showCfgTab(tab){
 
 // ─── BUDGET PRÉVISIONNEL ───
 function rBudget(el){
-  const vIdx=D.budgetVersions.length-1;
+  const vIdx=curVerIdx();
   let h=`<div style="padding:10px 14px;border-bottom:1px solid #1e2030;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <span style="font-size:10px;font-weight:600">Budget prévisionnel ${compYear}</span>
     <button class="b bg" onclick="addBudgetLine()">+ Ligne</button>
-    <button class="b bb" onclick="addBudgetVersion()">+ Version</button>
-    <button class="b bb" onclick="budgetFromAirtable()" title="Proposer les totaux Airtable (subventions sécurisées, prestas engagées) pour les lignes produits">📥 Depuis Airtable</button>
+    <span style="font-size:8px;color:#64748b;margin-left:6px">Version affichée :</span>
+    <select class="ms" style="max-width:220px" onchange="setBudgetVer(this.value)" title="Version utilisée aussi par Prévi. vs Réalisé et Trésorerie">
+      ${D.budgetVersions.map((v,vi)=>`<option value="${vi}"${vi===vIdx?" selected":""}>${v}</option>`).join("")}
+    </select>
+    <button class="b bd" onclick="renameBudgetVersion()" title="Renommer la version affichée" style="font-size:9px">✏️</button>
+    <button class="b bd" onclick="deleteBudgetVersion()" title="Supprimer la version affichée" style="font-size:9px;color:var(--red)">🗑</button>
+    <button class="b bb" onclick="addBudgetVersion()">+ Version vierge</button>
+    <button class="b bp" onclick="budgetFromAirtable(true)" title="Créer une nouvelle version datée et y injecter les recettes Airtable (comptes Airtable prioritaires, création des comptes manquants)">🆕 Nouveau budget daté (recettes Airtable)</button>
+    <button class="b bb" onclick="budgetFromAirtable(false)" title="Mettre à jour les recettes de la version affichée">📥 Recettes Airtable</button>
     <button class="b bp" onclick="autoSave();switchTab('comp')" title="Valider et voir Prévi. vs Réalisé">✓ Valider & Comparer</button>
     <span style="font-size:8px;color:#64748b;margin-left:auto">Solde C/C au </span>
     <input class="cj" type="date" value="${D.soldeDate||'2026-01-01'}" onchange="D.soldeDate=this.value;autoSave()" style="width:100px;font-size:8px">
@@ -1985,7 +1996,7 @@ function rBudget(el){
   </div>`;
 
   h+='<div style="overflow-x:auto;padding:0 0 12px"><table><thead><tr><th>Code comptable</th><th>Type</th>';
-  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px">${v}</th>`);
+  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px${vi===vIdx?";color:var(--accent);border-bottom:2px solid var(--accent)":""}">${v}${vi===vIdx?" ●":""}</th>`);
   h+='<th style="min-width:180px">Saisonnalité (mois)</th><th></th></tr></thead><tbody>';
 
   D.budget.forEach((b,i)=>{
@@ -2024,14 +2035,38 @@ function rBudget(el){
 
 function addBudgetLine(){D.budget.push({cat:"",type:"charge",versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]});sortBudget();autoSave();render()}
 function sortBudget(){D.budget.sort((a,b)=>{if(a.type!==b.type)return a.type==="charge"?-1:1;return(a.cat||"zzz").localeCompare(b.cat||"zzz")})}
-function addBudgetVersion(){const name=prompt("Nom de la version (ex: Révisé T2)");if(!name)return;D.budgetVersions.push(name);D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(0)});autoSave();render()}
+function budgetVerLabel(name){const d=new Date();const dt=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return (name||"Budget révisé")+" · "+dt}
+function addBudgetVersion(){
+  const name=prompt("Nom de la nouvelle version (la date du jour est ajoutée automatiquement) :","Budget révisé");
+  if(!name)return;
+  pushUndo();
+  D.budgetVersions.push(budgetVerLabel(name));
+  D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(0)});
+  autoSave();setBudgetVer(D.budgetVersions.length-1);
+}
+function renameBudgetVersion(){
+  const i=curVerIdx();if(i<0)return;
+  const v=prompt("Renommer cette version :",D.budgetVersions[i]);
+  if(v===null||!v.trim())return;
+  pushUndo();D.budgetVersions[i]=v.trim();autoSave();render();
+}
+function deleteBudgetVersion(){
+  const i=curVerIdx();
+  if(D.budgetVersions.length<2){alert("Impossible de supprimer la seule version du budget.\nCréez d'abord une autre version.");return}
+  if(!confirm("Supprimer la version « "+D.budgetVersions[i]+" » ?\n\nLes montants de cette colonne seront perdus (les autres versions sont conservées).\nAnnulable avec ↩️.")){return}
+  pushUndo();
+  D.budgetVersions.splice(i,1);
+  D.budget.forEach(b=>{if(Array.isArray(b.versions))b.versions.splice(i,1)});
+  autoSave();setBudgetVer(null);
+}
 function toggleBudgetMonth(i,mi){if(!D.budget[i].months)D.budget[i].months=[];const idx=D.budget[i].months.indexOf(mi);if(idx>=0)D.budget[i].months.splice(idx,1);else D.budget[i].months.push(mi);autoSave();render()}
 
 // ─── COMPARATIF PRÉVISIONNEL vs RÉALISÉ ───
 function rComp(el){
   const now=new Date();const curMonth=now.getMonth();// 0-indexed
   const elapsed=(curMonth+1)/12;// % of year elapsed
-  const vIdx=D.budgetVersions.length-1;// Latest version
+  const vIdx=curVerIdx();// Version sélectionnée
 
   // Compute realized by cat
   const realized={};
@@ -2100,7 +2135,7 @@ function rComp(el){
 
 // ─── TREASURY FORECAST ───
 function rTreasury(el){
-  const vIdx=D.budgetVersions.length-1;
+  const vIdx=curVerIdx();
   const subs=D.airtableSubs||[];
   let h='<div style="padding:10px 14px"><h3 style="font-size:13px;margin-bottom:4px">💰 Prévision de trésorerie '+compYear+'</h3>';
   const soldeTotal=(D.soldeInitial||0)+(D.soldeLivret||0);
@@ -2284,61 +2319,83 @@ async function syncAirtable(){
     if(res.prestas)D.airtablePrestas=res.prestas;
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
-    if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable()}
+    if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable(false)}
   }catch(e){closeM();alert("❌ Erreur : "+e.message)}
 }
 
-// ─── BUDGET PRÉVISIONNEL PRODUITS DEPUIS AIRTABLE (ligne à ligne, à confirmer manuellement) ───
+// ─── BUDGET PRÉVISIONNEL : RECETTES DEPUIS AIRTABLE (ligne à ligne, à confirmer) ───
 function bfaSelect(mode){
   (window._bfaItems||[]).forEach((it,i)=>{const cb=$("bfaOn_"+i);if(!cb)return;
     cb.checked=mode==="all"?true:mode==="none"?false:it.secured});
 }
-function budgetFromAirtable(){
+// Compte comptable d'un financement : Airtable fait référence, sinon le code mémorisé dans l'outil
+function finCompte(f){
+  const at=String(f.ccAt||"").trim();
+  if(at)return{code:at,src:"Airtable"};
+  const memo=String(f.cc||"").trim();
+  if(memo)return{code:memo,src:"mémorisé"};
+  return{code:"",src:""};
+}
+// Retrouve le libellé complet d'un code dans les codes comptables de l'outil (74110000 → "74110000 - ...")
+function catForCode(code){
+  const k=String(code||"").trim();if(!k)return"";
+  const hit=(D.cats||[]).find(x=>String(x).substring(0,8)===k.substring(0,8));
+  return hit||k;
+}
+function budgetFromAirtable(newVersion){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
   if(!subs.length&&!prestas.length){alert("Aucune donnée Airtable chargée.\nActualisez d'abord via 🔄 Actualisation → ☁️ Airtable (codes + financements).");return}
+  const vIdx=curVerIdx();
   const prodLines=D.budget.map((b,i)=>({b,i})).filter(x=>x.b.type==="produit");
-  if(!prodLines.length){alert("Le budget prévisionnel n'a aucune ligne de type Produit.\nCréez d'abord les lignes (onglet Budget prévi. → + Ligne) : subventions publiques, privées, prestations...");return}
-  const vIdx=D.budgetVersions.length-1;
   const amtOf=x=>Math.round((finAmt(x)||0)*100)/100;
   // Une entrée par financement Airtable (pas d'agrégat)
   const items=[
-    ...subs.map((s,idx)=>({src:"sub",idx,n:s.n,st:s.s,k:s.k||"",amt:amtOf(s),cc:s.cc||"",
-      secured:s.s==="versée"||s.s==="validée"})),
-    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.n,st:p.s,k:"",amt:amtOf(p),cc:p.cc||"",
-      secured:p.s==="payé"||p.s==="facturé"||p.s==="signé"}))
+    ...subs.map((s,idx)=>({src:"sub",idx,n:s.fr||s.n,ref:s.n,st:s.s,k:s.k||"",yr:finYear(s),amt:amtOf(s),
+      cc:finCompte(s).code,ccSrc:finCompte(s).src,secured:s.s==="versée"||s.s==="validée"})),
+    ...prestas.map((p,idx)=>({src:"presta",idx,n:p.fr||p.n,ref:p.n,st:p.s,k:"",yr:finYear(p),amt:amtOf(p),
+      cc:finCompte(p).code,ccSrc:finCompte(p).src,secured:p.s==="payé"||p.s==="facturé"||p.s==="signé"}))
   ].filter(it=>it.amt>0);
   if(!items.length){alert("Aucun financement Airtable avec un montant.");return}
   window._bfaItems=items;
+  window._bfaNewVer=!!newVersion;
   const kwFor=it=>it.src==="presta"?/^70|prest/i:it.k==="PRIV"?/priv|fondation|dotation|mécénat|mecenat/i:it.k==="PUB"?/74[01]|publi|état|etat|collectivi/i:/^74/;
   const stCol={"versée":"#22c55e","validée":"#60a5fa","payé":"#22c55e","facturé":"#818cf8","signé":"#60a5fa","sollicitée":"#fb923c","attente":"#facc15","négo":"#fb923c"};
-  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1000px">
-    <h3>📋 Mise à jour du budget prévisionnel depuis Airtable</h3>
-    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Sync du ${D.airtableSync||"?"} · version budget active : « ${D.budgetVersions[vIdx]} ».
-    ${items.length} financement(s) listé(s) individuellement. Cochez ceux à intégrer et choisissez pour chacun la ligne produit du budget.
-    Les montants des lignes affectées à une même ligne budgétaire sont additionnés. Le code choisi est mémorisé pour les prochaines synchros.</p>
-    <div style="display:flex;gap:4px;margin-bottom:6px">
+  const nbAt=items.filter(it=>it.ccSrc==="Airtable").length;
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1080px">
+    <h3>${newVersion?"🆕 Nouveau budget prévisionnel daté — recettes Airtable":"📥 Mise à jour des recettes depuis Airtable"}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">Sync du ${D.airtableSync||"?"} · ${newVersion?"une nouvelle version datée sera créée (les charges de « "+D.budgetVersions[vIdx]+" » sont reprises telles quelles)":"version mise à jour : « "+D.budgetVersions[vIdx]+" »"}.
+    ${items.length} financement(s) · <strong>${nbAt}</strong> avec un compte comptable renseigné dans Airtable${nbAt<items.length?` · <span style="color:var(--orange,#fb923c)">${items.length-nbAt} sans compte Airtable</span> (code mémorisé ou à choisir ici)`:""}.
+    Les montants affectés au même compte sont additionnés. Les comptes absents du budget peuvent être créés (option ➕).</p>
+    <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center">
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('secured')">Sécurisés seulement</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('all')">Tout cocher</button>
       <button class="b bd" style="font-size:9px" onclick="bfaSelect('none')">Aucun</button>
+      ${newVersion?`<span style="font-size:9px;color:var(--text-3);margin-left:8px">Nom de la version :</span>
+      <input class="cf" id="bfaVerName" value="Budget révisé" style="width:180px;font-size:10px;padding:3px 5px">`:""}
     </div>
-    <div style="max-height:420px;overflow:auto"><table><thead><tr><th style="width:26px">✓</th><th>Financement Airtable</th><th>Statut</th><th style="text-align:right">Montant</th><th>Ligne du budget prévisionnel</th></tr></thead><tbody>`;
+    <div style="max-height:400px;overflow:auto"><table><thead><tr><th style="width:26px">✓</th><th>Financement</th><th>Statut</th><th>Année</th><th style="text-align:right">Montant</th><th>Compte Airtable</th><th>Ligne du budget</th></tr></thead><tbody>`;
   items.forEach((it,i)=>{
     let pre="";
     if(it.cc)prodLines.forEach(x=>{if(pre===""&&(x.b.cat||"").substring(0,8)===it.cc.substring(0,8))pre=String(x.i)});
+    if(pre===""&&it.cc)pre="new:"+it.cc;                                   // compte connu mais absent du budget
     if(pre==="")prodLines.forEach(x=>{if(pre===""&&kwFor(it).test(x.b.cat||""))pre=String(x.i)});
+    const newOpt=it.cc&&!prodLines.some(x=>(x.b.cat||"").substring(0,8)===it.cc.substring(0,8))
+      ?`<option value="new:${it.cc}"${pre==="new:"+it.cc?" selected":""}>➕ Créer la ligne ${catForCode(it.cc).substring(0,40)}</option>`:"";
     h+=`<tr><td><input type="checkbox" class="mo-check" id="bfaOn_${i}"${it.secured?" checked":""}></td>
-      <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(it.n||"").replace(/"/g,"&quot;")}">${it.src==="presta"?"🏢":"📋"} ${it.n}${it.k?' <span style="color:var(--text-3)">('+it.k+')</span>':""}</td>
+      <td style="font-size:9px;max-width:210px;overflow:hidden"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.src==="presta"?"🏢":"📋"} ${it.n}${it.k?' <span style="color:var(--text-3)">('+it.k+')</span>':""}</div>${it.ref&&it.ref!==it.n?`<div style="font-size:8px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.ref}</div>`:""}</td>
       <td style="font-size:9px;color:${stCol[it.st]||"#94a3b8"};font-weight:600;white-space:nowrap">${it.st}</td>
+      <td style="font-size:9px;text-align:center;white-space:nowrap">${it.yr||"—"}</td>
       <td><input class="ni" id="bfaAmt_${i}" value="${it.amt}" style="width:80px;text-align:right"></td>
-      <td><select class="ms" id="bfaSel_${i}" style="max-width:300px">
+      <td style="font-size:8px;white-space:nowrap;color:${it.ccSrc==="Airtable"?"var(--green)":"var(--text-3)"}" title="${it.ccSrc==="Airtable"?"Compte comptable saisi dans Airtable (référence)":it.ccSrc==="mémorisé"?"Code mémorisé dans l'outil lors d'une affectation précédente":"Aucun compte renseigné : à choisir ici"}">${it.cc?it.cc+" · "+it.ccSrc:"—"}</td>
+      <td><select class="ms" id="bfaSel_${i}" style="max-width:290px">
         <option value="">— Ne pas intégrer —</option>
+        ${newOpt}
         ${prodLines.map(x=>`<option value="${x.i}"${String(x.i)===pre?" selected":""}>${(x.b.cat||"(sans code)").substring(0,42)}</option>`).join("")}
       </select></td></tr>`;
   });
   h+=`</tbody></table></div>
-    <label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:10px;color:var(--text-2);cursor:pointer">
-      <input type="checkbox" id="bfaNewVer" checked> Créer une nouvelle version du budget avant d'appliquer (conserve « ${D.budgetVersions[vIdx]} » intact)
-    </label>
+    ${newVersion?"":`<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:10px;color:var(--text-2);cursor:pointer">
+      <input type="checkbox" id="bfaNewVer"> Créer malgré tout une nouvelle version datée avant d'appliquer</label>`}
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
       <button class="b bd" onclick="closeM()">Annuler</button>
       <button class="b bp" onclick="applyBudgetAirtable()">✅ Voir le récapitulatif et appliquer</button>
@@ -2348,46 +2405,67 @@ function budgetFromAirtable(){
 
 function applyBudgetAirtable(){
   const items=window._bfaItems||[];
-  // Regroupement des lignes cochées par ligne budgétaire cible
-  const byBudget={};let picked=0;
+  // Regroupement des lignes cochées par cible (ligne existante ou compte à créer)
+  const byTarget={};let picked=0;
   items.forEach((it,i)=>{
     if(!$("bfaOn_"+i)?.checked)return;
     const v=$("bfaSel_"+i)?.value||"";if(v==="")return;
     const amt=parseFloat(String($("bfaAmt_"+i)?.value||"").replace(",","."))||0;
-    if(!byBudget[v])byBudget[v]={amt:0,n:0};
-    byBudget[v].amt=Math.round((byBudget[v].amt+amt)*100)/100;byBudget[v].n++;
-    it._target=v;it._amt=amt;picked++;
+    if(!byTarget[v])byTarget[v]={amt:0,n:0};
+    byTarget[v].amt=Math.round((byTarget[v].amt+amt)*100)/100;byTarget[v].n++;
+    it._target=v;picked++;
   });
   if(!picked){alert("Aucune ligne cochée et affectée, rien à appliquer.");return}
-  const mkVer=$("bfaNewVer")?.checked;
-  let vIdx=D.budgetVersions.length-1;
-  const recap=Object.entries(byBudget).map(([bi,o])=>{
-    const b=D.budget[parseInt(bi)];
+  const mkVer=window._bfaNewVer||$("bfaNewVer")?.checked;
+  const verName=$("bfaVerName")?.value?.trim()||"Budget révisé";
+  let vIdx=curVerIdx();
+  const recap=Object.entries(byTarget).map(([k,o])=>{
+    if(k.startsWith("new:"))return "➕ "+catForCode(k.slice(4)).substring(0,40)+" : "+fmt(o.amt)+"  ("+o.n+" financement(s), nouvelle ligne)";
+    const b=D.budget[parseInt(k)];
     return "• "+(b?.cat||"?").substring(0,40)+" : "+fmt(o.amt)+"  ("+o.n+" financement(s), avant : "+fmt(b?.versions?.[vIdx]||0)+")";
   }).join("\n");
-  if(!confirm("Récapitulatif de la mise à jour ("+picked+" financement(s) sur "+Object.keys(byBudget).length+" ligne(s) budgétaire(s)) :\n\n"+recap+"\n\nAppliquer ?")){return}
+  const nNew=Object.keys(byTarget).filter(k=>k.startsWith("new:")).length;
+  if(!confirm((mkVer?"Nouvelle version « "+budgetVerLabel(verName)+" »\n\n":"Version « "+D.budgetVersions[vIdx]+" »\n\n")
+    +picked+" financement(s) sur "+Object.keys(byTarget).length+" ligne(s) budgétaire(s)"+(nNew?", dont "+nNew+" ligne(s) à créer":"")+" :\n\n"+recap+"\n\nAppliquer ?")){return}
   pushUndo();
   if(mkVer){
-    D.budgetVersions.push("Airtable "+new Date().toISOString().split("T")[0]);
+    D.budgetVersions.push(budgetVerLabel(verName));
     D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(b.versions[vIdx]||0)});
     vIdx=D.budgetVersions.length-1;
   }
-  let applied=0;
-  Object.entries(byBudget).forEach(([bi,o])=>{
-    const b=D.budget[parseInt(bi)];if(!b)return;
+  let applied=0,created=0,catsAdded=0;
+  Object.entries(byTarget).forEach(([k,o])=>{
+    let b;
+    if(k.startsWith("new:")){
+      const code=k.slice(4);
+      const cat=catForCode(code);
+      if(!(D.cats||[]).some(x=>String(x).substring(0,8)===code.substring(0,8))){D.cats.push(cat);D.cats.sort();catsAdded++}
+      b=D.budget.find(x=>x.type==="produit"&&(x.cat||"").substring(0,8)===code.substring(0,8));
+      if(!b){b={cat:cat,type:"produit",versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]};D.budget.push(b);created++}
+    }else b=D.budget[parseInt(k)];
+    if(!b)return;
     if(!b.versions)b.versions=[];
+    while(b.versions.length<D.budgetVersions.length)b.versions.push(0);
     b.versions[vIdx]=o.amt;applied++;
   });
-  // Mémorise le code comptable choisi sur chaque financement Airtable
+  // Mémorise le compte retenu sur chaque financement (pré-remplissage des prochaines synchros)
   items.forEach(it=>{
     if(!it._target)return;
-    const cat=D.budget[parseInt(it._target)]?.cat||"";
+    let cat="";
+    if(it._target.startsWith("new:"))cat=catForCode(it._target.slice(4));
+    else cat=D.budget[parseInt(it._target)]?.cat||"";
     if(!cat)return;
     if(it.src==="sub"&&D.airtableSubs[it.idx])D.airtableSubs[it.idx].cc=cat;
     if(it.src==="presta"&&D.airtablePrestas[it.idx])D.airtablePrestas[it.idx].cc=cat;
   });
-  autoSave();closeM();switchTab("budget");
-  alert("✅ "+applied+" ligne(s) du budget prévisionnel mise(s) à jour"+(mkVer?" (nouvelle version « "+D.budgetVersions[vIdx]+" » créée)":" (version « "+D.budgetVersions[vIdx]+" »)")+".");
+  sortBudget();autoSave();closeM();
+  budgetVer=vIdx;try{localStorage.setItem("litup_budgetVer",String(vIdx))}catch(e){}
+  switchTab("budget");
+  alert("✅ "+applied+" ligne(s) de recettes mise(s) à jour"
+    +(created?"\n➕ "+created+" nouvelle(s) ligne(s) de budget créée(s)":"")
+    +(catsAdded?"\n🏷️ "+catsAdded+" nouveau(x) code(s) comptable(s) ajouté(s) à la configuration":"")
+    +"\n\nVersion active : « "+D.budgetVersions[vIdx]+" »"
+    +"\n\nPensez à ☁️ Sauvegarder.");
 }
 
 function importAirtable(){
