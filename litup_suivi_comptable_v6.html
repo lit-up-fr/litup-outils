@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22g</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22h</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1337,13 +1337,14 @@ function getAlerts(){
   if(unclassed)alerts.push({type:"info",icon:"📋",text:unclassed+" ligne(s) non classée(s)"});
   // Budget alerts
   const realized={};
-  D.rows.filter(r=>r.yr==="2026"&&r.cat).forEach(r=>{
-    if(!realized[r.cat])realized[r.cat]={deb:0,cre:0};
-    realized[r.cat].deb+=(r.deb||0);realized[r.cat].cre+=(r.cre||0);
+  D.rows.filter(r=>String(r.yr||"")===String(compYear)&&r.cat&&!isVirInterne(r)).forEach(r=>{
+    const k=catKey(r.cat);
+    if(!realized[k])realized[k]={deb:0,cre:0};
+    realized[k].deb+=(r.deb||0);realized[k].cre+=(r.cre||0);
   });
   D.budget.forEach(b=>{
     const annual=b.versions?.[vIdx]||0;if(!annual)return;
-    const real=realized[b.cat];
+    const real=realized[catKey(b.cat)];
     const realVal=b.type==="charge"?(real?.deb||0):(real?.cre||0);
     const pct=annual>0?(realVal/annual):0;
     if(b.type==="charge"&&pct>1)alerts.push({type:"danger",icon:"🔴",text:b.cat.substring(0,20)+" dépasse le budget de "+Math.round((pct-1)*100)+"%"});
@@ -1851,6 +1852,9 @@ function clearColFilter(key){
 
 // Montant non nul, signe indifférent : un remboursement se saisit en négatif dans sa colonne d'origine
 function nzAmt(v){return Math.abs(Number(v)||0)>0.0001}
+// Clé de rapprochement prévi/réalisé : le code comptable seul. Un même compte peut porter
+// des libellés différents (budget voté, libellé Airtable, saisie manuelle) : c'est le code qui fait foi.
+function catKey(c){const s=String(c||"").trim();if(!s)return"";const m=s.match(/^\d{6,8}/);return m?m[0].substring(0,8):s.toLowerCase()}
 function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._colFilters||{};const mf=window._colMultiFilters||{};
   // Les filtres des cartes de gauche sont limités à l'année sélectionnée (comme les chiffres affichés)
   const yScoped=["all","cl","uncl","noatt","chg","prd"].includes(curFilt);
@@ -2083,12 +2087,14 @@ function rComp(el){
 
   // Compute realized by cat
   const realized={};
-  D.rows.filter(r=>r.yr===compYear&&r.cat).forEach(r=>{
-    if(!realized[r.cat])realized[r.cat]={deb:0,cre:0,byMonth:{}};
-    realized[r.cat].deb+=r.deb||0;realized[r.cat].cre+=r.cre||0;
+  const compRows=D.rows.filter(r=>String(r.yr||"")===String(compYear)&&r.cat&&!isVirInterne(r));
+  compRows.forEach(r=>{
+    const k=catKey(r.cat);
+    if(!realized[k])realized[k]={deb:0,cre:0,byMonth:{},labels:new Set()};
+    realized[k].deb+=r.deb||0;realized[k].cre+=r.cre||0;realized[k].labels.add(String(r.cat).trim());
     const mi=parseInt((r.dt||"").substring(5,7))-1;
-    if(!realized[r.cat].byMonth[mi])realized[r.cat].byMonth[mi]={deb:0,cre:0};
-    realized[r.cat].byMonth[mi].deb+=r.deb||0;realized[r.cat].byMonth[mi].cre+=r.cre||0;
+    if(!realized[k].byMonth[mi])realized[k].byMonth[mi]={deb:0,cre:0};
+    realized[k].byMonth[mi].deb+=r.deb||0;realized[k].byMonth[mi].cre+=r.cre||0;
   });
 
   // Compute expected by month for each budget line
@@ -2103,8 +2109,9 @@ function rComp(el){
   // Dashboard
   const totBudgetCh=D.budget.filter(b=>b.type==="charge").reduce((s,b)=>s+(b.versions?.[vIdx]||0),0);
   const totBudgetPr=D.budget.filter(b=>b.type==="produit").reduce((s,b)=>s+(b.versions?.[vIdx]||0),0);
-  const totRealCh=D.rows.filter(r=>r.yr===compYear).reduce((s,r)=>s+(r.deb||0),0);
-  const totRealPr=D.rows.filter(r=>r.yr===compYear).reduce((s,r)=>s+(r.cre||0),0);
+  // Hors virements internes (déplacements entre comptes) : mêmes règles que les cartes du haut
+  const totRealCh=D.rows.filter(r=>String(r.yr||"")===String(compYear)&&!isVirInterne(r)).reduce((s,r)=>s+(r.deb||0),0);
+  const totRealPr=D.rows.filter(r=>String(r.yr||"")===String(compYear)&&!isVirInterne(r)).reduce((s,r)=>s+(r.cre||0),0);
   const pctCh=totBudgetCh>0?(totRealCh/totBudgetCh*100):0;
   const pctPr=totBudgetPr>0?(totRealPr/totBudgetPr*100):0;
   const projection=totBudgetCh>0?(totRealCh/elapsed):0;
@@ -2121,10 +2128,12 @@ function rComp(el){
   // Table
   h+='<div style="overflow-x:auto"><table><thead><tr><th>Code comptable</th><th>Type</th><th style="text-align:right">Prévu</th><th style="text-align:right">Attendu à date</th><th style="text-align:right">Réalisé</th><th style="text-align:right">%</th><th style="min-width:120px">Progression</th><th>Alerte</th></tr></thead><tbody>';
 
+  const shown=new Set();
   D.budget.forEach(b=>{
     const annual=b.versions?.[vIdx]||0;if(!annual)return;
+    shown.add(catKey(b.cat));
     const expected=expectedToMonth(b,curMonth);
-    const real=realized[b.cat];
+    const real=realized[catKey(b.cat)];
     const realVal=b.type==="charge"?(real?.deb||0):(real?.cre||0);
     const pct=annual>0?(realVal/annual*100):0;
     const vsExpected=expected>0?(realVal/expected*100):0;
@@ -2143,6 +2152,29 @@ function rComp(el){
       <td><div class="pbar"><div class="pbar-f" style="width:${Math.min(pct,100)}%;background:${barColor}"></div><div class="pbar-t">${fmtP(pct)}</div></div></td>
       <td style="font-size:9px" class="${alertClass}">${alert}</td></tr>`;
   });
+  // Réalisé rattaché à aucune ligne affichée : compte absent du budget, ou ligne budgétée à 0
+  // sur la version active (elle n'est alors pas listée). Sans ce bloc, le montant disparaît sans trace.
+  const orphans=Object.entries(realized)
+    .filter(([k,o])=>!shown.has(k)&&(nzAmt(o.deb)||nzAmt(o.cre)))
+    .map(([k,o])=>({k,o,inBudget:D.budget.some(b=>catKey(b.cat)===k)}))
+    .sort((a,b)=>a.k.localeCompare(b.k));
+  if(orphans.length){
+    const tot=orphans.reduce((s,x)=>s+x.o.cre-x.o.deb,0);
+    h+=`<tr style="border-top:2px solid #6366f1;background:#151724"><td colspan="8" style="padding:5px 6px;font-size:9px;color:#fb923c">
+      ⚠️ ${orphans.length} compte(s) avec du réalisé ${compYear} hors du tableau ci-dessus (net ${fmt(tot)}) :
+      compte absent du budget, ou ligne budgétée à 0 sur la version « ${D.budgetVersions[vIdx]} » (les lignes à 0 ne sont pas listées).</td></tr>`;
+    orphans.forEach(({k,o,inBudget})=>{
+      const lbl=[...o.labels][0]||k;
+      h+=`<tr style="background:rgba(251,146,60,.06)"><td style="font-size:9px;font-weight:600">${lbl}</td>
+        <td style="font-size:8px;color:#fb923c">${inBudget?"budgété à 0":"hors budget"}</td>
+        <td style="text-align:right;font-size:9px;color:#64748b">—</td>
+        <td style="text-align:right;font-size:9px;color:#64748b">—</td>
+        <td style="text-align:right;font-weight:600;color:${o.cre>=o.deb?"#4ade80":"#f87171"}">${fmt(o.cre>=o.deb?o.cre:o.deb)}</td>
+        <td style="text-align:right;font-size:9px;color:#64748b">—</td>
+        <td style="font-size:8px;color:var(--text-3)">${o.labels.size>1?"⚠️ "+o.labels.size+" libellés différents pour ce code":""}</td>
+        <td style="font-size:9px" class="alert-warn">${inBudget?"🟠 à budgéter":"🟡 à rattacher"}</td></tr>`;
+    });
+  }
   h+='</tbody></table></div>';el.innerHTML=h;
 }
 
