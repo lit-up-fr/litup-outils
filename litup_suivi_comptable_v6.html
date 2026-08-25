@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22h</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22i</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1357,7 +1357,7 @@ function getAlerts(){
 // L'affectation est tracée dans le commentaire ("Airtable: ...") : persistée au Sheet sans changer le backend.
 function finAffected(r){return (r.comment||"").includes("Airtable:")}
 function autoMatchFinancements(onlyRowId){
-  const fins=[...(D.airtableSubs||[]).map(s=>({...s,type:"Subvention"})),...(D.airtablePrestas||[]).map(p=>({...p,type:"Presta"}))];
+  const fins=finList();
   if(!fins.length){alert("Aucune donnée Airtable chargée.\n\nImportez d'abord le fichier de sync via 🔄 Actualisation → 📥 Données Airtable.");return}
   const credits=D.rows.filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!finAffected(r)&&(!onlyRowId||r.id===onlyRowId));
   if(!credits.length){alert("Aucun crédit bancaire non affecté à rapprocher.");return}
@@ -1445,7 +1445,9 @@ function renderFinPickRows(i){
   const ty=$("finPtype")?.value||"",k=$("finPk")?.value||"",st=$("finPst")?.value||"";
   const yr=$("finPyr")?.value||"",d1=$("finPd1")?.value||"",d2=$("finPd2")?.value||"";
   const near=$("finPnear")?.checked;
-  const cur=(window._finSel||{})[i];
+  const rowMode=window._fpMode==="row";
+  const cur=rowMode?null:(window._finSel||{})[i];
+  const already=rowMode?new Set((window._rfSel||[]).map(x=>x.fi)):new Set();
   const list=fins.map((f,fi)=>({f,fi,ec:Math.abs(finAmt(f)-amt)}))
     .filter(x=>{const f=x.f;
       if(ty&&f.type!==ty)return false;
@@ -1461,7 +1463,8 @@ function renderFinPickRows(i){
     .sort((a,b)=>a.ec-b.ec||(a.f.n||"").localeCompare(b.f.n||""));
   const body=$("finPickBody");if(!body)return;
   body.innerHTML=list.length?list.map(x=>{const f=x.f;const exact=x.ec<0.02;
-    return `<tr style="cursor:pointer${x.fi===cur?";outline:2px solid var(--accent)":""}" onclick="pickFin(${i},${x.fi})" title="Cliquer pour affecter ce financement">
+    const on=x.fi===cur||already.has(x.fi);
+    return `<tr style="cursor:pointer${on?";outline:2px solid var(--accent)":""}" onclick="${rowMode?`rfAdd(${x.fi})`:`pickFin(${i},${x.fi})`}" title="${rowMode?(already.has(x.fi)?"Déjà sélectionné":"Cliquer pour ajouter ce financement à la répartition"):"Cliquer pour affecter ce financement"}">
       <td style="font-size:9px;max-width:230px;overflow:hidden">${f.type==="Presta"?"🏢":"📋"} ${f.fr||f.n}${f.fr?`<div style="font-size:8px;color:var(--text-3)">${f.n}</div>`:""}</td>
       <td style="font-size:8px;color:var(--text-3)">${f.k||""}</td>
       <td style="font-size:9px">${f.s||""}</td>
@@ -1472,15 +1475,17 @@ function renderFinPickRows(i){
     :`<tr><td colspan="7" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement ne correspond à ces filtres.</td></tr>`;
   const cnt=$("finPcount");if(cnt)cnt.textContent=list.length+" / "+fins.length;
 }
-function openFinPicker(i){
+function openFinPicker(i,mode){
+  window._fpMode=mode==="row"?"row":"";
   const fins=window._finList||[];
-  const row=D.rows.find(r=>r.id===(window._finCredits||[])[i])||{};
-  const amt=(window._finAmts||{})[i]||row.cre||0;
+  const rowMode=window._fpMode==="row";
+  const row=rowMode?(rfRow()||{}):(D.rows.find(r=>r.id===(window._finCredits||[])[i])||{});
+  const amt=rowMode?(rfRemaining()>0.009?rfRemaining():(row.cre||0)):((window._finAmts||{})[i]||row.cre||0);
   const sts=[...new Set(fins.map(f=>f.s).filter(Boolean))].sort();
   const yrs=[...new Set(fins.flatMap(finYearList))].sort();
   finPickC().innerHTML=`<div class="modal-bg" style="z-index:1100" onclick="if(event.target===this)closePick()"><div class="modal" style="max-width:920px">
-    <h3>🔍 Choisir le financement</h3>
-    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Virement : <strong>${(String(row.dt||"")).split("T")[0]}</strong> · ${(row.lib||"").substring(0,60)} · <strong class="cre">${fmt(amt)}</strong></p>
+    <h3>🔍 ${rowMode?"Ajouter un financement à la répartition":"Choisir le financement"}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Virement : <strong>${(String(row.dt||"")).split("T")[0]}</strong> · ${(row.lib||"").substring(0,60)} · <strong class="cre">${fmt(amt)}</strong>${rowMode?' <span style="color:var(--text-3)">(reste à imputer — l\'écart est calculé sur ce montant)</span>':""}</p>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
       <input class="cf" id="finPq" placeholder="🔍 Nom du financeur" style="width:170px;font-size:10px;padding:4px 6px" oninput="renderFinPickRows(${i})">
       <select class="ms" id="finPtype" onchange="renderFinPickRows(${i})"><option value="">Tous types</option><option>Subvention</option><option>Presta</option></select>
@@ -1495,11 +1500,163 @@ function openFinPicker(i){
     </div>
     <div style="max-height:340px;overflow:auto"><table><thead><tr><th>Financement</th><th>Nature</th><th>Statut</th><th>Année</th><th>Versement</th><th style="text-align:right">Montant</th><th>Écart</th></tr></thead><tbody id="finPickBody"></tbody></table></div>
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:space-between">
-      <button class="b bd" onclick="pickFin(${i},'')">✖ Ne pas affecter</button>
+      ${rowMode?"<span></span>":`<button class="b bd" onclick="pickFin(${i},'')">✖ Ne pas affecter</button>`}
       <button class="b bd" onclick="closePick()">Fermer</button>
     </div></div></div>`;
   renderFinPickRows(i);
   const q=$("finPq");if(q)q.focus();
+}
+
+// ─── RAPPROCHEMENT AIRTABLE LIGNE À LIGNE (colonne du Classement) ───
+// Un virement peut regrouper plusieurs subventions : on peut sélectionner plusieurs
+// financements, la ligne est alors scindée en une ligne par financement (indispensable
+// pour imputer chaque part sur son propre compte comptable).
+function finList(){return [...(D.airtableSubs||[]).map(s=>({...s,type:"Subvention"})),...(D.airtablePrestas||[]).map(p=>({...p,type:"Presta"}))]}
+// Financements déjà tracés dans le commentaire ("Airtable: X · Airtable: Y")
+function finTrace(r){return [...String(r.comment||"").matchAll(/Airtable:\s*([^·]+)/g)].map(m=>m[1].trim()).filter(Boolean)}
+function finCellBtn(r){
+  if(!((r.cre||0)>0)||isVirInterne(r))return `<td style="text-align:center;color:var(--text-3);font-size:9px">—</td>`;
+  const tr=finTrace(r);
+  if(tr.length)return `<td style="min-width:110px"><button class="b" style="font-size:8px;padding:2px 5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(34,197,94,.12);border-color:#22c55e;color:#4ade80" onclick="openRowFin('${r.id}')" title="Rapproché : ${tr.join(" · ").replace(/"/g,"&quot;")}&#10;Cliquer pour modifier ou annuler">✅ ${tr[0].substring(0,18)}${tr.length>1?" +"+(tr.length-1):""}</button></td>`;
+  return `<td style="min-width:110px"><button class="b" style="font-size:8px;padding:2px 5px;background:rgba(251,146,60,.12);border-color:#fb923c;color:#fb923c" onclick="openRowFin('${r.id}')" title="Associer ce crédit à un ou plusieurs financements Airtable">🔗 Rapprocher</button></td>`;
+}
+function rfRow(){return D.rows.find(r=>r.id===window._rfRow)}
+function rfRemaining(){
+  const row=rfRow();if(!row)return 0;
+  const used=(window._rfSel||[]).reduce((s,x)=>s+(Number(x.part)||0),0);
+  return Math.round(((row.cre||0)-used)*100)/100;
+}
+function openRowFin(id){
+  const row=D.rows.find(r=>r.id===id);if(!row)return;
+  const fins=finList();
+  if(!fins.length){alert("Aucune donnée Airtable chargée.\n\nActualisez d'abord via 🔄 Actualisation → ☁️ Airtable (codes + financements).");return}
+  window._finList=fins;window._rfRow=id;window._rfSel=[];
+  renderRowFin();
+}
+function rfAdd(fi){
+  const f=(window._finList||[])[fi];if(!f)return;
+  if((window._rfSel||[]).some(x=>x.fi===fi)){closePick();return}
+  const rest=rfRemaining();
+  const amt=finAmt(f)||0;
+  // Part proposée : le montant Airtable s'il tient dans le reste, sinon le reste
+  const part=rest<=0?0:Math.round(Math.min(amt>0?amt:rest,rest)*100)/100;
+  const row=rfRow()||{};
+  const ys=finYearList(f);
+  const yr=ys.includes(String(row.yr||""))?String(row.yr):(ys[0]||String(row.yr||""));
+  window._rfSel.push({fi,part,yr});
+  closePick();renderRowFin();
+}
+function rfDel(k){window._rfSel.splice(k,1);renderRowFin()}
+function rfSet(k,field,v){
+  if(!window._rfSel[k])return;
+  window._rfSel[k][field]=field==="part"?(parseFloat(String(v).replace(",","."))||0):v;
+  renderRowFin();
+}
+function rfAll(k){
+  if(!window._rfSel[k])return;
+  const cur=Number(window._rfSel[k].part)||0;
+  window._rfSel[k].part=Math.round((cur+rfRemaining())*100)/100;
+  renderRowFin();
+}
+function renderRowFin(){
+  const row=rfRow();if(!row)return;
+  const fins=window._finList||[];const sel=window._rfSel||[];
+  const tot=sel.reduce((s,x)=>s+(Number(x.part)||0),0);
+  const rest=Math.round(((row.cre||0)-tot)*100)/100;
+  const tr=finTrace(row);
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:860px">
+    <h3>🔗 Rapprochement Airtable</h3>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Crédit du <strong>${String(row.dt||"").split("T")[0]}</strong> · ${(row.lib||"").substring(0,70)} · <strong class="cre">${fmt(row.cre)}</strong> · exercice <strong>${row.yr||"?"}</strong></p>`;
+  if(tr.length)h+=`<div style="background:rgba(34,197,94,.08);border:1px solid #22c55e;border-radius:4px;padding:6px 8px;margin-bottom:8px;font-size:10px;display:flex;gap:8px;align-items:center">
+    <span style="flex:1">Déjà rapproché à : <strong>${tr.join(" · ")}</strong></span>
+    <button class="b br" style="font-size:9px" onclick="rfClear()" title="Retirer la trace du rapprochement dans le commentaire (la catégorie et le statut sont conservés)">✖ Annuler ce rapprochement</button></div>`;
+  h+=`<p style="font-size:9px;color:var(--text-3);margin-bottom:6px">Sélectionnez un financement, ou plusieurs si le virement en regroupe plusieurs : la ligne sera alors <strong>scindée en une ligne par financement</strong>, chacune imputée sur le compte comptable Airtable du financeur.</p>
+    <div style="max-height:280px;overflow:auto"><table><thead><tr><th>Financement</th><th>Statut</th><th style="text-align:right">Montant Airtable</th><th style="text-align:right">Part imputée</th><th>Exercice</th><th>Compte</th><th></th></tr></thead><tbody>`;
+  if(!sel.length){
+    h+=`<tr><td colspan="7" style="font-size:10px;color:var(--text-3);padding:10px">Aucun financement sélectionné.</td></tr>`;
+  }else sel.forEach((x,k)=>{
+    const f=fins[x.fi]||{};const ys=finYearList(f);
+    const cc=finCompte(f).code;
+    h+=`<tr><td style="font-size:9px;max-width:220px;overflow:hidden"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.type==="Presta"?"🏢":"📋"} ${f.fr||f.n}${f.k?' <span style="color:var(--text-3)">('+f.k+')</span>':""}</div></td>
+      <td style="font-size:9px">${f.s||""}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(finAmt(f))}</td>
+      <td style="text-align:right;white-space:nowrap"><input class="ni" style="width:80px;text-align:right" value="${x.part}" onchange="rfSet(${k},'part',this.value)"><button class="b bd" style="font-size:8px;padding:1px 4px;margin-left:2px" onclick="rfAll(${k})" title="Imputer tout le reste sur cette ligne">tout</button></td>
+      <td><select class="ms" style="width:70px" onchange="rfSet(${k},'yr',this.value)">${[...new Set([...ys,String(row.yr||"")].filter(Boolean))].map(y=>`<option${y===x.yr?" selected":""}>${y}</option>`).join("")}</select></td>
+      <td style="font-size:8px;white-space:nowrap;color:${cc?"var(--green)":"#fb923c"}" title="${cc?"Compte comptable Airtable : la part sera classée dessus":"Aucun compte comptable dans Airtable : la ligne restera à classer"}">${cc||"⚠️ aucun"}</td>
+      <td><button class="b br" style="font-size:8px;padding:1px 5px" onclick="rfDel(${k})">✕</button></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+      <button class="b bp" style="font-size:9px" onclick="openFinPicker(0,'row')">➕ Ajouter un financement</button>
+      <span style="font-size:10px;margin-left:8px">Total imputé : <strong>${fmt(tot)}</strong> / ${fmt(row.cre)}</span>
+      <span style="font-size:10px;color:${Math.abs(rest)<0.01?"var(--green)":rest<0?"var(--red)":"#fb923c"}">Reste : <strong>${fmt(rest)}</strong></span>
+    </div>`;
+  if(rest>0.009&&sel.length)h+=`<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:10px;color:var(--text-2);cursor:pointer">
+    <input type="checkbox" id="rfKeepRest" checked> Laisser le reliquat de ${fmt(rest)} sur une ligne « En attente »
+    <span style="color:var(--text-3)">exercice</span>
+    <input class="cf" id="rfRestYr" value="${row.yr||""}" style="width:60px;font-size:10px;padding:2px 4px"></label>`;
+  if(rest<-0.009)h+=`<p style="font-size:10px;color:var(--red);margin-top:8px">⚠️ Le total imputé dépasse le montant du crédit de ${fmt(-rest)} : ajustez les parts avant d'appliquer.</p>`;
+  h+=`<div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
+      <button class="b bd" onclick="closeM()">Fermer</button>
+      <button class="b bp" onclick="applyRowFin()"${rest<-0.009||!sel.length?" disabled style=\"opacity:.5\"":""}>✅ Appliquer</button>
+    </div></div></div>`;
+  $("modalC").innerHTML=h;
+}
+function rfClear(){
+  const row=rfRow();if(!row)return;
+  if(!confirm("Retirer la trace « Airtable: … » du commentaire de cette ligne ?\n\nLa catégorie comptable, le fournisseur et le statut sont conservés (à corriger à la main si besoin)."))return;
+  pushUndo();
+  row.comment=String(row.comment||"").split("·").map(s=>s.trim()).filter(s=>!/^Airtable:/.test(s)).join(" · ");
+  autoSave();renderRowFin();render();
+}
+function applyRowFin(){
+  const row=rfRow();if(!row)return;
+  const fins=window._finList||[];const sel=(window._rfSel||[]).filter(x=>(Number(x.part)||0)>0.009);
+  if(!sel.length){alert("Aucune part à imputer : renseignez au moins un financement avec un montant.");return}
+  const tot=sel.reduce((s,x)=>s+Number(x.part),0);
+  if(tot>(row.cre||0)+0.009){alert("Le total imputé ("+fmt(tot)+") dépasse le montant du crédit ("+fmt(row.cre)+").");return}
+  const rest=Math.round(((row.cre||0)-tot)*100)/100;
+  const keepRest=rest>0.009&&$("rfKeepRest")?.checked;
+  const restYr=String($("rfRestYr")?.value||row.yr||"").trim();
+  const recap=sel.map(x=>{const f=fins[x.fi]||{};return "• "+(f.fr||f.n)+" : "+fmt(x.part)+" sur "+x.yr+(finCompte(f).code?" → "+finCompte(f).code:" → compte à choisir")}).join("\n")
+    +(keepRest?"\n• Reliquat "+fmt(rest)+" → ligne « En attente » sur "+restYr:"")
+    +(rest>0.009&&!keepRest?"\n⚠️ Reliquat de "+fmt(rest)+" non imputé : le montant du crédit sera réduit à "+fmt(tot):"");
+  if(!confirm((sel.length>1?"La ligne sera scindée en "+sel.length+" lignes :\n\n":"Imputation :\n\n")+recap+"\n\nAppliquer ?"))return;
+  pushUndo();
+  const idx=D.rows.findIndex(r=>r.id===row.id);
+  const base={...row};
+  let cls=0;
+  const mk=(x,first)=>{
+    const f=fins[x.fi]||{};
+    const t=first?row:{...base,id:"rf"+Date.now()+"_"+x.fi,numj:"",driveUrl:"",driveFileId:""};
+    t.cre=Math.round(Number(x.part)*100)/100;
+    t.yr=x.yr||t.yr;
+    if(!t.four)t.four=String(f.n||"").replace(/^[\d._]+/,"").trim()||f.n;
+    if(!t.stat||String(t.stat).includes("manquant"))t.stat=f.type==="Subvention"?"Classé - Convention":"Classé - Facture";
+    // Une seule trace par ligne : on remplace l'éventuelle trace précédente
+    const others=String(t.comment||"").split("·").map(s=>s.trim()).filter(s=>s&&!/^Airtable:/.test(s));
+    t.comment=[...others,"Airtable: "+f.n].join(" · ");
+    const cc=finCompte(f).code;
+    if(cc){
+      const lbl=catForCode(cc);
+      if(lbl){
+        if(!(D.cats||[]).some(y=>String(y).substring(0,8)===String(cc).substring(0,8))){D.cats.push(lbl);D.cats.sort()}
+        if(!t.cat||catKey(t.cat)!==catKey(lbl)){t.cat=lbl;cls++}
+      }
+    }
+    return t;
+  };
+  const extra=[];
+  sel.forEach((x,k)=>{const t=mk(x,k===0);if(k>0)extra.push(t)});
+  if(keepRest)extra.push({...base,id:"rf"+Date.now()+"_rest",cre:rest,yr:restYr||base.yr,
+    stat:"En attente",numj:"",driveUrl:"",driveFileId:"",
+    comment:"Reliquat à affecter (rapprochement Airtable du "+String(base.dt||"").split("T")[0]+")"});
+  if(extra.length)D.rows.splice(idx+1,0,...extra);
+  autoSave();closeM();render();
+  alert("✅ "+fmt(tot)+" imputé"+(sel.length>1?" sur "+sel.length+" lignes":"")
+    +(keepRest?"\n+ reliquat de "+fmt(rest)+" en attente":"")
+    +(cls?"\n🏷️ "+cls+" ligne(s) classée(s) sur le compte comptable d'Airtable":"")
+    +"\n\nPensez à ☁️ Sauvegarder.");
 }
 
 function applyFinMatches(){
@@ -2714,8 +2871,8 @@ function render(){
   // Classement tab
   if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
   let h='<div style="overflow-x:auto"><table><thead><tr>';
-  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","📎","Mod.","Statut","Resp.","Just.","💬",""];
-  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","modal","stat","resp","numj","comment",""];
+  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","🔗 Airtable","📎","Mod.","Statut","Resp.","Just.","💬",""];
+  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","","modal","stat","resp","numj","comment",""];
   cols.forEach(x=>h+=`<th>${x}<div class="col-resize" onmousedown="startResize(event)" ondblclick="resetColWidth(event)" title="Glisser pour redimensionner, double-clic pour réinitialiser"></div></th>`);
   h+="</tr><tr class='filter-row'>";
   colKeys.forEach((k,i)=>{
@@ -2742,6 +2899,7 @@ function render(){
     h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
+    h+=finCellBtn(r);
     h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
       :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Voir le justificatif sur le Drive${r.numj?" ("+r.numj+")":""}">📄 Drive</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
         :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')"><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
@@ -2750,10 +2908,10 @@ function render(){
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
-    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}${(r.cre||0)>0&&!isVirInterne(r)&&!finAffected(r)?`<button class="ib" onclick="autoMatchFinancements('${r.id}')" title="Associer à un financement Airtable">🔗</button>`:""}</td></tr>`});
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
-  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="6"></td></tr>`;
+  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
   h+="</tbody></table></div>";ct.innerHTML=h;
   applyColWidths(ct.querySelector("table"));
   // Init fournisseur autocomplete
