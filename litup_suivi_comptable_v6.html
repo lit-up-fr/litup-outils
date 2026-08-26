@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22k</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22l</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3009,25 +3009,36 @@ function rSuivi(el){
   mos.forEach(()=>h+='<td></td>');h+='</tr></tbody></table></div>';el.innerHTML=h}
 
 // ─── RATTRAPAGE DES LIENS DRIVE ───
-// Les pièces classées suivent la nomenclature F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT ;
-// les justificatifs de NDF vivent dans un sous-dossier N2026-XXX-NOM-MMJJ.
-// On confronte l'inventaire du Drive aux lignes sans lien et on propose les rattachements.
-const RX_JUSTIF=/^([FSP]|RF|A)(2026)-(\d{2,4})-(\d{8})-([A-Z0-9]*)-([0-9,\.]+)\.(\w+)$/i;
+// Les noms de fichiers ont été fabriqués par l'outil à partir des lignes elles-mêmes :
+// le nom de la pièce EST le numj de la ligne. Le rapprochement se fait donc sur le numj,
+// pas sur le montant — un abonnement mensuel a douze fois le même montant et douze factures
+// différentes, apparier au montant produit des rattachements faux.
+const RX_JUSTIF=/^([FSP]|RF|A)(2026)-(\d{2,4})-(\d{8})-([A-Z0-9]*)-([0-9,\.]+)$/i;
+function baseName(n){return String(n||"").replace(/\.[^.]+$/,"")}
 function parseJustifName(n){
-  const m=String(n||"").match(RX_JUSTIF);
+  const m=baseName(n).match(RX_JUSTIF);
   if(!m)return null;
-  return {pfx:m[1].toUpperCase(),seq:m[3],numj:m[1].toUpperCase()+m[2]+"-"+m[3]+"-"+m[4]+"-"+m[5]+"-"+m[6],
+  return {pfx:m[1].toUpperCase(),seq:m[3],numj:baseName(n),
     dt:m[4],four:m[5].toUpperCase(),amt:parseFloat(String(m[6]).replace(",","."))};
 }
-// Une ligne RH (salaire, cotisations) n'a pas de justificatif : les bulletins font foi
-function isRHLine(r){
-  if(isSalaryLine(r.lib))return true;
-  const k=catKey(r.cat);
-  return /^64/.test(k)||/^645/.test(k);
+// Dépenses RH sans justificatif : les bulletins de paie font foi.
+// Les gratifications de stagiaires et volontaires, la médecine du travail, AKTO/OPCO
+// ont bien un justificatif : elles passent par la recherche normale.
+const RH_NOJ_KW=["SALAIRE","URSSAF","PAS-DSN","DSN","AG2R","RETRAITE","MUTUELLE","HARMONIE","ALLIANZ","PREVOYANCE","PRÉVOYANCE","MALAKOFF","AGIRC","ARRCO","HUMANIS"];
+const RH_JUSTIF_KW=["GRATIFICATION","STAGIAIRE","STAGE","VOLONTAIRE","SERVICE CIVIQUE","MEDECINE","MÉDECINE","SANTE AU TRAVAIL","SANTÉ AU TRAVAIL","AKTO","OPCO","AGENCE DE SERVICES","ASP AGENCE","FORMATION"];
+function rhNoJustif(r){
+  const u=((r.lib||"")+" "+(r.four||"")+" "+(r.cat||"")).toUpperCase();
+  if(RH_JUSTIF_KW.some(k=>u.includes(k)))return false;
+  if(RH_NOJ_KW.some(k=>u.includes(k)))return true;
+  return /^(641|645|647)/.test(catKey(r.cat));
 }
 function amtOfRow(r){return Math.round(Math.abs(r.deb||r.cre||0)*100)/100}
 function dtKey(r){return String(r.dt||"").split("T")[0].replace(/-/g,"")}
 function fourKey(r){return String(r.four||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+function dayDiff(a,b){
+  const d=s=>new Date(s.substring(0,4)+"-"+s.substring(4,6)+"-"+s.substring(6,8));
+  return Math.abs(Math.round((d(a)-d(b))/86400000));
+}
 
 async function relinkJustifs(){
   const btn=$("relinkBtn");if(btn){btn.disabled=true;btn.textContent="⏳ Lecture du Drive…"}
@@ -3043,82 +3054,99 @@ async function relinkJustifs(){
     return;
   }
   if(btn){btn.disabled=false;btn.textContent="🔗 Rattraper les liens Drive"}
-  // Index des pièces classées
-  const classes=files.filter(f=>f.src==="classes"&&!f.dir).map(f=>({...f,pj:parseJustifName(f.n)}));
+  const classes=files.filter(f=>f.src==="classes"&&!f.dir).map(f=>({...f,pj:parseJustifName(f.n),bn:baseName(f.n)}));
   const ndfDirs=files.filter(f=>f.src==="ndf"&&f.dir);
-  const byNumj={};classes.forEach(f=>{if(f.pj)byNumj[f.pj.numj]=f});
+  // Une pièce ne justifie qu'une ligne : celles déjà rattachées sont hors jeu
+  const taken=new Set(D.rows.map(r=>r.driveFileId).filter(Boolean));
+  const byBn={};classes.forEach(f=>{if(!byBn[f.bn])byBn[f.bn]=f});
   const rows=D.rows.filter(r=>(nzAmt(r.deb)||nzAmt(r.cre))&&!r.driveUrl);
   const props=[];
+  const claim=id=>{if(taken.has(id))return false;taken.add(id);return true};
   rows.forEach(r=>{
-    // 1. RH : aucun justificatif attendu
-    if(isRHLine(r)){
-      if(!(r.stat||"").startsWith("Classé"))props.push({r,kind:"rh",conf:"forte",why:"Ligne de paie ou de cotisations : les bulletins de salaire font foi"});
-      return;
-    }
-    // 2. Note de frais : le dossier de la NDF regroupe toutes les pièces
+    const numj=String(r.numj||"").trim();
+    // 1. Note de frais : le dossier de la NDF regroupe toutes les pièces
     const nd=parseNDF(r.lib);
     if(nd){
-      const short=nd.ndfRef;
-      const hit=ndfDirs.find(d=>d.n===short||d.n.startsWith(short+"-"));
-      if(hit)props.push({r,kind:"ndf",f:hit,conf:"forte",why:"Dossier de la note de frais "+short});
-      else props.push({r,kind:"none",conf:"aucune",why:"Aucun dossier "+short+" dans Justificatifs NDF 2026"});
+      const hit=ndfDirs.find(d=>d.n===nd.ndfRef||d.n.startsWith(nd.ndfRef+"-"));
+      props.push(hit?{r,kind:"ndf",f:hit,conf:"forte",why:"Dossier de la note de frais "+nd.ndfRef}
+        :{r,kind:"none",conf:"aucune",why:"Aucun dossier "+nd.ndfRef+" dans Justificatifs NDF 2026"});
       return;
     }
-    // 3. Autres dépenses : pièce classée
-    const amt=amtOfRow(r),dk=dtKey(r),fk=fourKey(r);
-    if(r.numj&&byNumj[r.numj]){
-      props.push({r,kind:"file",f:byNumj[r.numj],conf:"forte",why:"Numéro de pièce identique"});return;
+    // 2. Le nom du fichier a été fabriqué depuis la ligne : correspondance exacte du numj
+    if(numj){
+      let f=byBn[numj];
+      // Nom promu après coup : F2026-XXX-<ancien numj provisoire>
+      if(!f)f=classes.find(x=>x.bn.endsWith("-"+numj));
+      if(f&&claim(f.id)){props.push({r,kind:"file",f,conf:"forte",why:"Nom du fichier identique au n° de pièce"});return}
+      if(f){props.push({r,kind:"none",conf:"aucune",why:"La pièce "+f.bn+" est déjà rattachée à une autre ligne"});return}
     }
-    const sameAmt=classes.filter(f=>f.pj&&Math.abs(f.pj.amt-amt)<0.005);
-    const exact=sameAmt.filter(f=>f.pj.dt===dk);
-    const pick=(list,conf,why)=>{props.push(list.length===1?{r,kind:"file",f:list[0],conf,why}
-      :{r,kind:"ambig",cands:list,conf:"ambiguë",why:list.length+" pièces au même "+why});return true};
-    if(exact.length)return void pick(exact,"forte","date et montant identiques");
-    const byFour=fk?sameAmt.filter(f=>f.pj.four&&(f.pj.four===fk||f.pj.four.includes(fk)||fk.includes(f.pj.four))):[];
-    if(byFour.length)return void pick(byFour,"moyenne","montant et fournisseur, date différente");
-    if(sameAmt.length)return void pick(sameAmt,"faible","montant seul");
-    props.push({r,kind:"none",conf:"aucune",why:"Aucune pièce de "+fmt(amt)+" dans Justificatifs classés"});
+    // 3. Pas de numj : triple exact date + fournisseur + montant, et unique
+    const amt=amtOfRow(r),dk=dtKey(r),fk=fourKey(r);
+    if(!numj&&dk&&fk){
+      const triple=classes.filter(f=>f.pj&&f.pj.dt===dk&&f.pj.four===fk&&Math.abs(f.pj.amt-amt)<0.005&&!taken.has(f.id));
+      if(triple.length===1&&claim(triple[0].id)){
+        props.push({r,kind:"file",f:triple[0],conf:"forte",why:"Date, fournisseur et montant identiques"});return}
+    }
+    // 4. Rien de certain : on ne devine pas. On propose les pièces du même fournisseur à choisir.
+    const cands=classes.filter(f=>f.pj&&!taken.has(f.id)&&(
+        (fk&&f.pj.four&&(f.pj.four===fk||f.pj.four.includes(fk)||fk.includes(f.pj.four)))
+        ||Math.abs(f.pj.amt-amt)<0.005))
+      .sort((a,b)=>{
+        const sa=(fk&&a.pj.four===fk?0:1),sb=(fk&&b.pj.four===fk?0:1);
+        if(sa!==sb)return sa-sb;
+        return (dk&&a.pj.dt?dayDiff(a.pj.dt,dk):9999)-(dk&&b.pj.dt?dayDiff(b.pj.dt,dk):9999);
+      });
+    // 5. RH sans justificatif attendu (hors gratifications, médecine du travail, AKTO…)
+    if(rhNoJustif(r)){
+      if(!(r.stat||"").startsWith("Classé"))props.push({r,kind:"rh",conf:"forte",why:"Paie ou cotisations : les bulletins de salaire font foi"});
+      return;
+    }
+    if(cands.length)props.push({r,kind:"manual",cands:cands.slice(0,12),conf:"à choisir",
+      why:cands.length+" pièce(s) du même fournisseur ou du même montant — à sélectionner"});
+    else props.push({r,kind:"none",conf:"aucune",why:numj?"Aucun fichier nommé "+numj:"Aucune pièce candidate sur le Drive"});
   });
   window._rlProps=props;
-  window._rlUsed=new Set(classes.filter(f=>f.pj).map(f=>f.pj.numj));
   renderRelink();
 }
-function rlLabel(c){return {forte:"🟢 forte",moyenne:"🟡 moyenne",faible:"🟠 faible","ambiguë":"🔵 ambiguë",aucune:"⚪ aucune"}[c]||c}
+function rlLabel(c){return {forte:"🟢 forte","à choisir":"🔵 à choisir",aucune:"⚪ aucune"}[c]||c}
 function renderRelink(){
   const props=window._rlProps||[];
-  const order={forte:0,moyenne:1,faible:2,"ambiguë":3,aucune:4};
-  const list=[...props].sort((a,b)=>(order[a.conf]??9)-(order[b.conf]??9)||String(a.r.dt).localeCompare(String(b.r.dt)));
+  const order={forte:0,"à choisir":1,aucune:2};
+  const list=[...props].map((p,i)=>({p,i}))
+    .sort((a,b)=>(order[a.p.conf]??9)-(order[b.p.conf]??9)||String(a.p.r.dt).localeCompare(String(b.p.r.dt)));
   const n=c=>props.filter(x=>x.conf===c).length;
-  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1080px">
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1120px">
     <h3>🔗 Rattraper les liens Drive</h3>
-    <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">${props.length} ligne(s) sans lien examinée(s) :
-      <strong>${n("forte")}</strong> correspondance forte · ${n("moyenne")} moyenne · ${n("faible")} faible · ${n("ambiguë")} ambiguë · ${n("aucune")} sans pièce trouvée.
-      Les correspondances fortes et moyennes sont cochées ; vérifiez les autres avant d'appliquer.
-      Ouvrez la pièce avec 👁 pour contrôler avant de valider.</p>
+    <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">${props.length} ligne(s) sans lien ·
+      <strong>${n("forte")}</strong> correspondance certaine (cochées) · ${n("à choisir")} à sélectionner à la main · ${n("aucune")} sans pièce sur le Drive.
+      Le rapprochement se fait sur le <strong>nom du fichier</strong>, qui est le n° de pièce écrit par l'outil — aucun appariement au montant seul,
+      qui donnait de faux résultats sur les abonnements. Le bouton 👁 ouvre la pièce pour contrôler.</p>
     <div style="display:flex;gap:4px;margin-bottom:6px">
-      <button class="b bd" style="font-size:9px" onclick="rlSelect('forte')">Fortes seulement</button>
-      <button class="b bd" style="font-size:9px" onclick="rlSelect('sure')">Fortes + moyennes</button>
+      <button class="b bd" style="font-size:9px" onclick="rlSelect('forte')">Certaines seulement</button>
       <button class="b bd" style="font-size:9px" onclick="rlSelect('all')">Tout cocher</button>
       <button class="b bd" style="font-size:9px" onclick="rlSelect('none')">Aucun</button>
     </div>
-    <div style="max-height:420px;overflow:auto"><table><thead><tr><th style="width:24px">✓</th><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>Pièce proposée</th><th>Confiance</th><th>Motif</th><th></th></tr></thead><tbody>`;
-  list.forEach((p,i)=>{
-    const idx=props.indexOf(p);
-    const canApply=p.kind==="rh"||p.kind==="file"||p.kind==="ambig";
-    const pre=p.conf==="forte"||p.conf==="moyenne";
-    const target=p.kind==="rh"?'<span style="color:var(--text-2)">Aucun justificatif requis</span>'
-      :p.kind==="file"?`<span style="font-size:8px">${p.f.n}</span>`
-      :p.kind==="ambig"?`<select class="ms" id="rlSel_${idx}" style="max-width:270px;font-size:8px">${p.cands.map((c,k)=>`<option value="${k}">${c.n}</option>`).join("")}</select>`
+    <div style="max-height:420px;overflow:auto"><table><thead><tr><th style="width:24px">✓</th><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>N° pièce de la ligne</th><th>Pièce du Drive</th><th>État</th><th>Motif</th><th></th></tr></thead><tbody>`;
+  list.forEach(({p,i})=>{
+    const canApply=p.kind==="rh"||p.kind==="file"||p.kind==="ndf"||p.kind==="manual";
+    const pre=p.conf==="forte";
+    const target=p.kind==="rh"?'<span style="color:var(--text-2);font-size:9px">Aucun justificatif requis</span>'
+      :(p.kind==="file"||p.kind==="ndf")?`<span style="font-size:8px">${p.f.n}</span>`
+      :p.kind==="manual"?`<select class="ms" id="rlSel_${i}" style="max-width:300px;font-size:8px" onchange="rlPicked(${i})">
+          <option value="">— ne rien rattacher —</option>
+          ${p.cands.map((c,k)=>`<option value="${k}">${c.n}</option>`).join("")}</select>`
       :'<span style="color:var(--text-3)">—</span>';
-    h+=`<tr${p.kind==="none"?' style="opacity:.55"':""}>
-      <td>${canApply?`<input type="checkbox" class="mo-check" id="rlOn_${idx}"${pre?" checked":""}>`:""}</td>
+    h+=`<tr${p.kind==="none"?' style="opacity:.5"':""}>
+      <td>${canApply?`<input type="checkbox" class="mo-check" id="rlOn_${i}"${pre?" checked":""}>`:""}</td>
       <td style="font-size:9px;white-space:nowrap">${String(p.r.dt||"").split("T")[0]}</td>
-      <td style="font-size:9px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.r.lib||"").replace(/"/g,"&quot;")}">${p.r.lib||""}</td>
+      <td style="font-size:9px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.r.lib||"").replace(/"/g,"&quot;")}">${p.r.lib||""}</td>
       <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(amtOfRow(p.r))}</td>
+      <td style="font-size:8px;color:${p.r.numj?"var(--text-2)":"var(--text-3)"};max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.r.numj||"").replace(/"/g,"&quot;")}">${p.r.numj||"—"}</td>
       <td>${target}</td>
       <td style="font-size:9px;white-space:nowrap">${rlLabel(p.conf)}</td>
-      <td style="font-size:8px;color:var(--text-3);max-width:200px">${p.why}</td>
-      <td>${p.kind==="file"||p.kind==="ndf"?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="window.open('${p.f.url}','_blank')" title="Ouvrir sur le Drive">👁</button>`:""}</td></tr>`;
+      <td style="font-size:8px;color:var(--text-3);max-width:190px">${p.why}</td>
+      <td>${(p.kind==="file"||p.kind==="ndf")?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="window.open('${p.f.url}','_blank')" title="Ouvrir sur le Drive">👁</button>`
+        :p.kind==="manual"?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="rlOpen(${i})" title="Ouvrir la pièce sélectionnée">👁</button>`:""}</td></tr>`;
   });
   h+=`</tbody></table></div>
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
@@ -3126,40 +3154,50 @@ function renderRelink(){
       <button class="b bp" onclick="applyRelink()">✅ Appliquer les liens cochés</button>
     </div></div></div>`;
   $("modalC").innerHTML=h;
-  rlSelect("keep");
+}
+// Choisir une pièce dans la liste coche automatiquement la ligne (et décocher si on revient à vide)
+function rlPicked(i){const s=$("rlSel_"+i),cb=$("rlOn_"+i);if(s&&cb)cb.checked=!!s.value}
+function rlOpen(i){
+  const p=(window._rlProps||[])[i];if(!p||!p.cands)return;
+  const k=$("rlSel_"+i)?.value;
+  if(k==="")return alert("Sélectionnez d'abord une pièce dans la liste.");
+  window.open(p.cands[parseInt(k,10)].url,"_blank");
 }
 function rlSelect(mode){
-  if(mode==="keep")return;
   (window._rlProps||[]).forEach((p,i)=>{
     const cb=$("rlOn_"+i);if(!cb)return;
-    cb.checked=mode==="all"?true:mode==="none"?false:mode==="forte"?p.conf==="forte":(p.conf==="forte"||p.conf==="moyenne");
+    if(mode==="all")cb.checked=p.kind!=="manual"||!!$("rlSel_"+i)?.value;
+    else if(mode==="none")cb.checked=false;
+    else cb.checked=p.conf==="forte";
   });
 }
 function applyRelink(){
   const props=window._rlProps||[];
-  let nf=0,nrh=0,nndf=0;
   const picked=[];
   props.forEach((p,i)=>{
     if(!$("rlOn_"+i)?.checked)return;
     let f=p.f;
-    if(p.kind==="ambig"){const k=parseInt($("rlSel_"+i)?.value||"0",10);f=p.cands[k]}
+    if(p.kind==="manual"){
+      const v=$("rlSel_"+i)?.value;
+      if(v==="")return;                       // coché sans choix : on ignore
+      f=p.cands[parseInt(v,10)];
+    }
     picked.push({p,f});
   });
-  if(!picked.length){alert("Aucune ligne cochée.");return}
-  // Une même pièce ne peut pas justifier deux lignes : on le signale avant d'écrire
+  if(!picked.length){alert("Aucune ligne cochée (une ligne « à choisir » doit aussi avoir une pièce sélectionnée).");return}
+  // Contrôle strict : une pièce ne peut justifier qu'une seule ligne
   const seen={},dup=[];
-  picked.forEach(({p,f})=>{if(!f)return;if(seen[f.id])dup.push(f.n);else seen[f.id]=1});
-  if(dup.length&&!confirm("⚠️ "+dup.length+" pièce(s) seraient rattachées à plusieurs lignes :\n\n"
-    +[...new Set(dup)].slice(0,8).join("\n")+"\n\nCela arrive quand deux dépenses ont la même date et le même montant."
-    +"\nContinuer quand même ?"))return;
+  picked.forEach(({f})=>{if(!f)return;if(seen[f.id])dup.push(f.n);else seen[f.id]=1});
+  if(dup.length){
+    alert("❌ "+dup.length+" pièce(s) seraient rattachées à plusieurs lignes :\n\n"+[...new Set(dup)].slice(0,10).join("\n")
+      +"\n\nUne pièce ne justifie qu'une dépense. Corrigez les sélections avant d'appliquer.");
+    return;
+  }
   pushUndo();
+  let nf=0,nrh=0,nndf=0;
   picked.forEach(({p,f})=>{
     const r=p.r;
-    if(p.kind==="rh"){
-      r.stat="Classé - Bulletin de salaire";
-      if(!r.numj)r.numj="—";
-      nrh++;return;
-    }
+    if(p.kind==="rh"){r.stat="Classé - Bulletin de salaire";nrh++;return}
     if(!f)return;
     r.driveUrl=f.url;r.driveFileId=f.id;
     if(p.kind==="ndf"){
@@ -3167,20 +3205,19 @@ function applyRelink(){
       if(!r.numj)r.numj=f.n;
       nndf++;return;
     }
-    if(f.pj){
-      r.numj=f.pj.numj;
-      // Le compteur suit les numéros déjà utilisés sur le Drive, pour ne pas les réattribuer
-      const seq=parseInt(f.pj.seq,10);
-      if(seq>(D.ctr[f.pj.pfx]||0))D.ctr[f.pj.pfx]=seq;
-    }else if(!r.numj)r.numj=f.n;
+    const pj=f.pj||parseJustifName(f.n);
+    if(pj){
+      r.numj=pj.numj;
+      const seq=parseInt(pj.seq,10);
+      if(seq>(D.ctr[pj.pfx]||0))D.ctr[pj.pfx]=seq;   // ne pas réattribuer un numéro déjà pris
+    }else if(!r.numj)r.numj=baseName(f.n);
     if(!(r.stat||"").startsWith("Classé"))r.stat=(r.cre>0)?"Classé - Convention":"Classé - Facture";
     nf++;
   });
   autoSave();closeM();render();
   alert("✅ Liens rattachés\n\n"+nf+" pièce(s) classée(s)\n"+nndf+" dossier(s) de note de frais\n"
-    +nrh+" ligne(s) RH marquée(s) sans justificatif requis\n\nPensez à ☁️ Sauvegarder pour écrire dans le Sheet.");
+    +nrh+" ligne(s) de paie marquée(s) sans justificatif requis\n\nPensez à ☁️ Sauvegarder pour écrire dans le Sheet.");
 }
-
 function rMissing(el){
   const miss=getMissing();const allA=Object.entries(D.att).map(([k,a])=>({rid:k,...a}));
   const sansLien=D.rows.filter(r=>(nzAmt(r.deb)||nzAmt(r.cre))&&!r.driveUrl).length;
