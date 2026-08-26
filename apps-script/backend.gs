@@ -72,6 +72,7 @@ function handleRequest(e) {
       case "getCodesCompta": result = getCodesCompta(); break;
       case "setCodesCompta": result = setCodesCompta(postData); break;
       case "getAirtableData": result = getAirtableData(); break;
+      case "listJustifFiles": result = listJustifFiles(); break;
       default: result = { error: "Action inconnue: " + action };
     }
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -391,6 +392,40 @@ function saveDepenses(data) {
 }
 
 // ─── DRIVE UPLOAD ───
+// ─── INVENTAIRE DES JUSTIFICATIFS SUR LE DRIVE ───
+// Sert au rattrapage des liens : l'outil compare cet inventaire aux lignes du Sheet.
+// Deux racines : les pièces classées (une par dépense) et les justificatifs de NDF
+// (un sous-dossier par note de frais, plusieurs fichiers dedans).
+var JUSTIF_ROOTS = [
+  { src: "classes", id: "1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx" },   // COMPTA / Justificatifs classés
+  { src: "ndf",     id: "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P" }    // Justificatifs NDF 2026
+];
+function listJustifFiles() {
+  var out = [];
+  JUSTIF_ROOTS.forEach(function (root) {
+    var f;
+    try { f = DriveApp.getFolderById(root.id); } catch (err) { return; }
+    walkJustifFolder(f, root.src, "", out, 0);
+  });
+  return { ok: true, files: out, count: out.length };
+}
+function walkJustifFolder(folder, src, path, out, depth) {
+  if (depth > 3) return;                        // garde-fou : arborescences profondes
+  var here = path ? path + "/" + folder.getName() : folder.getName();
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    out.push({ n: f.getName(), id: f.getId(), url: f.getUrl(), p: here, src: src, dir: 0 });
+  }
+  var subs = folder.getFolders();
+  while (subs.hasNext()) {
+    var sf = subs.next();
+    // Le dossier lui-même est une cible de lien valable pour une NDF (plusieurs pièces)
+    out.push({ n: sf.getName(), id: sf.getId(), url: sf.getUrl(), p: here, src: src, dir: 1 });
+    walkJustifFolder(sf, src, here, out, depth + 1);
+  }
+}
+
 function uploadJustif(data) {
   var folderId = data.folderId || "17FGnfAFah1A1vq9XKqx7YzyLWpvmFs4P";
   var folder = DriveApp.getFolderById(folderId);
