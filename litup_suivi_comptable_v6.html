@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22i</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22j</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -646,15 +646,9 @@ const SALARY_KW=["SALAIRE","AG2R","PAS-DSN","URSSAF","HARMONIE","ALLIANZ","PREVO
 function isSalaryLine(lib){if(!lib)return false;const u=lib.toUpperCase();return SALARY_KW.some(k=>u.includes(k))}
 
 function detMod(lib){if(!lib)return"";const u=lib.toUpperCase();if(u.includes("PAIEMENT CB")||u.includes("PAIEMENT PSC"))return"Carte bancaire";if(u.startsWith("PRLV"))return"Prélèvement";if(u.startsWith("VIR "))return"Virement émis";if(u.startsWith("FAC "))return"Virement reçu";return""}
-// Nomenclature pièces : provisoire → définitive
-// Provisoire (à l'attachement) : YYYYMMJJ-FOURNISSEUR-MONTANT
-// Définitive (après rapprochement) : F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT
-function tempName(row){
-  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
-  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
-  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
-  return dt+"-"+four+"-"+amt;
-}
+// Nomenclature des pièces, unique : F2026-XXX-YYYYMMJJ-FOURNISSEUR-MONTANT
+// (l'ancien nom provisoire sans numéro ni téléversement a été supprimé : il laissait
+//  des pièces « classées » dans le Sheet sans aucun fichier sur le Drive)
 // Numéros libérés par une suppression de justificatif, réutilisés en priorité
 if(!D.freedN)D.freedN={};
 function nextN(p){
@@ -1223,6 +1217,61 @@ async function applyJustifMatches(){
   alert(msg);
 }
 
+// ─── ATTACHEMENT D'UN JUSTIFICATIF : UN SEUL CHEMIN ───
+// Historiquement le bouton 📎+ ne faisait qu'un nom provisoire local (jamais téléversé),
+// alors que le glisser-déposer nommait définitivement et téléversait sur le Drive :
+// une pièce pouvait apparaître classée dans le Sheet sans exister nulle part.
+// Toutes les portes d'entrée passent maintenant par attachJustif().
+const JUSTIF_FOLDER="1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx";   // JUSTIFICATIFS CLASSÉS
+const STAT_BY_PREFIX={S:"Classé - Convention",P:"Classé - Facture",RF:"Classé - Reçu fiscal",F:"Classé - Facture",A:"Classé - Facture"};
+function readFile(f,how){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;
+  if(how==="url")r.readAsDataURL(f);else r.readAsArrayBuffer(f)})}
+// Le fournisseur entre dans le nom de la pièce : sans lui on écrivait "INCONNU", inexploitable.
+function ensureFour(row){
+  if(String(row.four||"").trim())return true;
+  const v=prompt("Fournisseur / financeur de cette pièce ?\n\nIl entre dans le nom du justificatif : sans lui, la pièce s'appellerait « INCONNU ».\n\n"+(row.lib||"").substring(0,70),"");
+  if(v===null)return false;
+  const t=String(v).trim();
+  if(!t){alert("Le fournisseur est nécessaire pour nommer la pièce : attachement annulé.");return false}
+  row.four=t;return true;
+}
+async function attachJustif(rowId,prefix,customName,file){
+  const row=D.rows.find(r=>r.id===rowId);
+  if(!row||!file)return false;
+  if(!ensureFour(row))return false;
+  const pfx=prefix||"F";
+  const seq=customName?"":nextN(pfx);
+  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
+  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
+  const nj=customName||(seq+"-"+dt+"-"+four+"-"+amt);
+  const ext=(String(file.name||"").split(".").pop()||"pdf").toLowerCase();
+  const fileName=nj+"."+ext;
+  const prevNumj=row.numj||"",prevStat=row.stat||"";
+  const dataUrl=await readFile(file,"url");
+  D.att[rowId]={data:await readFile(file,"buf"),name:fileName,orig:file.name,type:file.type,ext,nj};
+  row.numj=nj;
+  row.stat=STAT_BY_PREFIX[pfx]||"Classé - Facture";
+  autoSave();render();
+  try{
+    const res=await sheetAPI("uploadJustif",{folderId:JUSTIF_FOLDER,ndfRef:"",fileName,fileData:dataUrl});
+    if(res.ok||res.fileUrl){
+      row.driveUrl=res.fileUrl||"";row.driveFileId=res.fileId||"";
+      autoSave();render();
+      return true;
+    }
+    throw new Error(res.error||"réponse inattendue du Drive");
+  }catch(e){
+    // Rien sur le Drive : on ne laisse pas la ligne se croire classée, et le numéro n'est pas brûlé
+    row.numj=prevNumj;row.stat=prevStat;
+    if(!customName&&seq){if(!D.freedN[pfx])D.freedN[pfx]=[];D.freedN[pfx].push(seq)}
+    autoSave();render();
+    alert("❌ Le justificatif n'a PAS été enregistré sur le Drive.\n\n"+(e.message||e)
+      +"\n\nLa ligne reste « à classer » et le numéro "+(seq||nj)+" n'est pas consommé."
+      +"\nVérifiez la connexion puis réessayez — ne considérez pas la pièce comme classée.");
+    return false;
+  }
+}
 function attRow(rid){
   const r=D.rows.find(x=>x.id===rid);if(!r)return;
   const isC=r.cre&&r.cre>0&&(!r.deb||r.deb===0);
@@ -1236,16 +1285,12 @@ function attRow(rid){
     <div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button><button class="b bb" onclick="doAttC('${rid}')">✓</button></div></div></div>`;
     $("modalC").innerHTML=h;
   }else{const inp=document.createElement("input");inp.type="file";inp.accept=".pdf,.jpg,.jpeg,.png";
-    inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const nj=tempName(r);const rd=new FileReader();
-      rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();D.att[rid]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};
-        r.numj=nj;if(!r.stat||r.stat.includes("manquant"))r.stat="Classé - Facture";autoSave();render()};rd.readAsArrayBuffer(f)};inp.click()}}
+    inp.onchange=e=>{const f=e.target.files[0];if(f)attachJustif(rid,"F","",f)};inp.click()}}
 function doAttC(rid){const r=D.rows.find(x=>x.id===rid);if(!r)return;const p=$("attPfx")?.value;const c=$("attCust")?.value?.trim();
   const fi=$("attFile");if(!fi?.files?.length){alert("Fichier requis");return}const f=fi.files[0];
-  let nj;if(p==="X"&&c)nj=c;else nj=nextN(p||"S");
-  const rd=new FileReader();rd.onload=ev=>{const ext=f.name.split(".").pop().toLowerCase();
-    D.att[rid]={data:ev.target.result,name:nj+"."+ext,orig:f.name,type:f.type,ext,nj};r.numj=nj;
-    r.stat=p==="S"?"Classé - Convention":p==="RF"?"Classé - Reçu fiscal":"Classé - Facture";
-    closeM();autoSave();render()};rd.readAsArrayBuffer(f)}
+  if(p==="X"&&!c){alert("Renseignez le nom libre de la pièce.");return}
+  closeM();
+  attachJustif(rid,p==="X"?"S":(p||"S"),p==="X"?c:"",f);}
 function viewAtt(k){const a=D.att[k];if(!a)return;window.open(URL.createObjectURL(new Blob([a.data],{type:a.type})),"_blank")}
 
 // ─── EXPORTS ───
@@ -2902,7 +2947,7 @@ function render(){
     h+=finCellBtn(r);
     h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
       :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Voir le justificatif sur le Drive${r.numj?" ("+r.numj+")":""}">📄 Drive</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
-        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')"><button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
+        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
     h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
@@ -3033,30 +3078,7 @@ async function dropJustif(event,rowId){
     const c=choice.trim().toUpperCase();
     if(c==="S")prefix="S";else if(c==="P")prefix="P";else if(c==="RF")prefix="RF";else prefix="A";
   }
-  // Read file as dataURL
-  const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
-  // Build definitive name with correct prefix (réutilise un numéro libéré si dispo)
-  const seq=nextN(prefix);
-  const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
-  const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
-  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
-  const nj=seq+"-"+dt+"-"+four+"-"+amt;
-  const ext=f.name.split(".").pop().toLowerCase();
-  const fileName=nj+"."+ext;
-  // Attach locally
-  D.att[rowId]={data:await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(f)}),
-    name:fileName,orig:f.name,type:f.type,ext,nj};
-  row.numj=nj;
-  const statMap={S:"Classé - Convention",P:"Classé - Facture",RF:"Classé - Reçu fiscal",F:"Classé - Facture",A:"Classé - Facture"};
-  row.stat=statMap[prefix]||"Classé - Facture";
-  autoSave();render();
-  // Upload to Drive → JUSTIFICATIFS CLASSÉS
-  try{
-    const res=await sheetAPI("uploadJustif",{folderId:"1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx",ndfRef:"",fileName,fileData:dataUrl});
-    if(res.ok||res.fileUrl){row.driveUrl=res.fileUrl||"";row.driveFileId=res.fileId||"";autoSave();
-      console.log("📎 "+fileName+" uploadé dans JUSTIFICATIFS CLASSÉS")}
-    else console.warn("Upload échoué:",res.error);
-  }catch(e){console.warn("Upload Drive error:",e)}
+  await attachJustif(rowId,prefix,"",f);
 }
 
 // ─── COLUMN RESIZE ───
