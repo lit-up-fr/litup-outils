@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22m</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22n</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3056,6 +3056,7 @@ async function relinkJustifs(){
   if(btn){btn.disabled=false;btn.textContent="🔗 Rattraper les liens Drive"}
   const classes=files.filter(f=>f.src==="classes"&&!f.dir).map(f=>({...f,pj:parseJustifName(f.n),bn:baseName(f.n)}));
   const ndfDirs=files.filter(f=>f.src==="ndf"&&f.dir);
+  const ndfFiles=files.filter(f=>f.src==="ndf"&&!f.dir).map(f=>({...f,bn:baseName(f.n)}));
   // Une pièce ne justifie qu'une ligne : celles déjà rattachées sont hors jeu
   const taken=new Set(D.rows.map(r=>r.driveFileId).filter(Boolean));
   const byBn={};classes.forEach(f=>{if(!byBn[f.bn])byBn[f.bn]=f});
@@ -3064,12 +3065,30 @@ async function relinkJustifs(){
   const claim=id=>{if(taken.has(id))return false;taken.add(id);return true};
   rows.forEach(r=>{
     const numj=String(r.numj||"").trim();
-    // 1. Note de frais : le dossier de la NDF regroupe toutes les pièces
+    // 1. Note de frais : la pièce elle-même, jamais le dossier.
+    // Le n° de pièce de la ligne (N2026-034-HARTER-0728_01) préfixe le nom du fichier
+    // (N2026-034-HARTER-0728_01_CARREFOUR.pdf) : c'est le lien à retenir.
     const nd=parseNDF(r.lib);
-    if(nd){
-      const hit=ndfDirs.find(d=>d.n===nd.ndfRef||d.n.startsWith(nd.ndfRef+"-"));
-      props.push(hit?{r,kind:"ndf",f:hit,conf:"forte",why:"Dossier de la note de frais "+nd.ndfRef}
-        :{r,kind:"none",conf:"aucune",why:"Aucun dossier "+nd.ndfRef+" dans Justificatifs NDF 2026"});
+    const ref=String(r.ndf||"").trim()||(nd?nd.ndfRef:"");
+    if(ref||String(r.src||"").startsWith("ndf")){
+      if(numj){
+        const f=ndfFiles.find(x=>x.bn===numj)
+          ||ndfFiles.find(x=>x.bn.startsWith(numj+"_")||x.bn.startsWith(numj+"-")||x.bn.startsWith(numj+" "));
+        if(f&&claim(f.id)){props.push({r,kind:"file",nk:"ndf",f,conf:"forte",why:"Pièce dont le nom commence par "+numj});return}
+        if(f){props.push({r,kind:"none",conf:"aucune",why:"La pièce "+f.bn+" est déjà rattachée à une autre ligne"});return}
+      }
+      const inDir=ref?ndfFiles.filter(x=>x.bn.startsWith(ref)):[];
+      // Le virement global de la NDF est justifié par son récapitulatif
+      const recap=inDir.find(x=>/_recap$/i.test(x.bn));
+      if(!numj&&recap&&claim(recap.id)){
+        props.push({r,kind:"file",nk:"ndf",f:recap,conf:"forte",why:"Récapitulatif de la note de frais "+ref});return}
+      const free=inDir.filter(x=>!taken.has(x.id));
+      if(free.length){
+        props.push({r,kind:"manual",nk:"ndf",cands:free.slice(0,12),conf:"à choisir",
+          why:"Pièces de la note de frais "+ref+" — à sélectionner"});return}
+      const dir=ref?ndfDirs.find(d=>d.n===ref||d.n.startsWith(ref+"-")):null;
+      props.push({r,kind:"none",conf:"aucune",
+        why:dir?"Aucune pièce libre dans le dossier "+dir.n:(ref?"Aucun dossier "+ref+" dans Justificatifs NDF 2026":"Ligne de note de frais sans référence")});
       return;
     }
     // 2. Le nom du fichier a été fabriqué depuis la ligne : correspondance exacte du numj
@@ -3128,10 +3147,10 @@ function renderRelink(){
     </div>
     <div style="max-height:420px;overflow:auto"><table><thead><tr><th style="width:24px">✓</th><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>N° pièce de la ligne</th><th>Pièce du Drive</th><th>État</th><th>Motif</th><th></th></tr></thead><tbody>`;
   list.forEach(({p,i})=>{
-    const canApply=p.kind==="rh"||p.kind==="file"||p.kind==="ndf"||p.kind==="manual";
+    const canApply=p.kind==="rh"||p.kind==="file"||p.kind==="manual";
     const pre=p.conf==="forte";
     const target=p.kind==="rh"?'<span style="color:var(--text-2);font-size:9px">Aucun justificatif requis</span>'
-      :(p.kind==="file"||p.kind==="ndf")?`<span style="font-size:8px">${p.f.n}</span>`
+      :p.kind==="file"?`<span style="font-size:8px">${p.f.n}</span>`
       :p.kind==="manual"?`<select class="ms" id="rlSel_${i}" style="max-width:300px;font-size:8px" onchange="rlPicked(${i})">
           <option value="">— ne rien rattacher —</option>
           ${p.cands.map((c,k)=>`<option value="${k}">${c.n}</option>`).join("")}</select>`
@@ -3145,7 +3164,7 @@ function renderRelink(){
       <td>${target}</td>
       <td style="font-size:9px;white-space:nowrap">${rlLabel(p.conf)}</td>
       <td style="font-size:8px;color:var(--text-3);max-width:190px">${p.why}</td>
-      <td>${(p.kind==="file"||p.kind==="ndf")?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="window.open('${p.f.url}','_blank')" title="Ouvrir sur le Drive">👁</button>`
+      <td>${p.kind==="file"?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="window.open('${p.f.url}','_blank')" title="Ouvrir sur le Drive">👁</button>`
         :p.kind==="manual"?`<button class="b bd" style="font-size:8px;padding:1px 4px" onclick="rlOpen(${i})" title="Ouvrir la pièce sélectionnée">👁</button>`:""}</td></tr>`;
   });
   h+=`</tbody></table></div>
@@ -3200,9 +3219,9 @@ function applyRelink(){
     if(p.kind==="rh"){r.stat="Classé - Bulletin de salaire";nrh++;return}
     if(!f)return;
     r.driveUrl=f.url;r.driveFileId=f.id;
-    if(p.kind==="ndf"){
+    if(p.nk==="ndf"){
       if(!(r.stat||"").startsWith("Classé"))r.stat="Classé - Note de frais";
-      if(!r.numj)r.numj=f.n;
+      if(!r.numj)r.numj=baseName(f.n);
       nndf++;return;
     }
     const pj=f.pj||parseJustifName(f.n);
@@ -3215,7 +3234,7 @@ function applyRelink(){
     nf++;
   });
   autoSave();closeM();render();
-  alert("✅ Liens rattachés\n\n"+nf+" pièce(s) classée(s)\n"+nndf+" dossier(s) de note de frais\n"
+  alert("✅ Liens rattachés\n\n"+nf+" pièce(s) classée(s)\n"+nndf+" pièce(s) de note de frais\n"
     +nrh+" ligne(s) de paie marquée(s) sans justificatif requis\n\nPensez à ☁️ Sauvegarder pour écrire dans le Sheet.");
 }
 function rMissing(el){
