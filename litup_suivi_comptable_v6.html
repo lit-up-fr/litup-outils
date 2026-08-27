@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22p</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22q</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1223,6 +1223,11 @@ async function applyJustifMatches(){
 // une pièce pouvait apparaître classée dans le Sheet sans exister nulle part.
 // Toutes les portes d'entrée passent maintenant par attachJustif().
 const JUSTIF_FOLDER="1wFeAiJVrGv7Ax3fzB-wHkMvXT6R2GaAx";   // JUSTIFICATIFS CLASSÉS
+const UPLOAD_TIMEOUT=180000;                                // 3 min : au-delà, Apps Script a lâché
+// Téléversements en cours, par ligne : la cellule 📎 le montre au lieu de rester muette
+const uploadState={};
+// "F2026-127-20260816-CABINETCOSTAMAGNA-387,6" → "F2026-127"
+function njShort(n){const m=String(n||"").match(/^((?:F|S|P|RF|A)2026-\d{2,4}|N20\d{2}-\d{2,4}(?:-[A-Za-z]+-\d{2,4})?(?:_\d{1,3})?)/);return m?m[1]:String(n||"").substring(0,12)}
 const STAT_BY_PREFIX={S:"Classé - Convention",P:"Classé - Facture",RF:"Classé - Reçu fiscal",F:"Classé - Facture",A:"Classé - Facture"};
 function readFile(f,how){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;
   if(how==="url")r.readAsDataURL(f);else r.readAsArrayBuffer(f)})}
@@ -1252,22 +1257,31 @@ async function attachJustif(rowId,prefix,customName,file){
   D.att[rowId]={data:await readFile(file,"buf"),name:fileName,orig:file.name,type:file.type,ext,nj};
   row.numj=nj;
   row.stat=STAT_BY_PREFIX[pfx]||"Classé - Facture";
+  // Le téléversement d'un gros fichier via Apps Script prend du temps : la ligne l'affiche
+  const ko=Math.round((file.size||0)/1024);
+  uploadState[rowId]={name:fileName,ko};
   autoSave();render();
   try{
-    const res=await sheetAPI("uploadJustif",{folderId:JUSTIF_FOLDER,ndfRef:"",fileName,fileData:dataUrl});
-    if(res.ok||res.fileUrl){
+    const res=await Promise.race([
+      sheetAPI("uploadJustif",{folderId:JUSTIF_FOLDER,ndfRef:"",fileName,fileData:dataUrl}),
+      new Promise(r=>setTimeout(()=>r({error:"délai dépassé (3 min) — fichier probablement trop lourd pour Apps Script"}),UPLOAD_TIMEOUT))
+    ]);
+    if(res&&(res.ok||res.fileUrl)){
       row.driveUrl=res.fileUrl||"";row.driveFileId=res.fileId||"";
+      delete uploadState[rowId];
       autoSave();render();
       return true;
     }
-    throw new Error(res.error||"réponse inattendue du Drive");
+    throw new Error((res&&res.error)||"réponse inattendue du Drive");
   }catch(e){
-    // Rien sur le Drive : on ne laisse pas la ligne se croire classée, et le numéro n'est pas brûlé
+    // Rien sur le Drive : aucune trace ne doit laisser croire que la pièce est classée
     row.numj=prevNumj;row.stat=prevStat;
+    delete D.att[rowId];delete uploadState[rowId];
     if(!customName&&seq){if(!D.freedN[pfx])D.freedN[pfx]=[];D.freedN[pfx].push(seq)}
     autoSave();render();
     alert("❌ Le justificatif n'a PAS été enregistré sur le Drive.\n\n"+(e.message||e)
       +"\n\nLa ligne reste « à classer » et le numéro "+(seq||nj)+" n'est pas consommé."
+      +(ko>4000?"\n\nLe fichier fait "+Math.round(ko/1024)+" Mo : au-delà de quelques Mo, Apps Script échoue souvent. Réduisez le PDF ou l'image avant de réessayer.":"")
       +"\nVérifiez la connexion puis réessayez — ne considérez pas la pièce comme classée.");
     return false;
   }
@@ -2945,9 +2959,12 @@ function render(){
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=finCellBtn(r);
-    h+=a?`<td><button class="att has" onclick="viewAtt('${r.id}')" title="${a.name}">📄${a.name.substring(0,8)}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
-      :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Voir le justificatif sur le Drive${r.numj?" ("+r.numj+")":""}">📄 Drive</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
-        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
+    // Colonne 📎 : un seul libellé, le n° de pièce, et un état qui ne mente pas
+    const up=uploadState[r.id];
+    h+=up?`<td><span class="att" style="color:#fb923c" title="Téléversement de ${up.name} (${up.ko} Ko) en cours vers JUSTIFICATIFS CLASSÉS. N'y touchez pas : la ligne se met à jour toute seule.">⏳ envoi…</span></td>`
+      :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Ouvrir sur le Drive${r.numj?" : "+r.numj:""}">📄 ${njShort(r.numj)||"Drive"}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
+      :a?`<td><button class="att" style="border-color:#ef4444;color:#ef4444" onclick="viewAtt('${r.id}')" title="Copie locale de ${a.name} — ce fichier n'est PAS sur le Drive et sera perdu au rechargement. Réattachez-le.">⚠️ ${njShort(a.nj)} local</button><button class="att" onclick="deleteJustif('${r.id}')" title="Retirer cette copie locale" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
+        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier, ou rattachez la pièce existante via ⚠️ Justif. → Rattraper les liens Drive." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
     h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
