@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22x</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22y</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1240,7 +1240,7 @@ function ensureFour(row){
   if(!t){alert("Le fournisseur est nécessaire pour nommer la pièce : attachement annulé.");return false}
   row.four=t;return true;
 }
-async function attachJustif(rowId,prefix,customName,file){
+async function attachJustif(rowId,prefix,customName,file,suffix){
   const row=D.rows.find(r=>r.id===rowId);
   if(!row||!file)return false;
   if(!ensureFour(row))return false;
@@ -1249,7 +1249,9 @@ async function attachJustif(rowId,prefix,customName,file){
   const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
   const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
   const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
-  const nj=customName||(seq+"-"+dt+"-"+four+"-"+amt);
+  // Suffixe choisi dans la modale produit, sinon date-fournisseur-montant
+  const suf=suffix===undefined||suffix===null?[dt,four,amt].filter(Boolean).join("-"):String(suffix);
+  const nj=customName||(seq+(suf?"-"+suf:""));
   const ext=(String(file.name||"").split(".").pop()||"pdf").toLowerCase();
   const fileName=nj+"."+ext;
   const prevNumj=row.numj||"",prevStat=row.stat||"";
@@ -1289,22 +1291,54 @@ async function attachJustif(rowId,prefix,customName,file){
 function attRow(rid){
   const r=D.rows.find(x=>x.id===rid);if(!r)return;
   const isC=r.cre&&r.cre>0&&(!r.deb||r.deb===0);
-  if(isC){let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:380px">
+  if(isC){
+    const inp="width:100%;padding:4px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:10px";
+    let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:420px">
     <h3>📎 Justificatif (produit)</h3><p style="font-size:9px;color:#94a3b8;margin-bottom:6px">${r.lib.substring(0,60)}<br>${fmt(r.cre)}</p>
-    <select id="attPfx" style="width:100%;padding:4px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:10px" onchange="$('attCust').style.display=this.value==='X'?'block':'none'">
+    <select id="attPfx" style="${inp}" onchange="attPfxChange('${rid}')">
       <option value="S">Subvention → ${peekN("S")}</option><option value="P">Prestation → ${peekN("P")}</option>
-      <option value="RF">Reçu fiscal → ${peekN("RF")}</option><option value="X">Nom libre</option></select>
-    <input id="attCust" type="text" placeholder="Nom libre" style="display:none;margin-top:4px;width:100%;padding:4px;background:#0f1117;border:1px solid #2d3148;border-radius:3px;color:#e2e8f0;font-size:10px">
-    <input id="attFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="margin-top:6px;font-size:9px">
+      <option value="RF">Reçu fiscal → ${peekN("RF")}</option><option value="X">Nom entièrement libre (sans numéro)</option></select>
+    <div id="attSufBox" style="margin-top:6px">
+      <label style="font-size:9px;color:var(--text-2)">Suite du nom, après le numéro — remplacez-la par ce que vous voulez (ex. <strong>SUD</strong>)</label>
+      <input id="attSuffix" type="text" value="${attAutoSuffix(r)}" style="${inp};margin-top:2px" oninput="attPreviewUpd()">
+      <div style="font-size:9px;color:var(--text-3);margin-top:3px">Nom de la pièce : <strong id="attPreview" style="font-family:var(--mono);color:var(--green)"></strong></div>
+    </div>
+    <input id="attCust" type="text" placeholder="Nom complet de la pièce" style="${inp};display:none;margin-top:6px">
+    <input id="attFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="margin-top:8px;font-size:9px">
     <div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end"><button class="b bd" onclick="closeM()">Annuler</button><button class="b bb" onclick="doAttC('${rid}')">✓</button></div></div></div>`;
-    $("modalC").innerHTML=h;
+    $("modalC").innerHTML=h;attPreviewUpd();
   }else{const inp=document.createElement("input");inp.type="file";inp.accept=".pdf,.jpg,.jpeg,.png";
     inp.onchange=e=>{const f=e.target.files[0];if(f)attachJustif(rid,"F","",f)};inp.click()}}
+// Suite du nom proposée par défaut : date-fournisseur-montant, comme jusqu'ici
+function attAutoSuffix(r){
+  const dt=(r.dt||"").split("T")[0].replace(/-/g,"");
+  const four=(r.four||"").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
+  const amt=String(Math.abs(r.deb||r.cre||0)).replace(".",",");
+  return [dt,four,amt].filter(Boolean).join("-");
+}
+// Un nom de fichier ne tolère ni accents ni espaces
+function cleanSuffix(v){
+  return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toUpperCase().replace(/[^A-Z0-9,-]+/g,"-").replace(/^-+|-+$/g,"").substring(0,60);
+}
+function attPfxChange(rid){
+  const p=$("attPfx")?.value;
+  const libre=p==="X";
+  if($("attCust"))$("attCust").style.display=libre?"block":"none";
+  if($("attSufBox"))$("attSufBox").style.display=libre?"none":"block";
+  attPreviewUpd();
+}
+function attPreviewUpd(){
+  const p=$("attPfx")?.value;if(!p||p==="X")return;
+  const suf=cleanSuffix($("attSuffix")?.value);
+  const el=$("attPreview");if(el)el.textContent=peekN(p)+(suf?"-"+suf:"");
+}
 function doAttC(rid){const r=D.rows.find(x=>x.id===rid);if(!r)return;const p=$("attPfx")?.value;const c=$("attCust")?.value?.trim();
   const fi=$("attFile");if(!fi?.files?.length){alert("Fichier requis");return}const f=fi.files[0];
-  if(p==="X"&&!c){alert("Renseignez le nom libre de la pièce.");return}
+  if(p==="X"&&!c){alert("Renseignez le nom complet de la pièce.");return}
+  const suf=p==="X"?"":cleanSuffix($("attSuffix")?.value);
   closeM();
-  attachJustif(rid,p==="X"?"S":(p||"S"),p==="X"?c:"",f);}
+  attachJustif(rid,p==="X"?"S":(p||"S"),p==="X"?c:"",f,suf);}
 function viewAtt(k){const a=D.att[k];if(!a)return;window.open(URL.createObjectURL(new Blob([a.data],{type:a.type})),"_blank")}
 
 // ─── EXPORTS ───
