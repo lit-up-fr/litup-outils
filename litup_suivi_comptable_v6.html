@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22z</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-23a</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3458,6 +3458,8 @@ async function relinkJustifs(){
     .filter(f=>!D.rows.some(r=>r.driveFileId===f.id)&&!claimedByProp.has(f.id))
     .map(f=>({f,cands:orphanRowCands(f,freeRows)}))
     .sort((a,b)=>String(a.f.bn).localeCompare(String(b.f.bn)));
+  // Le Drive est déjà en main : on en profite pour repérer les numéros libres
+  window._fnInfo=freeNumbersFrom(usedNumbers(files));
   window._rlProps=props;
   renderRelink();
 }
@@ -3468,8 +3470,18 @@ function renderRelink(){
   const list=[...props].map((p,i)=>({p,i}))
     .sort((a,b)=>(order[a.p.conf]??9)-(order[b.p.conf]??9)||String(a.p.r.dt).localeCompare(String(b.p.r.dt)));
   const n=c=>props.filter(x=>x.conf===c).length;
+  // Numéros jamais utilisés : les signaler ici évite d'avoir à y penser
+  const fi=window._fnInfo||{};
+  const freeAll=NUM_PFX.flatMap(x=>((fi[x]||{}).gaps)||[]);
+  const inPool=NUM_PFX.flatMap(x=>((D.freedN||{})[x])||[]);
+  const freeNew=freeAll.filter(g=>!inPool.includes(g));
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1120px">
-    <h3>🔗 Rattraper les liens Drive</h3>
+    <h3>🔗 Rattraper les liens Drive</h3>`;
+  if(freeNew.length)h+=`<div style="background:rgba(99,102,241,.09);border:1px solid #6366f1;border-radius:4px;padding:6px 8px;margin-bottom:8px;font-size:10px;display:flex;gap:8px;align-items:center">
+    <div style="flex:1"><strong>🔢 ${freeNew.length} numéro(s) de pièce jamais utilisé(s)</strong> : ${freeNew.slice(0,12).map(g=>`<span style="font-family:var(--mono)">${g}</span>`).join(" · ")}${freeNew.length>12?" …":""}
+    <br><span style="color:var(--text-2)">Sans cette remise au pot, la numérotation continue au-delà du dernier numéro et les trous restent définitifs.</span></div>
+    <button class="b bp" style="font-size:9px" onclick="reuseFreeNumbers()">♻️ Réutiliser</button></div>`;
+  h+=`
     <p style="font-size:10px;color:var(--text-2);margin-bottom:6px">${props.length} ligne(s) sans lien ·
       <strong>${n("forte")}</strong> correspondance certaine (cochées) · ${n("à choisir")} à sélectionner à la main · ${n("aucune")} sans pièce sur le Drive.
       Le rapprochement se fait sur le <strong>nom du fichier</strong>, qui est le n° de pièce écrit par l'outil — aucun appariement au montant seul,
@@ -3622,7 +3634,7 @@ function rMissing(el){
     Le rattrapage compare les dossiers du Drive (Justificatifs classés + Justificatifs NDF 2026) aux lignes du fichier et propose les rattachements à valider.
     Les salaires et cotisations sont marqués « sans justificatif requis » (les bulletins font foi).</div>
     <button class="b bp" id="relinkBtn" onclick="relinkJustifs()">🔗 Rattraper les liens Drive</button>
-    <button class="b bd" id="freeNumBtn" onclick="scanFreeNumbers()" title="Numéros de pièces jamais utilisés (téléversement échoué, pièce supprimée) et remise au pot pour les prochains chargements">🔢 Numéros de pièces libres</button></div>`;
+    <button class="b bd" id="freeNumBtn" onclick="scanFreeNumbers()" title="Numéros de pièces jamais utilisés (téléversement échoué, pièce supprimée) et remise au pot pour les prochains chargements">🔢 Numéros de pièces libres${(()=>{const n=NUM_PFX.reduce((t,x)=>t+(((D.freedN||{})[x])||[]).length,0);return n?" ("+n+" au pot)":""})()}</button></div>`;
   h+='<h3 style="font-size:12px;margin-bottom:8px">⚠️ Numéros manquants</h3>';
   if(!miss.length)h+='<div style="color:#22c55e;font-size:10px;margin-bottom:12px">✓ OK</div>';
   else{h+='<table style="margin-bottom:12px"><thead><tr><th>N° manquant</th><th>Déposer</th><th>Résultat</th></tr></thead><tbody>';
