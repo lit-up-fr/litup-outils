@@ -73,6 +73,7 @@ function handleRequest(e) {
       case "setCodesCompta": result = setCodesCompta(postData); break;
       case "getAirtableData": result = getAirtableData(); break;
       case "listJustifFiles": result = listJustifFiles(); break;
+      case "getCodesProjets": result = getCodesProjets(params); break;
       default: result = { error: "Action inconnue: " + action };
     }
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -607,6 +608,95 @@ var F_PRE = {
 };
 // Catégorie Recette → compte comptable (règle Lit uP)
 var CAT_RECETTE_COMPTE = { "non lucratif":"70600000", "lucratif":"70601000" };
+
+// ─── CODES PROJETS (4. Parcours) : champs, codes transversaux, filtre ───
+// Champs de 4. Parcours (IDs : robustes aux renommages de colonnes)
+var F_PAR = {
+  label:  "fldhIiD4u2hAYrcGV",   // formule "Parcours" : "BU92  - MLDS - Hyeres 3"
+  terr:   "fldv8H1uEeptu56OJ",   // Territoire_texte
+  statut: "fldEXSoG5PbUKLAQl",   // Statut
+  debut:  "fldRc5jvycrucZGyY",   // Date de debut
+  fin:    "fldx69vwn1zxoe5u0"    // Date de fin
+};
+
+// Codes transversaux : toujours proposes, jamais issus d'Airtable.
+var CODES_TRANSVERSAUX = [
+  { l: "FG2026 - Fonctionnement National",  t: "NAT" },
+  { l: "FV2026 - Fonctionnement Sud",       t: "SUD" },
+  { l: "FP2026 - Fonctionnement IDF",       t: "IDF" },
+  { l: "RH2026 - Ressources humaines",      t: "NAT" },
+  { l: "LAB2026 - Laboratoire P\u00e9dagogique", t: "NAT" }
+];
+
+// Filtre des parcours proposes dans les outils de saisie (depenses, notes de frais) :
+//   statut actif                    -> toujours propose
+//   statut exclu                    -> jamais propose
+//   autre (Termine, statut vide...) -> propose si la derniere date connue
+//                                      (fin, sinon debut) est posterieure a
+//                                      aujourd'hui - PARCOURS_MOIS mois.
+// L'outil de suivi comptable, lui, garde l'historique complet des codes :
+// il doit pouvoir affecter une ecriture a un parcours ancien.
+var PARCOURS_STATUTS_ACTIFS = ["en cours", "planifi\u00e9", "valid\u00e9 et \u00e0 planifier"];
+var PARCOURS_STATUTS_EXCLUS = ["a valider", "\u00e0 valider", "prospect", "annul\u00e9"];
+var PARCOURS_MOIS = 6;
+
+function parcoursDate_(v) {
+  var s = String(v || "").substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return new Date(s + "T12:00:00Z");
+}
+
+function parcoursActifs() {
+  var limite = new Date();
+  limite.setMonth(limite.getMonth() - PARCOURS_MOIS);
+  var recs = airtableFetchAll(AIRTABLE_TBL_PARCOURS,
+    [F_PAR.label, F_PAR.terr, F_PAR.statut, F_PAR.debut, F_PAR.fin], true);
+  var out = [], vus = {}, exclus = 0;
+  recs.forEach(function(r) {
+    var f = r.fields || {};
+    var l = String(f[F_PAR.label] || "").replace(/\s+/g, " ").trim();
+    // Libelle vide ("-") ou parcours sans code ("- Nouvel Horizon") : pas un code projet
+    if (!l || l.charAt(0) === "-") { exclus++; return; }
+    var st = String(airtableFirst(f[F_PAR.statut]) || "").toLowerCase().trim();
+    var garde;
+    if (PARCOURS_STATUTS_EXCLUS.indexOf(st) >= 0) garde = false;
+    else if (PARCOURS_STATUTS_ACTIFS.indexOf(st) >= 0) garde = true;
+    else {
+      var d = parcoursDate_(f[F_PAR.fin]) || parcoursDate_(f[F_PAR.debut]);
+      garde = d ? (d >= limite) : false;
+    }
+    if (!garde) { exclus++; return; }
+    var k = l.toLowerCase();
+    if (vus[k]) return;              // doublons de libelle : une seule entree
+    vus[k] = 1;
+    out.push({ l: l, t: String(f[F_PAR.terr] || "NAT").trim() || "NAT" });
+  });
+  out.sort(function(a, b) { return a.l.localeCompare(b.l, "fr", { numeric: true }); });
+  return { acts: CODES_TRANSVERSAUX.concat(out),
+           lus: recs.length, retenus: out.length, exclus: exclus };
+}
+
+// Liste courte pour les outils de saisie (depenses, notes de frais).
+// Sans refresh : rend le cache de l'onglet Config (instantane).
+// Avec refresh=1 : relit Airtable, applique le filtre et reecrit le cache.
+function getCodesProjets(params) {
+  var p = params || {};
+  var refresh = (p.refresh === "1" || p.refresh === 1 || p.refresh === true);
+  if (!refresh) {
+    var c = getConfig("codes_projets");
+    if (c.value) {
+      try {
+        var arr = JSON.parse(c.value);
+        if (arr && arr.length) return { ok: true, codes: arr, source: "cache" };
+      } catch (e) {}
+    }
+  }
+  var res = parcoursActifs();
+  var codes = res.acts.map(function(a) { return a.l; });
+  setConfig("codes_projets", JSON.stringify(codes));
+  return { ok: true, codes: codes, source: "airtable", lus: res.lus,
+           retenus: res.retenus, syncedAt: new Date().toISOString() };
+}
 
 function airtableFetchAll(tableId, fields, byId) {
   var token = PropertiesService.getScriptProperties().getProperty("AIRTABLE_TOKEN");

@@ -84,11 +84,9 @@ const CODES_COMPTA=[
 "65800000 - Charges diverses gestion courante","68112000 - Dot. amort. immobilisations corporelles"
 ];
 
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
 let CODES_PROJETS=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
-
-// Try loading from litup_codes_dir too
-try{const c2=JSON.parse(localStorage.getItem("litup_codes_dir")||"null");if(c2&&c2.length>CODES_PROJETS.length)CODES_PROJETS=c2}catch(e){}
+function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 
 async function sheetAPI(action,data,params){
   try{
@@ -135,7 +133,8 @@ async function loadFromSheet(){
   try{
     const codes=await sheetAPI("getCodesCompta");
     if(codes.cats&&codes.cats.length){CODES_COMPTA.length=0;codes.cats.filter(c=>c.match(/^6/)).forEach(c=>CODES_COMPTA.push(c));console.log("Codes compta Cloud: "+CODES_COMPTA.length)}
-    if(codes.acts&&codes.acts.length){CODES_PROJETS=[...new Set([...CODES_FIXES,...codes.acts.map(a=>a.l||a)])];localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));console.log("Codes projets Cloud: "+CODES_PROJETS.length)}
+    // Les codes projets ne viennent plus de compta_acts (historique complet du suivi
+    // comptable) mais de getCodesProjets, qui applique le filtre Airtable.
     render();
   }catch(e){console.warn("Codes compta load error:",e)}
 }
@@ -372,24 +371,39 @@ function deleteDepense(idx){
   save();render();
 }
 
-// ─── MAJ CODES (webhook Make → Airtable) ───
-async function majCodes(){
-  const btn=$("btnMaj"),st=$("majStatus");
-  btn.disabled=true;btn.textContent="⏳";st.textContent="";
+// ─── CODES PROJETS ───
+// Le filtre (parcours en cours / planifiés / validés, ou terminés depuis moins de
+// 6 mois, + codes transversaux) est appliqué côté backend, action "getCodesProjets".
+//   refresh absent → cache de l'onglet Config (instantané)
+//   refresh=1      → relecture Airtable puis réécriture du cache
+async function loadCodesFromSheet(refresh){
+  const st=$("majStatus");
+  if(st){st.textContent="⏳";st.style.color="#d97706";st.title="Chargement des codes projets…"}
+  try{const cached=JSON.parse(localStorage.getItem("litup_codes")||"null");
+    if(cached&&cached.length>CODES_FIXES.length)CODES_PROJETS=cached}catch(e){}
   try{
-    const r=await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source:"carte"})});
-    if(r.ok){st.textContent="✅";st.style.color="var(--green)";
-      // Reload codes from Sheet after delay
-      setTimeout(async()=>{
-        try{const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
-          if(res.value){let nc;try{nc=JSON.parse(res.value)}catch(e){nc=res.value.split(",").map(s=>s.trim()).filter(Boolean)}
-            if(nc&&nc.length){CODES_PROJETS=[...new Set([...CODES_FIXES,...nc])];localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));st.textContent="✅ "+CODES_PROJETS.length+" codes"}
-          }
-        }catch(e){}
-      },3000);
-    } else{st.textContent="⚠️";st.style.color="var(--red)"}
-  }catch(e){st.textContent="⚠️";st.style.color="var(--red)"}
-  btn.disabled=false;btn.textContent="📋 Codes projets";
+    const res=await sheetAPI("getCodesProjets",null,refresh?{refresh:1}:null);
+    let nc=res&&res.codes;
+    if(!nc&&res&&res.value){try{nc=JSON.parse(res.value)}catch(e){nc=String(res.value).split(",").map(s=>s.trim()).filter(Boolean)}}
+    if(nc&&nc.length){
+      CODES_PROJETS=mergeCodes(nc);
+      localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));
+      render();
+      if(st){st.textContent="✅ "+CODES_PROJETS.length;st.style.color="#16a34a";
+        st.title=CODES_PROJETS.length+" codes projets · source "+((res&&res.source)||"?");
+        setTimeout(()=>{st.textContent=""},4000)}
+      return true;
+    }
+    if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Aucun code reçu — liste en cache conservée"}
+  }catch(e){if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Hors ligne — liste en cache conservée"}}
+  return false;
+}
+async function majCodes(){
+  const btn=$("btnMaj");const lbl=btn?btn.innerHTML:"";
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ codes…"}
+  await loadCodesFromSheet(true);
+  if(typeof render==="function")render();
+  if(btn){btn.disabled=false;btn.innerHTML=lbl}
 }
 
 // ─── SETTINGS ───
@@ -445,6 +459,7 @@ async function handleFileWithOCR(f){
 // ─── INIT ───
 D.user="Direction";
 render();
+loadCodesFromSheet(true).then(render);
 loadFromSheet();
 </script>
 </body>

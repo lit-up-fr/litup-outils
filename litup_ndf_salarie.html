@@ -180,7 +180,7 @@ async function syncFromSheet(){
 }
 
 // ─── CONFIG ───
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 function codeOptions(){
@@ -191,44 +191,47 @@ function codeOptions(){
     '<optgroup label="Parcours">'+autres.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'].join("")
 }
 function saveCodes(){localStorage.setItem("litup_codes",JSON.stringify(CODES))}
-async function loadCodesFromSheet(){
-  // Always try localStorage first
+// ─── CODES PROJETS ───
+// Le filtre (parcours en cours / planifiés / validés, ou terminés depuis moins de
+// 6 mois, + codes transversaux) est appliqué côté backend, action "getCodesProjets".
+//   refresh absent → cache de l'onglet Config (instantané)
+//   refresh=1      → relecture Airtable puis réécriture du cache
+async function loadCodesFromSheet(refresh){
+  const st=$("majStatus");
+  if(st){st.textContent="⏳";st.style.color="#d97706";st.title="Chargement des codes projets…"}
+  try{const cached=JSON.parse(localStorage.getItem("litup_codes")||"null");
+    if(cached&&cached.length>CODES_FIXES.length)CODES=cached}catch(e){}
   try{
-    const cached=JSON.parse(localStorage.getItem("litup_codes")||"null");
-    if(cached&&cached.length>4){CODES=cached;console.log("Codes from cache: "+CODES.length)}
-  }catch(e){}
-  // Then try to refresh from Sheet
-  try{
-    const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
-    if(res.value){
-      let nc;
-      try{nc=JSON.parse(res.value)}catch(e){
-        nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
-      }
-      if(nc&&nc.length){CODES=mergeCodes(nc);saveCodes();console.log("Codes refreshed from Sheet: "+CODES.length)}
+    const res=await sheetAPI("getCodesProjets",null,refresh?{refresh:1}:null);
+    let nc=res&&res.codes;
+    if(!nc&&res&&res.value){try{nc=JSON.parse(res.value)}catch(e){nc=String(res.value).split(",").map(s=>s.trim()).filter(Boolean)}}
+    if(nc&&nc.length){
+      CODES=mergeCodes(nc);
+      localStorage.setItem("litup_codes",JSON.stringify(CODES));
+      
+      if(st){st.textContent="✅ "+CODES.length;st.style.color="#16a34a";
+        st.title=CODES.length+" codes projets · source "+((res&&res.source)||"?");
+        setTimeout(()=>{st.textContent=""},4000)}
+      return true;
     }
-  }catch(e){console.warn("Load codes error (using cache):",e)}
+    if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Aucun code reçu — liste en cache conservée"}
+  }catch(e){if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Hors ligne — liste en cache conservée"}}
+  return false;
 }
+async function majCodes(){
+  const btn=$("btnMaj");const lbl=btn?btn.innerHTML:"";
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ codes…"}
+  await loadCodesFromSheet(true);
+  if(typeof render==="function")render();
+  if(btn){btn.disabled=false;btn.innerHTML=lbl}
+}
+
 async function manualSync(){
   setSyncStatus("🔄");
   try{
     await syncFromSheet();
     render();
   }catch(e){console.warn("Manual sync error:",e)}
-}
-async function majCodes(){
-  const btn=$("btnMaj"),st=$("majStatus");
-  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
-  try{
-    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
-    st.textContent="Airtable → Sheet…";
-    await new Promise(r=>setTimeout(r,10000));
-    st.textContent="chargement…";
-    await loadCodesFromSheet();
-    st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
-    setTimeout(()=>{st.textContent=""},5000);
-  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
-  btn.disabled=false;btn.textContent="🔄 MAJ codes projets";
 }
 const EXPENSE_TYPES=[
   {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
@@ -847,7 +850,7 @@ function handleRestore(inp){
   }
 }catch(e){}})();
 initSalarie();
-if(D.salarie){loadCodesFromSheet().then(()=>{render();syncFromSheet()})}
+if(D.salarie){loadCodesFromSheet(true).then(()=>{render();syncFromSheet()})}
 else{render()} // Force render even if no salarie selected (will show empty state)
 </script>
 </body>

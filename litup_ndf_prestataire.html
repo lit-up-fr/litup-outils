@@ -139,49 +139,53 @@ async function sheetAPI(action,body,params){
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
 let CODES=JSON.parse(localStorage.getItem("litup_codes_presta")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
-async function loadCodesFromSheet(){
+// ─── CODES PROJETS ───
+// Le filtre (parcours en cours / planifiés / validés, ou terminés depuis moins de
+// 6 mois, + codes transversaux) est appliqué côté backend, action "getCodesProjets".
+//   refresh absent → cache de l'onglet Config (instantané)
+//   refresh=1      → relecture Airtable puis réécriture du cache
+async function loadCodesFromSheet(refresh){
+  const st=$("majStatus");
+  if(st){st.textContent="⏳";st.style.color="#d97706";st.title="Chargement des codes projets…"}
+  try{const cached=JSON.parse(localStorage.getItem("litup_codes_presta")||"null");
+    if(cached&&cached.length>CODES_FIXES.length)CODES=cached}catch(e){}
   try{
-    const res=await sheetAPI("getConfig",null,{key:"codes_projets"});
-    if(res.value){
-      let nc;
-      try{nc=JSON.parse(res.value)}catch(e){
-        nc=res.value.split(",").map(s=>s.trim()).filter(Boolean);
-      }
-      if(nc&&nc.length){
-        CODES=mergeCodes(nc);localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
-        // Update all existing code selects on the page
-        document.querySelectorAll("select[id^='code_']").forEach(sel=>{
-          const val=sel.value;
-          const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-          const opts='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+
-            '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'+
-            '<optgroup label="Parcours">'+autres.map(c=>`<option>${c}</option>`).join("")+'</optgroup>';
-          sel.innerHTML=opts;
-          if(val)sel.value=val;
-        });
-        console.log("Codes loaded: "+CODES.length);
-      }
+    const res=await sheetAPI("getCodesProjets",null,refresh?{refresh:1}:null);
+    let nc=res&&res.codes;
+    if(!nc&&res&&res.value){try{nc=JSON.parse(res.value)}catch(e){nc=String(res.value).split(",").map(s=>s.trim()).filter(Boolean)}}
+    if(nc&&nc.length){
+      CODES=mergeCodes(nc);
+      localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
+      // Met à jour les listes déroulantes déjà rendues
+      document.querySelectorAll("select[id^='code_']").forEach(sel=>{
+        const val=sel.value;
+        const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+        sel.innerHTML='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+
+          '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'+
+          '<optgroup label="Parcours">'+autres.map(c=>`<option>${c}</option>`).join("")+'</optgroup>';
+        if(val)sel.value=val;
+      });
+      if(st){st.textContent="✅ "+CODES.length;st.style.color="#16a34a";
+        st.title=CODES.length+" codes projets · source "+((res&&res.source)||"?");
+        setTimeout(()=>{st.textContent=""},4000)}
+      return true;
     }
-  }catch(e){console.warn("Load codes error:",e)}
+    if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Aucun code reçu — liste en cache conservée"}
+  }catch(e){if(st){st.textContent="⚠️";st.style.color="#ef4444";st.title="Hors ligne — liste en cache conservée"}}
+  return false;
 }
-loadCodesFromSheet();
 async function majCodes(){
-  const btn=$("btnMaj"),st=$("majStatus");
-  btn.disabled=true;btn.textContent="⏳";st.textContent="synchro…";st.style.color="#d97706";
-  try{
-    await fetch("https://hook.eu2.make.com/77whyzt8n4vaw1wlxc63oad79579g59u",{method:"POST",mode:"no-cors"});
-    st.textContent="Airtable → Sheet…";
-    await new Promise(r=>setTimeout(r,10000));
-    st.textContent="chargement…";
-    await loadCodesFromSheet();
-    st.textContent="✅ "+CODES.length+" codes";st.style.color="#16a34a";
-    setTimeout(()=>{st.textContent=""},5000);
-  }catch(e){st.textContent="❌ erreur";st.style.color="#ef4444"}
-  btn.disabled=false;btn.textContent="📋 Codes projets";
+  const btn=$("btnMaj");const lbl=btn?btn.innerHTML:"";
+  if(btn){btn.disabled=true;btn.innerHTML="⏳ codes…"}
+  await loadCodesFromSheet(true);
+  if(typeof render==="function")render();
+  if(btn){btn.disabled=false;btn.innerHTML=lbl}
 }
+
+loadCodesFromSheet(true);
 const IK={3:[{m:5000,c:.529,a:0},{m:20000,c:.316,a:1065},{m:1e9,c:.370,a:0}],4:[{m:5000,c:.606,a:0},{m:20000,c:.340,a:1330},{m:1e9,c:.407,a:0}],5:[{m:5000,c:.636,a:0},{m:20000,c:.357,a:1395},{m:1e9,c:.427,a:0}],6:[{m:5000,c:.665,a:0},{m:20000,c:.374,a:1457},{m:1e9,c:.447,a:0}],7:[{m:5000,c:.697,a:0},{m:20000,c:.394,a:1515},{m:1e9,c:.470,a:0}]};
 function calcIK(km,cv){for(const t of IK[Math.min(Math.max(cv||5,3),7)]){if(km<=t.m)return Math.round((km*t.c+t.a)*100)/100}return 0}
 
