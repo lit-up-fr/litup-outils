@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22v</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22w</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3055,6 +3055,13 @@ function rSuivi(el){
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL</td><td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
   mos.forEach(()=>h+='<td></td>');h+='</tr></tbody></table></div>';el.innerHTML=h}
 
+// Indemnités kilométriques : aucun reçu individuel n'existe, le récapitulatif de la NDF
+// fait justificatif. La même pièce est donc rattachée à toutes les lignes IK de la note.
+function isIkRow(r){
+  if(/^625110/.test(catKey(r.cat)))return true;
+  const u=((r.lib||"")+" "+(r.four||"")).toUpperCase();
+  return /\bIK\b/.test(u)||u.includes("KILOM")||u.includes("INDEMNIT");
+}
 // Pose le lien Drive de chaque sous-ligne d'une NDF, juste après l'éclatement.
 // Mêmes règles que le rattrapage : nom du fichier préfixé par le n° de pièce,
 // sinon l'indice _NN, seul repère commun aux deux nomenclatures du dossier.
@@ -3071,10 +3078,19 @@ async function linkNdfPieces(ndfRef){
   const inDir=files.filter(f=>f.src==="ndf"&&!f.dir&&(String(f.p||"")===key||String(f.p||"").endsWith("/"+key)))
     .map(f=>({...f,bn:baseName(f.n)}));
   if(!inDir.length)return {n:0,why:"aucun fichier dans le dossier "+key};
+  const recap=inDir.find(f=>/_recap$/i.test(f.bn));
   const pieces=inDir.filter(f=>!/_recap$/i.test(f.bn));
   const taken=new Set(D.rows.map(r=>r.driveFileId).filter(Boolean));
-  let n=0;
+  let n=0,nik=0;
   D.rows.filter(r=>r.ndf===ndfRef&&!r.driveUrl).forEach(r=>{
+    // Indemnités kilométriques : le récapitulatif fait foi, et il est partagé par
+    // toutes les lignes IK de la note. Il prime sur un fichier de même indice,
+    // qui serait un autre justificatif (péage, repas…).
+    if(recap&&isIkRow(r)){
+      r.driveUrl=recap.url;r.driveFileId=recap.id;
+      if(!(r.stat||"").startsWith("Classé"))r.stat="Classé - Note de frais";
+      n++;nik++;return;
+    }
     const numj=String(r.numj||"").trim();if(!numj)return;
     let f=pieces.find(x=>x.bn===numj)||pieces.find(x=>x.bn.startsWith(numj+"_")||x.bn.startsWith(numj+"-"));
     if(!f){
@@ -3091,6 +3107,7 @@ async function linkNdfPieces(ndfRef){
     if(!(r.stat||"").startsWith("Classé"))r.stat="Classé - Note de frais";
     n++;
   });
+  if(nik)console.log("🚗 "+nik+" ligne(s) IK rattachée(s) au récapitulatif de "+ndfRef);
   if(n){autoSave();render()}
   return {n,why:n?"":"aucune pièce ne correspond aux numéros _01, _02… du dossier "+key};
 }
@@ -3198,6 +3215,11 @@ async function relinkJustifs(){
       const inDir=key?ndfFiles.filter(x=>String(x.p||"")===key||String(x.p||"").endsWith("/"+key)):[];
       const recap=inDir.find(x=>/_recap$/i.test(x.bn));
       const pieces=inDir.filter(x=>x!==recap);
+      // Un IK n'a par construction aucun reçu : le récapitulatif primerait sur un fichier
+      // qui porterait le même indice, lequel serait alors un tout autre justificatif.
+      if(recap&&isIkRow(r)){
+        props.push({r,kind:"file",nk:"ndf",shared:true,f:recap,conf:"forte",
+          why:"Indemnités kilométriques : récapitulatif de "+ref+" (pièce commune à toutes les lignes IK)"});return}
       if(numj){
         // a) nom du fichier préfixé par le n° de pièce (nomenclature actuelle)
         let f=pieces.find(x=>x.bn===numj)
@@ -3395,9 +3417,10 @@ function applyRelink(){
       +"\n\nCorrigez les sélections avant d'appliquer.");
     return;
   }
-  // Contrôle strict : une pièce ne peut justifier qu'une seule ligne
+  // Contrôle strict : une pièce ne justifie qu'une ligne — sauf récapitulatif d'IK,
+  // partagé par construction entre toutes les lignes d'indemnités kilométriques
   const seen={},dup=[];
-  picked.forEach(({f})=>{if(!f)return;if(seen[f.id])dup.push(f.n);else seen[f.id]=1});
+  picked.forEach(({p,f})=>{if(!f||p.shared)return;if(seen[f.id])dup.push(f.n);else seen[f.id]=1});
   if(dup.length){
     alert("❌ "+dup.length+" pièce(s) seraient rattachées à plusieurs lignes :\n\n"+[...new Set(dup)].slice(0,10).join("\n")
       +"\n\nUne pièce ne justifie qu'une dépense. Corrigez les sélections avant d'appliquer.");
