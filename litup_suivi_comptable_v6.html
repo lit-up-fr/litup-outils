@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22s</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22v</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -245,7 +245,7 @@ async function loadNDFFromSheet(){
         const lines=n.lines.map((l,i)=>({
           dt:l.date||n.date,desc:l.desc||"",four:l.four||"",deb:l.amount||l.deb||0,
           cat:matchCat((l.expType||"").replace("62570000","62571000")),act:matchAct(l.code||""),expType:(l.expType||"").replace("62570000","62571000"),
-          resp:sal,numj:ref+"_"+String(i+1).padStart(2,"0"),ndf:ref,lineNum:i+1
+          numj:ref+"_"+String(i+1).padStart(2,"0"),ndf:ref,lineNum:i+1
         }));
         if(lines.length){D.ndfBuffer[ref]=lines;imported+=lines.length;ndfCount++}
       });
@@ -1426,7 +1426,8 @@ function autoMatchFinancements(onlyRowId){
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
     <h3>🔗 Rapprochement banque ↔ financements Airtable</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:10px">${credits.length} crédit(s) non affecté(s) · ${fins.length} financement(s) Airtable (sync ${D.airtableSync||"?"}).
-    Cliquez sur le bouton de la colonne « Financement Airtable » pour ouvrir le sélecteur avec filtres (type, public/privé, statut, année d'affectation, période de versement, montant). L'année d'affectation Airtable est reprise comme année du solde en cas de scission. Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
+    Cliquez sur le bouton de la colonne « Financement Airtable » pour ouvrir le sélecteur avec filtres (type, public/privé, statut, année d'affectation, période de versement, montant).
+    Un virement qui regroupe <strong>plusieurs financements</strong> (deux subventions versées ensemble, pour deux projets) se traite avec <strong>⧉ plusieurs</strong> : la ligne est alors scindée en une ligne par financement, chacune sur son compte comptable. L'année d'affectation Airtable est reprise comme année du solde en cas de scission. Un financement au même montant est pré-sélectionné (à vérifier). Si une partie du virement concerne un autre exercice
     (versement pluriannuel), réduisez « Part exercice » : la ligne sera scindée en deux et le solde passera sur l'année indiquée.</p>
     <div style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th><th>Financement Airtable</th><th>Part exercice</th><th>Année solde</th></tr></thead><tbody>`;
   credits.forEach((r,i)=>{
@@ -1436,7 +1437,8 @@ function autoMatchFinancements(onlyRowId){
     h+=`<tr><td style="font-size:9px;white-space:nowrap">${(String(r.dt||"")).split("T")[0]}</td>
       <td style="font-size:9px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib}</td>
       <td class="cre" style="font-family:var(--mono);white-space:nowrap">${fmt(r.cre)}</td>
-      <td><button class="b bd" id="finBtn_${i}" style="max-width:290px;font-size:9px;text-align:left;white-space:normal;${pre>=0?"color:var(--green)":""}" onclick="openFinPicker(${i})">${pre>=0?finBtnLabel(fins[pre]):"🔍 Choisir un financement…"}</button></td>
+      <td><button class="b bd" id="finBtn_${i}" style="max-width:255px;font-size:9px;text-align:left;white-space:normal;${pre>=0?"color:var(--green)":""}" onclick="openFinPicker(${i})">${pre>=0?finBtnLabel(fins[pre]):"🔍 Choisir un financement…"}</button>
+        <button class="b bd" style="font-size:8px;padding:1px 4px;margin-left:2px" onclick="closeM();openRowFin('${r.id}')" title="Ce virement regroupe plusieurs financements (deux subventions versées ensemble, deux projets) : ouvrir la répartition, où l'on sélectionne autant de financements que nécessaire avec la part de chacun">⧉ plusieurs</button></td>
       <td><input class="ni" id="finPart_${i}" value="${r.cre}" style="width:80px" title="Part affectée à l'exercice de la ligne"></td>
       <td><input class="cj" id="finYr_${i}" value="${(parseInt(r.yr)||new Date().getFullYear())+1}" style="width:50px;text-align:center" title="Année du solde si scission"></td></tr>`;
   });
@@ -1799,8 +1801,8 @@ function autoMatchNDF(){
   $("modalC").innerHTML=h;
 }
 
-function execAutoMatch(matchList){
-  let done=0;
+async function execAutoMatch(matchList){
+  let done=0;const refs=[];
   matchList.forEach((m,i)=>{
     if(!$("am_"+i)?.checked)return;
     // Reuse splitNDF logic inline
@@ -1816,14 +1818,17 @@ function execAutoMatch(matchList){
       D.rows.splice(bankIdx+j,0,{
         id:"am"+Date.now()+"_"+bankIdx+"_"+j+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,lib:parts.join(" - "),
         four:nr.four||"",cat:matchCat(nr.cat||nr.expType||""),act:matchAct(nr.act||""),deb:nr.deb,cre:null,
-        modal:"Virement émis",stat:"Classé - Facture",resp:nr.resp||"",
+        modal:"Virement émis",stat:"Classé - Facture",resp:"",
         numj:m.ndfRef+"_"+String(j+1).padStart(2,"0"),ndf:m.ndfRef,src:"ndf-split"
       });
     });
-    delete D.ndfBuffer[m.ndfRef];done++;
+    delete D.ndfBuffer[m.ndfRef];refs.push(m.ndfRef);done++;
   });
   autoSave();closeM();render();
-  alert(done+" NDF éclatée(s) automatiquement.");
+  // Liens Drive posés dans la foulée, dossier par dossier
+  let nl=0;
+  for(const ref of refs){const o=await linkNdfPieces(ref);nl+=o.n}
+  alert(done+" NDF éclatée(s) automatiquement."+(nl?"\n🔗 "+nl+" lien(s) Drive posé(s).":"\n⚠️ Aucun lien Drive posé — utilisez ⚠️ Justif. → Rattraper les liens Drive."));
 }
 
 // ─── CORE ───
@@ -1855,7 +1860,30 @@ function clearData(){
   autoSave();render();
 }
 
-function upd(id,f,v){pushUndo();const r=D.rows.find(x=>x.id===id);if(r){r[f]=v;autoSave();render()}}
+// Un choix dans une liste déroulante ne doit pas reconstruire les 500 lignes du tableau.
+// Trois régimes selon ce que le champ influence réellement.
+const LIGHT_FIELDS=new Set(["four","numj","comment","resp"]);   // aucun total, aucun filtre : rien à redessiner
+const SOFT_FIELDS=new Set(["cat","act","stat"]);                // alimentent les cartes : rendu différé
+let _softTimer=null;
+function softRender(){clearTimeout(_softTimer);_softTimer=setTimeout(()=>render(),500)}
+// Rafraîchit le liseré orange « à renseigner » de la ligne, sans toucher au reste
+function markRow(id){
+  const r=D.rows.find(x=>x.id===id);if(!r)return;
+  const orange=e=>{if(e){e.style.borderColor="#f97316";e.style.color="#f97316"}};
+  const plain=e=>{if(e){e.style.borderColor="";e.style.color=""}};
+  (r.cat?plain:orange)($("cat_"+id));
+  (r.act?plain:orange)($("act_"+id));
+  (r.modal?plain:orange)($("mod_"+id));
+  ((!r.stat||String(r.stat).includes("manquant"))&&(r.deb||r.cre)?orange:plain)($("stat_"+id));
+}
+function upd(id,f,v){
+  pushUndo();
+  const r=D.rows.find(x=>x.id===id);if(!r)return;
+  r[f]=v;autoSave();markRow(id);
+  if(LIGHT_FIELDS.has(f))return;
+  if(SOFT_FIELDS.has(f)){softRender();return}
+  render();   // montants, dates, année, compte : les totaux changent
+}
 // Édition par double-clic des cellules texte (date, libellé)
 function editCell(id,f){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
@@ -1870,7 +1898,7 @@ function del(id){pushUndo();D.rows=D.rows.filter(r=>r.id!==id);delete D.att[id];
 function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){D.rows.splice(i+1,0,{...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0});autoSave();render()}}
 
 // ─── NDF SPLIT: replace bank NDF line with sub-lines from NDF import ───
-function splitNDF(bankId){
+async function splitNDF(bankId){
   const bankRow=D.rows.find(r=>r.id===bankId);if(!bankRow)return;
   const m=bankRow.lib.match(/N20\d{2}-\d{2,4}/);
   if(!m){alert("Pas de référence NDF trouvée dans le libellé.\nFormat attendu: VIR N2026-XXX - NOM");return}
@@ -1909,15 +1937,18 @@ function splitNDF(bankId){
       id:"ns"+Date.now()+"_"+i+"_"+Math.random().toString(36).substr(2,5),dt:bankRow.dt,yr:bankRow.yr,
       lib,four:nr.four||"",cat:matchCat(nr.cat||nr.expType||""),act:matchAct(nr.act||""),
       deb:nr.deb,cre:null,modal:"Virement émis",
-      stat:"Classé - Facture",resp:nr.resp||"",
+      stat:"Classé - Facture",resp:"",
       numj,ndf:ndfRef,src:"ndf-split"
     });
   });
   if(D.ndfBuffer&&D.ndfBuffer[ndfRef])delete D.ndfBuffer[ndfRef];
   autoSave();render();
+  // Chaque sous-ligne reçoit tout de suite le lien de sa pièce sur le Drive
+  const linked=await linkNdfPieces(ndfRef);
   alert("✂️ "+ndfRef+" éclaté en "+ndfLines.length+" sous-ligne(s)\n\n"+
     "Libellé : NDF "+ndfRef+(salName?" - "+salName:"")+" - [description]\n"+
     "Justificatifs : "+ndfRef+"_01 à _"+String(ndfLines.length).padStart(2,"0")+"\n"+
+    (linked.n?"🔗 "+linked.n+" lien(s) Drive posé(s) sur les pièces du dossier "+ndfRef:"⚠️ Aucun lien Drive posé : "+linked.why)+"\n"+
     (ndfLines[0]?.act?"Code projet reporté depuis la NDF":""));
 }
 
@@ -2953,9 +2984,9 @@ function render(){
     h+=`<tr${r.src==="ndf"?' class="ndf"':(r.src==="ndf-split"?' class="ndf-split"':"")} style="${rowBg}">`;    h+=`<td style="white-space:nowrap;font-size:10px;color:#5c6a80;min-width:65px;cursor:pointer" ondblclick="editCell('${r.id}','dt')" title="Double-clic pour modifier la date">${r.dt}</td>`;
     h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
     h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")} — double-clic pour modifier" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'" ondblclick="editCell('${r.id}','lib')">${r.lib}</td>`;
-    h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.cat?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${r.cat&&!D.cats.includes(r.cat)?`<option selected>${r.cat}</option>`:""}${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" list="dl_four" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
+    h+=`<td style="min-width:150px"><select class="ms" id="cat_${r.id}" style="max-width:160px${!r.cat?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${r.cat&&!D.cats.includes(r.cat)?`<option selected>${r.cat}</option>`:""}${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:150px"><select class="ms" id="act_${r.id}" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=finCellBtn(r);
@@ -2965,8 +2996,8 @@ function render(){
       :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Ouvrir sur le Drive${r.numj?" : "+r.numj:""}">📄 ${njShort(r.numj)||"Drive"}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
       :a?`<td><button class="att" style="border-color:#ef4444;color:#ef4444" onclick="viewAtt('${r.id}')" title="Copie locale de ${a.name} — ce fichier n'est PAS sur le Drive et sera perdu au rechargement. Réattachez-le.">⚠️ ${njShort(a.nj)} local</button><button class="att" onclick="deleteJustif('${r.id}')" title="Retirer cette copie locale" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
         :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier, ou rattachez la pièce existante via ⚠️ Justif. → Rattraper les liens Drive." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
-    h+=`<td style="min-width:55px"><select class="ms" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:75px"><select class="ms" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:55px"><select class="ms" id="mod_${r.id}" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:75px"><select class="ms" id="stat_${r.id}" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
@@ -2976,13 +3007,12 @@ function render(){
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
   h+="</tbody></table></div>";ct.innerHTML=h;
   applyColWidths(ct.querySelector("table"));
-  // Init fournisseur autocomplete
+  // Autocomplétion fournisseur : UNE seule datalist pour tout le tableau.
+  // Une datalist par ligne créait 500 lignes x ~120 fournisseurs d'options à chaque rendu.
   setTimeout(()=>{
-    const allFour=allFournisseurs();
-    flt.forEach(r=>{
-      const fe=document.getElementById("f_"+r.id);
-      if(fe){const dl=document.createElement("datalist");dl.id="dl_f_"+r.id;allFour.forEach(f=>{const o=document.createElement("option");o.value=f;dl.appendChild(o)});fe.parentNode.appendChild(dl);fe.setAttribute("list","dl_f_"+r.id)}
-    });
+    let dl=$("dl_four");
+    if(!dl){dl=document.createElement("datalist");dl.id="dl_four";document.body.appendChild(dl)}
+    dl.innerHTML=allFournisseurs().map(f=>`<option value="${String(f).replace(/"/g,"&quot;")}">`).join("");
   },10);
 }
 
@@ -3024,6 +3054,46 @@ function rSuivi(el){
     mos.forEach(m=>{const md=d.bm[m];h+=md?`<td style="text-align:right;font-size:7px;color:${md.cre>md.deb?"#4ade80":"#f87171"}">${fmt(md.deb||md.cre)}</td>`:'<td></td>'});h+='</tr>'});
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL</td><td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
   mos.forEach(()=>h+='<td></td>');h+='</tr></tbody></table></div>';el.innerHTML=h}
+
+// Pose le lien Drive de chaque sous-ligne d'une NDF, juste après l'éclatement.
+// Mêmes règles que le rattrapage : nom du fichier préfixé par le n° de pièce,
+// sinon l'indice _NN, seul repère commun aux deux nomenclatures du dossier.
+async function linkNdfPieces(ndfRef){
+  let files=[];
+  try{
+    const res=await sheetAPI("listJustifFiles");
+    if(!res||!res.ok)throw new Error(res&&res.error?res.error:"réponse inattendue");
+    files=res.files||[];
+  }catch(e){return {n:0,why:"lecture du Drive impossible ("+(e.message||e)+")"}}
+  const dirs=files.filter(f=>f.src==="ndf"&&f.dir);
+  const dir=dirs.find(d=>d.n===ndfRef)||dirs.find(d=>d.n.startsWith(ndfRef+"-"));
+  const key=dir?dir.n:ndfRef;
+  const inDir=files.filter(f=>f.src==="ndf"&&!f.dir&&(String(f.p||"")===key||String(f.p||"").endsWith("/"+key)))
+    .map(f=>({...f,bn:baseName(f.n)}));
+  if(!inDir.length)return {n:0,why:"aucun fichier dans le dossier "+key};
+  const pieces=inDir.filter(f=>!/_recap$/i.test(f.bn));
+  const taken=new Set(D.rows.map(r=>r.driveFileId).filter(Boolean));
+  let n=0;
+  D.rows.filter(r=>r.ndf===ndfRef&&!r.driveUrl).forEach(r=>{
+    const numj=String(r.numj||"").trim();if(!numj)return;
+    let f=pieces.find(x=>x.bn===numj)||pieces.find(x=>x.bn.startsWith(numj+"_")||x.bn.startsWith(numj+"-"));
+    if(!f){
+      const mi=numj.match(/_(\d{1,3})$/);
+      if(mi){
+        const rx=new RegExp("_0*"+parseInt(mi[1],10)+"(?:_|\\.|$)");
+        const hits=pieces.filter(x=>rx.test(x.bn)&&!taken.has(x.id));
+        if(hits.length===1)f=hits[0];
+      }
+    }
+    if(!f||taken.has(f.id))return;
+    taken.add(f.id);
+    r.driveUrl=f.url;r.driveFileId=f.id;
+    if(!(r.stat||"").startsWith("Classé"))r.stat="Classé - Note de frais";
+    n++;
+  });
+  if(n){autoSave();render()}
+  return {n,why:n?"":"aucune pièce ne correspond aux numéros _01, _02… du dossier "+key};
+}
 
 // ─── RATTRAPAGE DES LIENS DRIVE ───
 // Les noms de fichiers ont été fabriqués par l'outil à partir des lignes elles-mêmes :
