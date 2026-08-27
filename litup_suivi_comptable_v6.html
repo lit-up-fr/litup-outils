@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22q</div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-22s</div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3052,6 +3052,16 @@ function rhNoJustif(r){
 function amtOfRow(r){return Math.round(Math.abs(r.deb||r.cre||0)*100)/100}
 function dtKey(r){return String(r.dt||"").split("T")[0].replace(/-/g,"")}
 function fourKey(r){return String(r.four||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+// Écart de date affiché en clair : c'est lui qui trahit une facture du mauvais mois.
+// Un écart de 29 jours peut rester dans le mois ou le franchir : le mois est donc dit explicitement.
+function gapLabel(d,sameMonth){
+  if(d===null||d===undefined||d>=9999)return"date ?";
+  if(sameMonth===false)return"⚠️ autre mois ("+d+" j)";
+  return d===0?"même jour":d+" j";
+}
+function monthOf(dt8){const s=String(dt8||"");return /^\d{6}/.test(s)?s.substring(0,6):""}
+// Repli quand aucune pièce du même mois n'existe : on reste dans le mois calendaire adjacent
+const GAP_SAFE=31;
 function dayDiff(a,b){
   const d=s=>new Date(s.substring(0,4)+"-"+s.substring(4,6)+"-"+s.substring(6,8));
   return Math.abs(Math.round((d(a)-d(b))/86400000));
@@ -3062,17 +3072,21 @@ function isNdfRow(r){return !!String(r.ndf||"").trim()||!!parseNDF(r.lib)||Strin
 // Lignes candidates pour une pièce orpheline : même montant d'abord, puis même fournisseur,
 // puis proximité de date. Aucune n'est retenue d'office.
 function orphanRowCands(f,rws){
-  const pj=f.pj;if(!pj)return rws.slice(0,0);
-  return rws.map(r=>{
+  const pj=f.pj;if(!pj)return [];
+  let out=rws.map(r=>{
     const dAmt=Math.abs(amtOfRow(r)-pj.amt);
     const fk=fourKey(r);
     const sameFour=fk&&pj.four&&(pj.four===fk||pj.four.includes(fk)||fk.includes(pj.four));
     const dk=dtKey(r);
     const dd=dk&&pj.dt?dayDiff(dk,pj.dt):9999;
-    return {r,dAmt,sameFour,dd,score:(dAmt<0.005?0:1000)+(sameFour?0:100)+Math.min(dd,90)};
+    const sm=dk&&pj.dt?monthOf(dk)===monthOf(pj.dt):null;
+    return {r,dAmt,sameFour,dd,sm};
   }).filter(x=>x.dAmt<0.005||x.sameFour)
-    .sort((a,b)=>a.score-b.score)
-    .slice(0,20);
+    // Le mois d'abord : un même montant à trois mois d'écart n'est pas la même facture
+    .sort((a,b)=>(a.sm===false?1:0)-(b.sm===false?1:0)||a.dd-b.dd||a.dAmt-b.dAmt);
+  if(out.some(x=>x.sm===true))out=out.filter(x=>x.sm===true);
+  else if(out.some(x=>x.dd<=GAP_SAFE))out=out.filter(x=>x.dd<=GAP_SAFE);
+  return out.slice(0,20);
 }
 async function relinkJustifs(){
   const btn=$("relinkBtn");if(btn){btn.disabled=true;btn.textContent="⏳ Lecture du Drive…"}
@@ -3160,14 +3174,19 @@ async function relinkJustifs(){
         props.push({r,kind:"file",f:triple[0],conf:"forte",why:"Date, fournisseur et montant identiques"});return}
     }
     // 4. Rien de certain : on ne devine pas. On propose les pièces du même fournisseur à choisir.
-    const cands=classes.filter(f=>f.pj&&!taken.has(f.id)&&(
+    // Un abonnement mensuel a le même montant et le même fournisseur tous les mois :
+    // c'est l'écart de date qui distingue la bonne facture. Il commande donc le tri,
+    // et les pièces d'un autre mois sont écartées dès qu'une pièce proche existe.
+    let cands=classes.filter(f=>f.pj&&!taken.has(f.id)&&(
         (fk&&f.pj.four&&(f.pj.four===fk||f.pj.four.includes(fk)||fk.includes(f.pj.four)))
         ||Math.abs(f.pj.amt-amt)<0.005))
-      .sort((a,b)=>{
-        const sa=(fk&&a.pj.four===fk?0:1),sb=(fk&&b.pj.four===fk?0:1);
-        if(sa!==sb)return sa-sb;
-        return (dk&&a.pj.dt?dayDiff(a.pj.dt,dk):9999)-(dk&&b.pj.dt?dayDiff(b.pj.dt,dk):9999);
-      });
+      .map(f=>({f,dd:(dk&&f.pj.dt)?dayDiff(f.pj.dt,dk):9999,
+        sm:(dk&&f.pj.dt)?monthOf(f.pj.dt)===monthOf(dk):null}))
+      .sort((a,b)=>(a.sm===false?1:0)-(b.sm===false?1:0)||a.dd-b.dd||String(a.f.bn).localeCompare(String(b.f.bn)));
+    // Une pièce du mois de l'opération existe : les autres mois n'ont rien à faire dans la liste
+    if(cands.some(x=>x.sm===true))cands=cands.filter(x=>x.sm===true);
+    else if(cands.some(x=>x.dd<=GAP_SAFE))cands=cands.filter(x=>x.dd<=GAP_SAFE);
+    cands=cands.map(x=>({...x.f,_dd:x.dd,_sm:x.sm}));
     // 5. RH sans justificatif attendu (hors gratifications, médecine du travail, AKTO…)
     if(rhNoJustif(r)){
       if(!(r.stat||"").startsWith("Classé"))props.push({r,kind:"rh",conf:"forte",why:"Paie ou cotisations : les bulletins de salaire font foi"});
@@ -3214,7 +3233,7 @@ function renderRelink(){
       :p.kind==="file"?`<span style="font-size:8px">${p.f.n}</span>`
       :p.kind==="manual"?`<select class="ms" id="rlSel_${i}" style="max-width:300px;font-size:8px" onchange="rlPicked(${i})">
           <option value="">— ne rien rattacher —</option>
-          ${p.cands.map((c,k)=>`<option value="${k}">${c.n}</option>`).join("")}</select>`
+          ${p.cands.map((c,k)=>`<option value="${k}">${c.n}${c._dd!==undefined?"   ["+gapLabel(c._dd,c._sm)+"]":""}</option>`).join("")}</select>`
       :'<span style="color:var(--text-3)">—</span>';
     h+=`<tr${p.kind==="none"?' style="opacity:.5"':""}>
       <td>${canApply?`<input type="checkbox" class="mo-check" id="rlOn_${i}"${pre?" checked":""}>`:""}</td>
@@ -3245,7 +3264,7 @@ function renderRelink(){
         <td style="text-align:right;font-family:var(--mono);font-size:9px">${pj?fmt(pj.amt):"—"}</td>
         <td>${o.cands.length?`<select class="ms" id="roSel_${k}" style="max-width:330px;font-size:8px" onchange="roPicked(${k})">
             <option value="">— ne rien rattacher —</option>
-            ${o.cands.map((c,j)=>`<option value="${j}">${String(c.r.dt||"").split("T")[0]} · ${fmt(amtOfRow(c.r))} · ${String(c.r.lib||"").substring(0,42).replace(/</g,"&lt;")}${c.dAmt<0.005?" ✓montant":""}</option>`).join("")}
+            ${o.cands.map((c,j)=>`<option value="${j}">${String(c.r.dt||"").split("T")[0]} · ${fmt(amtOfRow(c.r))} · ${String(c.r.lib||"").substring(0,38).replace(/</g,"&lt;")}${c.dAmt<0.005?" ✓montant":""}   [${gapLabel(c.dd,c.sm)}]</option>`).join("")}
           </select>`:`<span style="font-size:9px;color:var(--text-3)">Aucune ligne au même montant ni au même fournisseur</span>`}</td>
         <td><button class="b bd" style="font-size:8px;padding:1px 4px" onclick="window.open('${o.f.url}','_blank')" title="Ouvrir la pièce sur le Drive">👁</button></td></tr>`;
     });
