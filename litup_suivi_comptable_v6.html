@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24e <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24f <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -827,7 +827,7 @@ function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.g
   if(!d.soldeLivret&&d.soldeLivret!==0)D.soldeLivret=defSoldeL;
   if(!d.soldeInitial&&d.soldeInitial!==0)D.soldeInitial=defSoldeI;
 }}catch(e){}}
-autoLoad();normActs();
+autoLoad();normActs();normBudget();
 
 // Init Airtable data if missing
 if(!D.airtableSubs||D.airtableSubs.length===0){
@@ -2454,7 +2454,7 @@ function rhToBudget(){
     const arr=res.acc[cat]||[];
     const annuel=arr.reduce((a,b)=>a+b,0);
     let b=D.budget.find(x=>catKey(x.cat)===catKey(cat));
-    if(!b){b={cat,type:"charge",versions:[],seasonMode:"lisse",months:[]};D.budget.push(b);cre++}
+    if(!b){b={cat,type:"charge",versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]};D.budget.push(b);cre++}
     else maj++;
     while(b.versions.length<=vIdx)b.versions.push(0);
     b.versions[vIdx]=Math.round(annuel);
@@ -3044,12 +3044,14 @@ function rBudget(el){
     <span style="font-size:10px;font-weight:600">Budget prévisionnel ${compYear}</span>
     <button class="b bg" onclick="addBudgetLine()">+ Ligne</button>
     <span style="font-size:8px;color:#64748b;margin-left:6px">Version affichée :</span>
-    <select class="ms" style="max-width:220px" onchange="setBudgetVer(this.value)" title="Version utilisée aussi par Prévi. vs Réalisé et Trésorerie">
-      ${D.budgetVersions.map((v,vi)=>`<option value="${vi}"${vi===vIdx?" selected":""}>${v}</option>`).join("")}
+    <select class="ms" style="max-width:340px" onchange="setBudgetVer(this.value)" title="Version utilisée aussi par Prévi. vs Réalisé et Trésorerie">
+      ${D.budgetVersions.map((v,vi)=>{const t=budgetVerTotaux(vi);
+        return `<option value="${vi}"${vi===vIdx?" selected":""}>${v} — ch. ${Math.round(t.ch).toLocaleString("fr-FR")} / pr. ${Math.round(t.pr).toLocaleString("fr-FR")} €</option>`}).join("")}
     </select>
+    <button class="b bd" onclick="openVersions()" title="Comparer, renommer, dupliquer ou supprimer les versions" style="font-size:9px">🗂 Versions</button>
     <button class="b bd" onclick="renameBudgetVersion()" title="Renommer la version affichée" style="font-size:9px">✏️</button>
-    <button class="b bd" onclick="deleteBudgetVersion()" title="Supprimer la version affichée" style="font-size:9px;color:var(--red)">🗑</button>
-    <button class="b bb" onclick="addBudgetVersion()">+ Version vierge</button>
+    <button class="b bb" onclick="addBudgetVersion(true)" title="Créer une version en recopiant les montants de la version affichée">⧉ Dupliquer</button>
+    <button class="b bb" onclick="addBudgetVersion(false)">+ Version vierge</button>
     <button class="b bp" onclick="budgetFromAirtable(true)" title="Créer une nouvelle version datée et y injecter les recettes Airtable (comptes Airtable prioritaires, création des comptes manquants)">🆕 Nouveau budget daté (recettes Airtable)</button>
     <button class="b bb" onclick="budgetFromAirtable(false)" title="Mettre à jour les recettes de la version affichée">📥 Recettes Airtable</button>
     <button class="b bd" onclick="nameAccountsFromAirtable()" title="Donner un libellé aux comptes créés à partir d'un code Airtable (74194100 → 74194100 - Crédit mutuel - Alliance fédéral)">🏷️ Nommer les comptes</button>
@@ -3131,14 +3133,42 @@ function addBudgetLine(type){
   sortBudget();autoSave();render();
 }
 function sortBudget(){D.budget.sort((a,b)=>{if(a.type!==b.type)return a.type==="charge"?-1:1;return(a.cat||"zzz").localeCompare(b.cat||"zzz")})}
+// Chaque ligne de budget porte un montant par version, à l'index de la version.
+// Si un tableau est plus court que la liste des versions, un push(0) ultérieur
+// écrit au mauvais index et TOUTES les colonnes suivantes se décalent — les
+// anciennes versions affichent alors les montants d'une autre. On normalise donc
+// au chargement et avant toute opération sur les versions.
+function normBudget(){
+  const n=(D.budgetVersions||[]).length;
+  let corrige=0;
+  (D.budget||[]).forEach(b=>{
+    if(!Array.isArray(b.versions))b.versions=[];
+    if(b.versions.length!==n)corrige++;
+    while(b.versions.length<n)b.versions.push(0);
+    if(b.versions.length>n)b.versions.length=n;
+    b.versions=b.versions.map(v=>parseFloat(v)||0);
+  });
+  return corrige;
+}
+// Totaux d'une version : sert aux libellés de la liste déroulante et au gestionnaire.
+function budgetVerTotaux(vi){
+  let ch=0,pr=0;
+  (D.budget||[]).forEach(b=>{const v=parseFloat(b.versions?.[vi])||0;
+    if(b.type==="produit")pr+=v;else ch+=v});
+  return {ch,pr,solde:pr-ch};
+}
 function budgetVerLabel(name){const d=new Date();const dt=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   return (name||"Budget révisé")+" · "+dt}
-function addBudgetVersion(){
-  const name=prompt("Nom de la nouvelle version (la date du jour est ajoutée automatiquement) :","Budget révisé");
+function addBudgetVersion(copie){
+  const name=prompt((copie?"Nom de la copie de « "+D.budgetVersions[curVerIdx()]+" »"
+                          :"Nom de la nouvelle version vierge")
+    +" (la date du jour est ajoutée automatiquement) :", copie?"Budget révisé":"Budget révisé");
   if(!name)return;
   pushUndo();
+  normBudget();                       // aligne les tableaux avant d'en ajouter un cran
+  const src=curVerIdx();
   D.budgetVersions.push(budgetVerLabel(name));
-  D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(0)});
+  D.budget.forEach(b=>b.versions.push(copie?(parseFloat(b.versions[src])||0):0));
   autoSave();setBudgetVer(D.budgetVersions.length-1);
 }
 function renameBudgetVersion(){
@@ -3150,12 +3180,63 @@ function renameBudgetVersion(){
 function deleteBudgetVersion(){
   const i=curVerIdx();
   if(D.budgetVersions.length<2){alert("Impossible de supprimer la seule version du budget.\nCréez d'abord une autre version.");return}
-  if(!confirm("Supprimer la version « "+D.budgetVersions[i]+" » ?\n\nLes montants de cette colonne seront perdus (les autres versions sont conservées).\nAnnulable avec ↩️.")){return}
+  const t=budgetVerTotaux(i);
+  if(!confirm("Supprimer la version « "+D.budgetVersions[i]+" » ?\n\n"
+    +"Charges "+fmt(t.ch)+" · produits "+fmt(t.pr)+" · solde "+fmt(t.solde)+"\n\n"
+    +"Les montants de cette colonne seront perdus (les autres versions sont conservées).\nAnnulable avec ↩️.")){return}
   pushUndo();
+  normBudget();
   D.budgetVersions.splice(i,1);
-  D.budget.forEach(b=>{if(Array.isArray(b.versions))b.versions.splice(i,1)});
+  D.budget.forEach(b=>b.versions.splice(i,1));
+  // Une ligne vide sur toutes les versions restantes n'a plus de raison d'être
+  D.budget=D.budget.filter(b=>b.cat||b.versions.some(v=>v));
   autoSave();setBudgetVer(null);
 }
+// ─── GESTIONNAIRE DE VERSIONS ───
+// Toutes les versions du prévisionnel, avec leurs totaux, pour retrouver et
+// comparer les anciennes sans avoir à les activer une par une.
+function openVersions(){
+  normBudget();
+  const act=curVerIdx();
+  const lignes=D.budgetVersions.map((v,vi)=>{
+    const t=budgetVerTotaux(vi);
+    const nb=D.budget.filter(b=>(parseFloat(b.versions?.[vi])||0)!==0).length;
+    return `<tr style="${vi===act?"background:var(--accent-bg)":""}">
+      <td style="font-size:10px;font-weight:${vi===act?"700":"400"}">${vi===act?"● ":""}${v}</td>
+      <td style="text-align:right;font-size:10px" class="deb">${fmt(t.ch)}</td>
+      <td style="text-align:right;font-size:10px" class="cre">${fmt(t.pr)}</td>
+      <td style="text-align:right;font-size:10px;font-weight:600;color:${t.solde>=0?"var(--green)":"var(--red)"}">${fmt(t.solde)}</td>
+      <td style="text-align:right;font-size:9px;color:var(--text-3)">${nb}</td>
+      <td style="white-space:nowrap">
+        ${vi===act?'<span style="font-size:9px;color:var(--text-3)">affichée</span>'
+                  :`<button class="b bd" style="font-size:8px;padding:2px 5px" onclick="closeM();setBudgetVer(${vi})">Afficher</button>`}
+        <button class="b bd" style="font-size:8px;padding:2px 5px" onclick="closeM();setBudgetVer(${vi});setTimeout(renameBudgetVersion,0)" title="Renommer">✏️</button>
+        <button class="b bd" style="font-size:8px;padding:2px 5px;color:var(--red)" onclick="closeM();setBudgetVer(${vi});setTimeout(deleteBudgetVersion,0)" title="Supprimer cette version">🗑</button>
+      </td></tr>`;
+  }).join("");
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:760px">
+    <h3>🗂 Versions du budget prévisionnel</h3>
+    <p style="font-size:11px;color:var(--text-2);margin:6px 0 12px">
+      Chaque version garde ses propres montants, ligne par ligne. La version <strong>affichée</strong>
+      est celle qu'utilisent aussi ⚖️ Prévi. vs Réalisé et 💰 Trésorerie.
+      L'onglet Budget prévi. montre toutes les versions en colonnes, côte à côte.
+    </p>
+    <div style="overflow-x:auto;max-height:52vh"><table><thead><tr>
+      <th>Version</th><th style="text-align:right">Charges</th><th style="text-align:right">Produits</th>
+      <th style="text-align:right">Solde</th><th style="text-align:right">Lignes</th><th></th>
+    </tr></thead><tbody>${lignes}</tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bb" onclick="closeM();addBudgetVersion(true)">⧉ Dupliquer la version affichée</button>
+      <button class="b bb" onclick="closeM();addBudgetVersion(false)">+ Version vierge</button>
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-3)">
+      Une suppression est annulable avec ↩️ tant que vous n'avez pas rechargé la page.
+      Pour la rendre définitive côté partagé, il faut ☁️ Sauvegarder.
+    </div>
+  </div></div>`;
+}
+
 function toggleBudgetMonth(i,mi){if(!D.budget[i].months)D.budget[i].months=[];const idx=D.budget[i].months.indexOf(mi);if(idx>=0)D.budget[i].months.splice(idx,1);else D.budget[i].months.push(mi);autoSave();render()}
 
 // ─── COMPARATIF PRÉVISIONNEL vs RÉALISÉ ───
