@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24c <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24d <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -2136,6 +2136,10 @@ const RH_COMPTES = {
 const RH_COMPTES_NOUVEAUX = [RH_COMPTES.apprentissage, RH_COMPTES.taxeSalaires];
 
 const RH_TX_DEFAUT = {
+  // Version de la structure : incrémentée dès qu'un bloc change de forme, pour
+  // que la grille déjà enregistrée dans un navigateur soit migrée au lieu de
+  // rester dans l'ancien format (une grille orpheline donnait une réduction nulle).
+  v: 2,
   // Deux références distinctes, chacune tirée d'un document du cabinet :
   //  - le détail des cotisations de juillet 2026, pour le taux patronal global ;
   //  - les bulletins d'août 2026, pour la réduction générale poste par poste.
@@ -2184,7 +2188,27 @@ const RH_TX_DEFAUT = {
 };
 
 if(!D.rhPostes) D.rhPostes=[];
-if(!D.rhTx) D.rhTx=JSON.parse(JSON.stringify(RH_TX_DEFAUT));
+// Migration de la grille de taux : on conserve les valeurs saisies à la main
+// quand la forme du bloc n'a pas changé, et on réinstalle les blocs dont la
+// structure a évolué. Sans ça, une grille enregistrée avant la version 2
+// n'avait pas de barème de réduction et la réduction tombait à zéro.
+let rhTxMigre="";
+function rhMigrateTx(){
+  const def=JSON.parse(JSON.stringify(RH_TX_DEFAUT));
+  if(!D.rhTx){D.rhTx=def;return}
+  const T=D.rhTx,refaits=[];
+  const vAvant=T.v;   // à relever avant la copie des clés manquantes, qui écrirait v
+  Object.keys(def).forEach(k=>{if(T[k]===undefined)T[k]=def[k]});
+  // Le barème de réduction a remplacé le modèle linéaire (max / plafondSmic / smicAn)
+  if(!T.reduc||!Array.isArray(T.reduc.bareme)||!T.reduc.bareme.length){
+    T.reduc=def.reduc;refaits.push("réduction générale");
+  }
+  // Les deux mois de référence ont remplacé le mois unique
+  if(!T.ref||T.ref.brutPat===undefined){T.ref=def.ref;refaits.push("mois de référence")}
+  T.v=def.v;
+  if(vAvant!==def.v&&refaits.length)rhTxMigre=refaits.join(" · ");
+}
+rhMigrateTx();
 if(!D.rhBulletins) D.rhBulletins={};
 if(D.rhDriveFolder===undefined) D.rhDriveFolder="";
 let rhYear=String(new Date().getFullYear()), rhVue="result";
@@ -2557,7 +2581,11 @@ function rRH(el){
       Réduction générale <strong style="color:#4ade80">−${fmt(res.reduc.reduce((a,b)=>a+b,0))}</strong>.<br>
       Taxe sur les salaires : barème <strong>${fmt(res.tsAn)}</strong>, abattement associations
       <strong style="color:#4ade80">−${fmt(res.tsAbattu)}</strong>, <strong>reste dû ${fmt(res.tsDu)}</strong>.
-      ${res.tsDu===0?'<span style="color:#4ade80">L\'abattement absorbe toute la taxe cette année.</span>':""}
+      ${(()=>{const ab=parseFloat((D.rhTx.taxeSalaires||{}).abattementAn)||0;
+        if(res.tsDu>0)return '<span style="color:#f87171">L\'abattement est dépassé : la taxe devient une charge réelle.</span>';
+        if(ab&&res.tsAn>ab*0.9)return '<span style="color:#fbbf24">⚠️ L\'abattement absorbe encore toute la taxe, mais le barème en est à '
+          +Math.round(res.tsAn/ab*100)+' % : la prochaine embauche la rend due.</span>';
+        return '<span style="color:#4ade80">L\'abattement absorbe toute la taxe cette année.</span>'})()}
     </div>`;
 
     // Bulletins de salaire
@@ -2657,6 +2685,9 @@ function rRH(el){
       <h4 style="font-size:12px;margin:0">Taux &amp; paramètres</h4>
       <button class="b bd" style="font-size:9px" onclick="rhResetTx()">↩️ Rétablir la grille d'origine</button>
     </div>
+    ${rhTxMigre?`<div style="margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3);font-size:10px;color:var(--text-2)">
+      ✅ Grille mise à jour : <strong>${rhTxMigre}</strong>. Vos autres taux ont été conservés.
+      Le bouton ↩️ ci-dessus réinstalle la grille d'origine complète si besoin.</div>`:""}
     <p style="font-size:10px;color:#5c6a80;margin-bottom:12px;max-width:760px">
       Grille calibrée sur le détail des cotisations de <strong>juillet 2026</strong> :
       total patronal reconstruit à <strong>${fmt(T.ref.patronal)}</strong> sur un brut de
@@ -2694,8 +2725,8 @@ function rRH(el){
       ${ligne("Majoration 2e tranche","taxeSalaires.maj2","%")}
       ${ligne("Seuil 1re tranche","taxeSalaires.seuil1An","€/an")}
       ${ligne("Seuil 2e tranche","taxeSalaires.seuil2An","€/an")}
-      ${ligne("Abattement associations","taxeSalaires.abattementAn","€/an","Article 1679 A du CGI : s'applique au montant annuel de la taxe")}
-      <div style="font-size:9px;color:#fbbf24;margin-top:4px">Seuils déduits du bordereau de juillet 2026. <strong>À faire confirmer par le cabinet :</strong> l'abattement s'applique-t-il, et sur quel montant ? C'est ce qui décide si la taxe coûte ${fmt(res.tsAn)} ou rien.</div></div>`;
+      ${ligne("Abattement associations","taxeSalaires.abattementAn","€/an","Article 1679 A du CGI : s'applique au montant annuel de la taxe. Valeur 2025 : 23 616 € — revalorisée chaque année, à mettre à jour.")}
+      <div style="font-size:9px;color:#64748b;margin-top:4px">Seuils déduits du bordereau de juillet 2026. L'abattement porté ici est la valeur 2025 (23 616 €) : <strong>à revaloriser</strong>. Barème ${rhYear} : ${fmt(res.tsAn)} — reste dû ${fmt(res.tsDu)}.</div></div>`;
 
     h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Réduction générale dégressive unique</div>
       <div style="font-size:9px;color:#64748b;margin-bottom:4px">Barème dégressif : taux de réduction selon le brut annuel du poste, interpolé entre ces points.</div>
