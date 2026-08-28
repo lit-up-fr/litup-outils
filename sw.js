@@ -1,7 +1,7 @@
 // Service worker Lit uP Outils
 // Stratégie : réseau d'abord, cache en secours (jamais de HTML périmé quand on est en ligne).
 // Incrémenter CACHE_VERSION à chaque évolution notable des fichiers.
-const CACHE_VERSION = "litup-outils-v16";
+const CACHE_VERSION = "litup-outils-v17";
 
 const PRECACHE = [
   "./",

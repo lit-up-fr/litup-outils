@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25m <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25n <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -542,6 +542,7 @@ let D={
   soldeInitial:65943.93,
   soldeLivret:76500,
   soldeDate:"2025-01-01",
+  soldesRef:[],
   airtableSync:"2026-04-21",
   airtableSubs:[
     {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
@@ -844,7 +845,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -912,7 +913,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -932,7 +933,7 @@ async function saveComptaToSheet(){
     normBudget();
     const qui=prompt("Votre nom (pour le suivi) :","Direction")||"?";
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
-      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
@@ -1009,6 +1010,7 @@ async function loadComptaFromSheet(){
       if(m.depBuffer)D.depBuffer=m.depBuffer;
       if(m.soldeInitial)D.soldeInitial=m.soldeInitial;
       if(m.soldeDate)D.soldeDate=m.soldeDate;
+      if(Array.isArray(m.soldesRef))D.soldesRef=m.soldesRef;
       if(m.soldeInitialCC)D.soldeInitialCC=m.soldeInitialCC;
       if(m.soldeInitialLivret)D.soldeInitialLivret=m.soldeInitialLivret;
       if(m.soldeLivret)D.soldeLivret=m.soldeLivret;
@@ -4649,6 +4651,130 @@ function openFinBanque(coll,i){
   finCandRender(coll,i);
 }
 
+// ─── POINTS DE CONTRÔLE BANCAIRES ───
+// Le solde initial peut absorber des écritures manquantes et faire tomber juste
+// le solde du jour tout en laissant faux le chemin mois par mois — ce que la
+// trésorerie regarde. Un point de contrôle est un solde relevé sur la banque à
+// une date donnée : l'outil le compare à ce qu'il reconstitue, et l'écart entre
+// deux points chiffre les écritures manquantes sur la période.
+function soldeReconstitue(dISO){
+  const ref=String(D.soldeDate||"").substring(0,10);
+  let s=D.soldeInitial||0,n=0;
+  (D.rows||[]).forEach(r=>{
+    if(estLivret(r))return;
+    const j=String(r.dt||"").substring(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(j))return;
+    if(ref&&j<ref)return;
+    if(j>dISO)return;
+    s+=(r.cre||0)-(r.deb||0);n++;
+  });
+  return {s,n};
+}
+function srNorm(){
+  if(!Array.isArray(D.soldesRef))D.soldesRef=[];
+  D.soldesRef=D.soldesRef.filter(x=>x&&x.d).sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+}
+function srAdd(){
+  const d=prompt("Date du relevé bancaire (AAAA-MM-JJ) :",new Date().toISOString().substring(0,10));
+  if(!d||!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())){if(d!==null)alert("Date invalide : format AAAA-MM-JJ attendu.");return}
+  const m=prompt("Solde RÉEL du compte courant à cette date, tel qu'il figure sur le relevé :\n\n"
+    +"(nombre, point ou virgule décimale, négatif accepté)","");
+  if(m===null)return;
+  const mt=parseFloat(String(m).replace(/\s/g,"").replace(",","."));
+  if(isNaN(mt)){alert("Montant invalide.");return}
+  pushUndo();srNorm();
+  D.soldesRef.push({d:d.trim(),mt,n:prompt("Libellé (facultatif) :","Relevé C/C")||""});
+  srNorm();autoSave();render();
+}
+function srDel(i){
+  srNorm();const x=D.soldesRef[i];if(!x)return;
+  if(!confirm("Supprimer le point de contrôle du "+x.d+" ("+fmt(x.mt)+") ?"))return;
+  pushUndo();D.soldesRef.splice(i,1);autoSave();render();
+}
+function srSet(i,champ,v){
+  srNorm();if(!D.soldesRef[i])return;
+  D.soldesRef[i][champ]=champ==="mt"?(parseFloat(String(v).replace(/\s/g,"").replace(",","."))||0):String(v||"");
+  srNorm();autoSave();render();
+}
+// Fait du point de contrôle le solde initial : par construction, la
+// reconstitution devient exacte à cette date, et tout ce qui précède sort du
+// calcul. C'est la réparation quand les écritures antérieures sont incomplètes.
+function srAncrer(i){
+  srNorm();const x=D.soldesRef[i];if(!x)return;
+  const av=soldeReconstitue(x.d);
+  if(!confirm("Faire du "+x.d+" le nouveau point de départ de la trésorerie ?\n\n"
+    +"   Solde initial : "+fmt(D.soldeInitial)+" au "+(D.soldeDate||"?")+"\n"
+    +"   devient        : "+fmt(x.mt)+" au "+x.d+"\n\n"
+    +"Les écritures antérieures au "+x.d+" sortent du calcul de trésorerie : le solde\n"
+    +"saisi est réputé les contenir toutes. C'est ce qu'il faut faire quand les\n"
+    +"écritures d'avant cette date sont incomplètes.\n\n"
+    +"Écart actuel entre la banque et l'outil à cette date : "+fmt(x.mt-av.s)+"\n"
+    +"Il tombera à 0 par construction — mais les mois postérieurs resteront faux\n"
+    +"si des écritures y manquent.\n\nAnnulable avec ↩️."))return;
+  pushUndo();
+  D.soldeInitial=x.mt;D.soldeDate=x.d;
+  autoSave();render();
+  alert("✅ Point de départ fixé au "+x.d+" : "+fmt(x.mt)+"\n\nPensez à ☁️ Sauvegarder.");
+}
+function srBloc(){
+  srNorm();
+  const pts=D.soldesRef;
+  let h=`<details ${pts.length?"":""} style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
+    📍 Points de contrôle bancaires ${pts.length?"("+pts.length+")":"— vérifier que l'outil retrouve vos soldes réels"}</summary>
+    <div style="font-size:9px;color:var(--text-2);line-height:1.7;padding:6px 4px 0">
+      Saisissez ici le solde du compte courant tel qu'il figure sur vos relevés, à quelques dates clés.
+      L'outil affiche ce qu'il reconstitue à la même date et l'écart. Un écart signale des écritures
+      manquantes, en doublon, ou un solde initial faux — pas une erreur de calcul.
+      <strong>C'est le seul moyen de savoir si vos données sont complètes.</strong>
+    </div>`;
+  if(pts.length){
+    h+=`<div style="overflow-x:auto;margin-top:6px"><table><thead><tr>
+      <th>Date du relevé</th><th>Libellé</th><th style="text-align:right">Solde réel (banque)</th>
+      <th style="text-align:right">Reconstitué par l'outil</th><th style="text-align:right">Écart</th><th></th>
+    </tr></thead><tbody>`;
+    pts.forEach((x,i)=>{
+      const rec=soldeReconstitue(x.d);
+      const ec=Math.round((rec.s-x.mt)*100)/100;
+      const ok=Math.abs(ec)<0.5;
+      h+=`<tr><td><input class="cj" style="width:96px;font-size:9px" value="${x.d}" onchange="srSet(${i},'d',this.value)"></td>
+        <td><input class="cj" style="width:130px;font-size:9px" value="${(x.n||"").replace(/"/g,"&quot;")}" onchange="srSet(${i},'n',this.value)"></td>
+        <td><input class="ni" style="width:100px" value="${x.mt}" onchange="srSet(${i},'mt',this.value)"></td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px" title="${rec.n} écriture(s) du compte courant prises en compte">${fmt(rec.s)}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px;font-weight:700;color:${ok?"var(--green)":"var(--red)"}">${ok?"✓ 0,00 €":fmt(ec)}</td>
+        <td style="white-space:nowrap">
+          <button class="b bd" style="font-size:8px;padding:2px 5px" title="Faire de ce solde le point de départ de la trésorerie : les écritures antérieures sortent du calcul"
+            onclick="srAncrer(${i})">⚓ Ancrer ici</button>
+          <button class="b bd" style="font-size:8px;padding:2px 5px;color:var(--red)" onclick="srDel(${i})">🗑</button>
+        </td></tr>`;
+    });
+    // Entre deux points : la variation réelle contre la variation de l'outil.
+    // C'est cette comparaison, et elle seule, qui chiffre les écritures
+    // manquantes sur une période — un solde initial faux s'y annule.
+    for(let i=1;i<pts.length;i++){
+      const a=pts[i-1],b=pts[i];
+      const varBanque=Math.round((b.mt-a.mt)*100)/100;
+      const ra=soldeReconstitue(a.d),rb=soldeReconstitue(b.d);
+      const varOutil=Math.round((rb.s-ra.s)*100)/100;
+      const manque=Math.round((varBanque-varOutil)*100)/100;
+      const ok=Math.abs(manque)<0.5;
+      h+=`<tr style="background:${ok?"var(--green-bg)":"var(--amber-bg)"}"><td colspan="6" style="font-size:9px;padding:5px 6px;line-height:1.6">
+        ${ok?"✓":"⚠️"} <strong>Du ${a.d} au ${b.d}</strong> : la banque a varié de <strong>${fmt(varBanque)}</strong>,
+        l'outil de <strong>${fmt(varOutil)}</strong> sur ${rb.n-ra.n} écriture(s).
+        ${ok?"Les écritures de cette période sont complètes."
+            :`<strong style="color:var(--amber)">Il manque ${fmt(manque)} d'écritures sur cette période</strong>
+              ${manque>0?"(des crédits absents, ou des débits en trop)":"(des débits absents, ou des crédits en trop)"} :
+              réimportez les relevés de la période — le dédoublonnage ne réajoutera que ce qui manque.`}
+      </td></tr>`;
+    }
+    h+=`</tbody></table></div>`;
+  }
+  h+=`<div style="margin-top:8px"><button class="b bb" style="font-size:9px" onclick="srAdd()">+ Ajouter un point de contrôle</button>
+    ${pts.length<2?`<span style="font-size:9px;color:var(--text-3);margin-left:8px">
+      Avec <strong>deux</strong> points ou plus, l'outil chiffre les écritures manquantes entre eux — un solde initial faux s'y annule.</span>`:""}</div>
+    </details>`;
+  return h;
+}
+
 // ─── JUSQU'OÙ LE RÉALISÉ EST-IL CONNU ? ───
 // Le calendrier ne dit pas jusqu'où le relevé bancaire est importé. S'y fier
 // fait passer pour « mois sans dépense » un mois simplement pas encore chargé,
@@ -4947,6 +5073,8 @@ function rTreasury(el){
     pour ne pas compter deux fois le même euro. Prévi. vs Réalisé affiche le budget entier.
     Les produits prévus d'une même version diffèrent donc entre les deux onglets, et c'est normal.
     </div></details>`;
+
+  h+=srBloc();
 
   h+='<div style="overflow-x:auto"><table><thead><tr><th></th>';
   win.forEach(w=>h+=`<th style="text-align:right;min-width:70px${w.k===kNow?";color:var(--accent);border-bottom:2px solid var(--accent)":""}" title="${w.k}${w.k===kNow?" · mois en cours":""}${moisPartiel(w)?" · réalisé partiel : banque chargée jusqu'au "+dernBq:""}">${w.nom}${moisPartiel(w)?'<span style="color:var(--amber)" title="Réalisé partiel">◔</span>':""}</th>`);
