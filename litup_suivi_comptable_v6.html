@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24i <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24j <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3395,6 +3395,25 @@ function toggleBudgetMonth(i,mi){if(!D.budget[i].months)D.budget[i].months=[];co
 // total encaissé par chaque organisme, part salariale comprise. Un budget en
 // présentation comptable (brut + patronal) donne donc des pourcentages faux :
 // on le signale, au lieu de laisser lire un « 89 % consommé » qui n'existe pas.
+// Sauter du comparatif aux écritures : filtre le Classement sur les libellés de
+// compte réellement rencontrés dans les lignes de l'exercice comparé.
+function voirLignesBtn(k,fallback){
+  const n=((window._compLabels||{})[k]||[]).length;
+  const t=n?"Voir les écritures de ce compte dans le Classement":"Aucune écriture sur ce compte : le filtre portera sur le libellé du budget";
+  return `<button class="cf-btn" style="margin-right:4px;padding:0 3px" title="${t}" onclick="voirLignesCompte('${k}',${JSON.stringify(String(fallback||""))})">🔍</button>`;
+}
+function voirLignesCompte(k,fallback){
+  let labels=(window._compLabels||{})[k]||[];
+  if(!labels.length&&fallback)labels=[fallback];
+  if(!labels.length){alert("Aucune écriture à afficher pour ce compte.");return}
+  window._colFilters={yr:String(compYear)};
+  window._colMultiFilters={cat:new Set(labels)};
+  _cfDraft=null;curFilt="";curTab="class";
+  const si=$("si");if(si)si.value="";
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
 const RH_COMPTES_SENSIBLES=["64110000","64510000","64520000","64530000"];
 function rhCompteNote(cat){
   if(D.rhPresentation!=="comptable")return"";
@@ -3455,7 +3474,13 @@ function rComp(el){
   // Table
   h+='<div style="overflow-x:auto"><table><thead><tr><th>Code comptable</th><th>Type</th><th style="text-align:right">Prévu</th><th style="text-align:right">Attendu à date</th><th style="text-align:right">Réalisé</th><th style="text-align:right">%</th><th style="min-width:120px">Progression</th><th>Alerte</th></tr></thead><tbody>';
 
+  // Libellés de compte réellement présents dans les écritures, par code : c'est
+  // ce qui permet de filtrer le Classement sur les lignes d'un compte donné.
+  window._compLabels={};
+  Object.entries(realized).forEach(([k,o])=>{window._compLabels[k]=[...o.labels]});
+
   const shown=new Set();
+  let totCh=0,totChAtt=0,totChReal=0,totPr=0,totPrAtt=0,totPrReal=0;
   D.budget.forEach(b=>{
     const annual=b.versions?.[vIdx]||0;if(!annual)return;
     shown.add(catKey(b.cat));
@@ -3469,8 +3494,10 @@ function rComp(el){
     else if(vsExpected>120){alert="🟠 En avance";alertClass="alert-warn";barColor="#f59e0b"}
     else if(b.type==="produit"&&vsExpected<60){alert="🟡 Retard";alertClass="alert-warn";barColor="#f59e0b"}
     else{alert="✅";barColor="#22c55e"}
+    if(b.type==="charge"){totCh+=annual;totChAtt+=expected;totChReal+=realVal}
+    else{totPr+=annual;totPrAtt+=expected;totPrReal+=realVal}
 
-    h+=`<tr><td style="font-size:9px;font-weight:600">${b.cat||"—"}</td>
+    h+=`<tr><td style="font-size:9px;font-weight:600">${voirLignesBtn(catKey(b.cat),b.cat)}${b.cat||"—"}</td>
       <td style="font-size:8px;color:${b.type==="charge"?"#f87171":"#4ade80"}">${b.type}</td>
       <td style="text-align:right;font-size:9px">${fmt(annual)}</td>
       <td style="text-align:right;font-size:9px;color:#64748b">${fmt(expected)}</td>
@@ -3500,7 +3527,7 @@ function rComp(el){
     });
     orphans.forEach(({k,o,inBudget},oi)=>{
       const lbl=[...o.labels][0]||k;
-      h+=`<tr style="background:rgba(251,146,60,.06)"><td style="font-size:9px;font-weight:600">${lbl}</td>
+      h+=`<tr style="background:rgba(251,146,60,.06)"><td style="font-size:9px;font-weight:600">${voirLignesBtn(k,lbl)}${lbl}</td>
         <td style="font-size:8px;color:#fb923c">${inBudget?"budgété à 0":"hors budget"}</td>
         <td style="text-align:right;font-size:9px;color:#64748b">—</td>
         <td style="text-align:right;font-size:9px;color:#64748b">—</td>
@@ -3515,6 +3542,49 @@ function rComp(el){
         </td></tr>`;
     });
   }
+  // ── Totaux ──
+  const orphCh=orphans.reduce((s,x)=>s+x.o.deb,0);
+  const orphPr=orphans.reduce((s,x)=>s+x.o.cre,0);
+  const lig=(lab,bud,att,real,coul,gras,note)=>{
+    const pc=bud>0?real/bud*100:0;
+    return `<tr style="border-top:2px solid var(--border);background:var(--bg-3)">
+      <td style="font-size:10px;font-weight:${gras?700:600};color:${coul}">${lab}${note?`<span style="font-weight:400;color:var(--text-3);font-size:8px"> ${note}</span>`:""}</td>
+      <td></td>
+      <td style="text-align:right;font-size:10px;font-weight:${gras?700:600};font-family:'JetBrains Mono'">${fmt(bud)}</td>
+      <td style="text-align:right;font-size:9px;color:var(--text-3);font-family:'JetBrains Mono'">${att!==null?fmt(att):"—"}</td>
+      <td style="text-align:right;font-size:10px;font-weight:${gras?700:600};color:${coul};font-family:'JetBrains Mono'">${fmt(real)}</td>
+      <td style="text-align:right;font-size:10px;font-weight:600">${bud>0?fmtP(pc):"—"}</td>
+      <td>${bud>0?`<div class="pbar"><div class="pbar-f" style="width:${Math.min(pc,100)}%;background:${coul}"></div><div class="pbar-t">${fmtP(pc)}</div></div>`:""}</td>
+      <td></td></tr>`;
+  };
+  h+=lig("TOTAL CHARGES budgétées",totCh,totChAtt,totChReal,"var(--red)",true);
+  if(orphCh>0.5)h+=lig("dont charges hors budget",0,null,orphCh,"var(--amber)",false,"— non budgétées, à rattacher");
+  h+=lig("TOTAL PRODUITS budgétés",totPr,totPrAtt,totPrReal,"var(--green)",true);
+  if(orphPr>0.5)h+=lig("dont produits hors budget",0,null,orphPr,"var(--amber)",false,"— non budgétés, à rattacher");
+  // Rapprochement avec les cartes du haut : une écriture sans compte comptable
+  // n'apparaît ni dans les lignes budgétées ni dans les orphelins (qui sont
+  // regroupés par compte). Sans cette ligne, les totaux ne tomberaient pas juste
+  // et le tableau perdrait sa crédibilité.
+  const sansCptCh=totRealCh-(totChReal+orphCh), sansCptPr=totRealPr-(totPrReal+orphPr);
+  if(Math.abs(sansCptCh)>0.5||Math.abs(sansCptPr)>0.5){
+    h+=`<tr style="background:var(--amber-bg)">
+      <td style="font-size:9px;color:var(--amber)">Écritures sans compte comptable<span style="color:var(--text-3);font-size:8px"> — à classer dans 📋 Classement</span></td>
+      <td></td><td style="text-align:right;font-size:9px;color:var(--text-3)">—</td>
+      <td style="text-align:right;font-size:9px;color:var(--text-3)">—</td>
+      <td style="text-align:right;font-size:9px;color:var(--amber);font-family:'JetBrains Mono'" title="Charges ${fmt(sansCptCh)} · produits ${fmt(sansCptPr)}">${fmt(sansCptCh+sansCptPr)}</td>
+      <td colspan="3" style="font-size:8px;color:var(--text-3)">charges ${fmt(sansCptCh)} · produits ${fmt(sansCptPr)}</td></tr>`;
+  }
+  const soldeBud=totPr-totCh;
+  const soldeReal=(totPrReal+orphPr+sansCptPr)-(totChReal+orphCh+sansCptCh);
+  h+=`<tr style="border-top:3px solid var(--accent);background:var(--accent-bg)">
+    <td style="font-size:11px;font-weight:700">SOLDE ${compYear}<span style="font-weight:400;color:var(--text-3);font-size:8px"> — produits − charges, hors budget compris</span></td>
+    <td></td>
+    <td style="text-align:right;font-size:11px;font-weight:700;font-family:'JetBrains Mono';color:${soldeBud>=0?"var(--green)":"var(--red)"}">${fmt(soldeBud)}</td>
+    <td style="text-align:right;font-size:9px;color:var(--text-3)">—</td>
+    <td style="text-align:right;font-size:11px;font-weight:700;font-family:'JetBrains Mono';color:${soldeReal>=0?"var(--green)":"var(--red)"}">${fmt(soldeReal)}</td>
+    <td colspan="3" style="font-size:9px;color:var(--text-2)">Écart au budget : <strong style="color:${soldeReal-soldeBud>=0?"var(--green)":"var(--red)"}">${(soldeReal-soldeBud>=0?"+":"")+fmt(soldeReal-soldeBud)}</strong>
+      <span style="color:var(--text-3);font-size:8px"> · le réalisé reprend l'intégralité des cartes du haut</span></td></tr>`;
+
   h+='</tbody></table></div>';el.innerHTML=h;
 }
 
