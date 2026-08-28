@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25g <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25h <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -4282,6 +4282,136 @@ function voirLignesMois(mk){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+// ─── DÉTAIL D'UN RAPPROCHEMENT BANCAIRE (colonne « Reçu en banque ») ───
+// Un écart de montant signale le plus souvent un virement groupé rattaché en
+// bloc au mauvais financement, ou une écriture classée sur le mauvais compte.
+// C'est ici qu'on le rattrape : les écritures rapprochées sont listées, et leur
+// compte comptable comme leur code projet sont modifiables sur place.
+function finRowsDe(f){
+  const rid=String(f&&f.rid||"").trim(),nom=String(f&&f.n||"").trim();
+  // Un nom porté par plusieurs financements ne peut pas servir de repli :
+  // il ramènerait les écritures de l'homonyme.
+  const vus={};let homonyme=false;
+  finList().forEach(x=>{const k=String(x.n||"").trim();if(!k)return;
+    if(vus[k]&&k===nom)homonyme=true;vus[k]=1});
+  return (D.rows||[]).filter(r=>{
+    if(!((r.cre||0)>0)||isVirInterne(r))return false;
+    const tr=finTrace(r);
+    if(rid&&tr.some(x=>x.rid===rid))return true;
+    if(homonyme)return false;
+    return tr.some(x=>!x.rid&&x.nom===nom);
+  });
+}
+// Détache une écriture de son financement : la trace part, le classement reste.
+function finDetacher(rowId,coll,i){
+  const r=(D.rows||[]).find(x=>x.id===rowId);if(!r)return;
+  if(!confirm("Détacher cette écriture du financement ?\n\n"
+    +"La trace « Airtable: … » est retirée du commentaire. Le compte comptable, le code projet\n"
+    +"et le statut sont conservés. L'écriture redevient rapprochable.\n\nAnnulable avec ↩️."))return;
+  pushUndo();
+  r.comment=String(r.comment||"").split("·").map(x=>x.trim())
+    .filter(x=>x&&!/^Airtable:/.test(x)).join(" · ");
+  autoSave();render();openFinBanque(coll,i);
+}
+function finSetRow(rowId,champ,val,coll,i){
+  const r=(D.rows||[]).find(x=>x.id===rowId);if(!r)return;
+  pushUndo();
+  r[champ]=val;
+  // Une écriture à laquelle on vient de donner son compte et son projet n'est
+  // plus « à classer » : on aligne le statut, sans écraser un statut explicite.
+  if(r.cat&&r.act&&!(String(r.stat||"").startsWith("Classé")))r.stat="Classé - Convention";
+  autoSave();render();openFinBanque(coll,i);
+}
+// Reprend sur l'écriture le compte comptable que porte le financement dans
+// Airtable. C'est la correction la plus fréquente d'un rapprochement fait à la
+// main : le compte d'Airtable fait référence.
+function finAlignerCompte(rowId,coll,i){
+  const f=(D[coll]||[])[i];if(!f)return;
+  const code=finCompte(f).code;if(!code)return;
+  const lbl=catForCode(code)||code;
+  if(!(D.cats||[]).some(x=>catKey(x)===catKey(lbl))){
+    D.cats.push(lbl);
+    D.cats.sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true}));
+  }
+  finSetRow(rowId,"cat",lbl,coll,i);
+}
+function openFinBanque(coll,i){
+  const f=(D[coll]||[])[i];if(!f)return;
+  const rows=finRowsDe(f).sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
+  const att=finAmt(f)||0;
+  const recu=rows.reduce((a,r)=>a+(r.cre||0),0);
+  const ec=Math.round((recu-att)*100)/100;
+  const ccAt=finCompte(f);
+  const mk=finMoisKey(f);
+  const presta=coll==="airtablePrestas";
+  const lignes=rows.map(r=>{
+    // Compte suggéré : celui d'Airtable. On le signale sans l'imposer.
+    const mauvaisCpte=ccAt.code&&r.cat&&catKey(r.cat)!==catKey(ccAt.code);
+    return `<tr>
+      <td style="font-size:9px;white-space:nowrap">${String(r.dt||"").substring(0,10)}</td>
+      <td style="font-size:9px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib||""}</td>
+      <td class="cre" style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(r.cre)}</td>
+      <td><select class="ms" style="min-width:190px${r.cat?(mauvaisCpte?";border-color:var(--amber)":""):";border-color:var(--red)"}"
+        title="${!r.cat?"Écriture non classée : elle compte en trésorerie mais reste absente de Prévi. vs Réalisé."
+              :mauvaisCpte?"Différent du compte comptable d'Airtable pour ce financement ("+ccAt.code+")":"Compte comptable de l'écriture"}"
+        onchange="finSetRow('${r.id}','cat',this.value,'${coll}',${i})">
+        <option value="">— à classer</option>
+        ${D.cats.map(c=>`<option${catKey(c)===catKey(r.cat||"")?" selected":""}>${c}</option>`).join("")}
+      </select></td>
+      <td><select class="ms" style="min-width:170px${r.act?"":";border-color:var(--amber)"}"
+        title="Code projet imputé. Il commande le suivi par action (📈 Suivi codes)."
+        onchange="finSetRow('${r.id}','act',this.value,'${coll}',${i})">
+        ${actOptions(r.act||"","— à affecter")}
+      </select></td>
+      <td style="white-space:nowrap">
+        ${mauvaisCpte?`<button class="b bd" style="font-size:8px;padding:2px 5px;color:var(--amber)"
+          title="Reprendre le compte comptable qu'Airtable indique pour ce financement (${ccAt.code}), à la place de ${catKey(r.cat)}"
+          onclick="finAlignerCompte('${r.id}','${coll}',${i})">↳ ${ccAt.code}</button>`:""}
+        <button class="b bd" style="font-size:8px;padding:2px 5px" title="Modifier le rapprochement, ou scinder ce virement entre plusieurs financements"
+          onclick="closeM();openRowFin('${r.id}')">🔗 Scinder / réaffecter</button>
+        <button class="b bd" style="font-size:8px;padding:2px 5px;color:var(--red)" title="Retirer la trace de rapprochement"
+          onclick="finDetacher('${r.id}','${coll}',${i})">✖</button>
+      </td></tr>`;
+  }).join("");
+  let diag="";
+  if(!rows.length){
+    diag=`<div style="font-size:10px;color:var(--red);background:var(--red-bg);border-radius:5px;padding:8px 10px;margin-bottom:10px;line-height:1.6">
+      🔴 <strong>Aucun crédit bancaire n'est rapproché de ce financement</strong>, alors qu'Airtable le donne « ${f.s||"?"} ».
+      Deux causes possibles : le virement n'est pas arrivé, ou il est bien en banque mais pas encore rapproché.
+      ${mk&&mk!=="hors"?`<br>Cherchez-le autour de <strong>${tresMoisLabel(mk)}</strong> avec le bouton ci-dessous.`:""}</div>`;
+  }else if(Math.abs(ec)>0.5){
+    diag=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:8px 10px;margin-bottom:10px;line-height:1.6">
+      ⚠️ <strong>Écart de ${fmt(ec)}</strong> entre la banque (${fmt(recu)}) et le montant Airtable (${fmt(att)}).
+      ${ec>0?`Le virement encaissé est plus gros que ce financement : il regroupe probablement <strong>plusieurs financements</strong>.
+              Utilisez <em>🔗 Scinder / réaffecter</em> puis « ⧉ plusieurs » pour le découper — chaque part ira sur son propre compte comptable.`
+             :`Le versement reçu est inférieur à l'annonce d'Airtable : versement partiel, retenue du financeur, ou montant à corriger dans Airtable.`}</div>`;
+  }
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1080px">
+    <h3>${presta?"🏢":"📋"} ${f.n||"?"} — écritures bancaires rapprochées</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Statut Airtable <strong style="color:var(--accent-l)">${f.s||"?"}</strong>
+      · montant retenu <strong>${fmt(att)}</strong>
+      · reçu en banque <strong>${fmt(recu)}</strong>
+      ${Math.abs(ec)>0.5?`· <strong style="color:var(--amber)">écart ${fmt(ec)}</strong>`:""}
+      <br>Compte comptable du financement : <strong>${ccAt.code||"⚠️ non renseigné"}</strong>${ccAt.src?" ("+ccAt.src+")":""}
+      · mois de trésorerie : <strong>${mk==="hors"?"écarté":(mk?tresMoisLabel(mk):"non affecté")}</strong>
+      <br>Les deux sélecteurs modifient directement l'écriture bancaire : le compte comptable commande ⚖️ Prévi. vs Réalisé, le code projet commande 📈 Suivi codes.
+    </p>
+    ${diag}
+    ${rows.length?`<div style="overflow:auto;max-height:50vh"><table><thead><tr>
+      <th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th>
+      <th>Compte comptable</th><th>Code projet</th><th></th></tr></thead><tbody>${lignes}
+      <tr style="border-top:1px solid var(--border);font-weight:700">
+        <td colspan="2" style="font-size:10px">TOTAL — ${rows.length} écriture(s)</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(recu)}</td>
+        <td colspan="3"></td></tr></tbody></table></div>`:""}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      ${mk&&mk!=="hors"?`<button class="b bb" onclick="closeM();voirLignesMois('${mk}')"
+        title="Ouvrir 📋 Classement filtré sur ce mois pour retrouver le virement et le rapprocher">📋 Voir les écritures de ${tresMoisLabel(mk)}</button>`:""}
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+
 // ─── JUSQU'OÙ LE RÉALISÉ EST-IL CONNU ? ───
 // Le calendrier ne dit pas jusqu'où le relevé bancaire est importé. S'y fier
 // fait passer pour « mois sans dépense » un mois simplement pas encore chargé,
@@ -4689,7 +4819,7 @@ function rTreasury(el){
       const cells=finCellsMt(s);
       const vb=finVsBanque(s,finBanqueDe(s,bqIdx));
       h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td>${cells[0]}${cells[1]}`;
-      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
+      h+=`<td class="tcell" style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" onclick="openFinBanque('airtableSubs',${si})" title="${vb.txt.replace(/"/g,"&quot;")} — Cliquer pour ouvrir l'écriture bancaire et corriger son compte comptable ou son code projet">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
       h+=`<td style="font-size:9px${s.dpv&&!s.dev?";color:var(--blue);font-weight:600":""}">${s.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${s.dev?"var(--green)":"var(--text-3)"}">${s.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtableSubs",si,s)}</td>`;
@@ -4759,7 +4889,7 @@ function rTreasury(el){
       const cells=finCellsMt(p);
       const vb=finVsBanque(p,finBanqueDe(p,bqIdx));
       h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:var(--text-2)">${p.tp||""}</td>${cells[0]}${cells[1]}`;
-      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
+      h+=`<td class="tcell" style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" onclick="openFinBanque('airtablePrestas',${pi})" title="${vb.txt.replace(/"/g,"&quot;")} — Cliquer pour ouvrir l'écriture bancaire et corriger son compte comptable ou son code projet">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
       h+=`<td style="font-size:9px${p.dpv&&!p.dev?";color:var(--blue);font-weight:600":""}">${p.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${p.dev?"var(--green)":"var(--text-3)"}">${p.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtablePrestas",pi,p)}</td>`;
