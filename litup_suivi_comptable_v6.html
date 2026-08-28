@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24m <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25a <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -531,6 +531,9 @@ let D={
     {cat:"79100000 - Transfert de charges exploitation",type:"produit",versions:[0],seasonMode:"lisse",months:[]},
   ],
   budgetVersions:["Budget voté CA 03/12/2025"],
+  // Exercice couvert par chaque version, au même index que budgetVersions.
+  // Sert à la trésorerie glissante : les mois de 2027 lisent un budget 2027.
+  budgetVerYears:["2026"],
   soldeInitial:65943.93,
   soldeLivret:76500,
   soldeDate:"2025-01-01",
@@ -825,7 +828,7 @@ function majCloudBadge(){
     el.title="À jour dans le Google Sheet.\nSauvegardé le "+quand+" par "+cs.by;
   }else{el.textContent="";el.title=""}
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -893,7 +896,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -919,7 +922,7 @@ async function saveComptaToSheet(){
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
       // ils ne vivaient que dans le navigateur. Un vidage du cache, un autre
       // poste ou la collègue, et le budget était introuvable.
-      budget:D.budget,budgetVersions:D.budgetVersions,
+      budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,
       rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,
       rhAlloc:D.rhAlloc,savedBy:qui,
       savedAt:new Date().toISOString()};
@@ -969,6 +972,7 @@ async function loadComptaFromSheet(){
       if(m.rhAlloc)D.rhAlloc=m.rhAlloc;
       if(Array.isArray(m.budget)&&m.budget.length)D.budget=m.budget;
       if(Array.isArray(m.budgetVersions)&&m.budgetVersions.length)D.budgetVersions=m.budgetVersions;
+      if(Array.isArray(m.budgetVerYears)&&m.budgetVerYears.length)D.budgetVerYears=m.budgetVerYears;
       if(m.savedAt)D.cloudSaved={at:m.savedAt,by:m.savedBy||"?"};
       normBudget();
       if(m.rhPostes)D.rhPostes=m.rhPostes;
@@ -1651,7 +1655,7 @@ function autoMatchFinancements(onlyRowId){
 // Montant retenu : obtenu si le financement est acquis (validée/versée/engagé), attendu sinon
 function finAmt(f){
   if(f.am!==undefined&&f.am!==null&&f.am!=="")return f.am;
-  const acquis=["versée","validée","payé","facturé","signé"].includes(f.s);
+  const acquis=finAcquis(f);
   const hasOb=f.ob!==undefined&&f.ob!==null&&f.ob!=="";
   const hasMt=f.mt!==undefined&&f.mt!==null&&f.mt!=="";
   return acquis?(hasOb?f.ob:(hasMt?f.mt:0)):(hasMt?f.mt:(hasOb?f.ob:0));
@@ -2530,9 +2534,12 @@ function rhToBudget(){
   if(/vot[ée]/i.test(String(ver)))
     alerte+="\n⚠️ « "+ver+" » ressemble à un budget voté par le CA. L'écraser fait perdre la référence votée.\n"+
             "   Créez plutôt une nouvelle version (Budget prévi. → 🆕 Nouveau budget daté) avant d'injecter.\n";
-  if(String(rhYear)!==String(compYear))
-    alerte+="\n⚠️ Vous injectez l'exercice "+rhYear+" alors que l'outil compare l'exercice "+compYear+".\n";
-  if(!confirm("Injecter le prévisionnel RH "+rhYear+" dans la version « "+ver+" » ?\n"+alerte+"\n"+
+  // L'exercice porté par la version compte plus que l'exercice affiché en haut :
+  // c'est lui que lit la trésorerie glissante pour chaque mois.
+  if(String(rhYear)!==budgetVerYear(vIdx))
+    alerte+="\n⚠️ Vous injectez le prévisionnel RH "+rhYear+" dans une version marquée exercice "
+           +budgetVerYear(vIdx)+".\n   Corrigez l'exercice de la version (Budget prévi. → 🗂 Versions) ou changez de version.\n";
+  if(!confirm("Injecter le prévisionnel RH "+rhYear+" dans la version « "+ver+" » (exercice "+budgetVerYear(vIdx)+") ?\n"+alerte+"\n"+
     "Présentation : "+(res.tres
       ?"TRÉSORERIE — 64110000 en net, 645x en total versé aux organismes.\n"+
        "Comparable au réalisé de l'outil, qui vient du relevé bancaire."
@@ -3211,12 +3218,12 @@ function showCfgTab(tab){
 function rBudget(el){
   const vIdx=curVerIdx();
   let h=`<div style="padding:10px 14px;border-bottom:1px solid #1e2030;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <span style="font-size:10px;font-weight:600">Budget prévisionnel ${compYear}</span>
+    <span style="font-size:10px;font-weight:600">Budget prévisionnel <span style="color:var(--accent)">${budgetVerYear(vIdx)}</span></span>
     <button class="b bg" onclick="addBudgetLine()">+ Ligne</button>
     <span style="font-size:8px;color:#64748b;margin-left:6px">Version affichée :</span>
     <select class="ms" style="max-width:340px" onchange="setBudgetVer(this.value)" title="Version utilisée aussi par Prévi. vs Réalisé et Trésorerie">
       ${D.budgetVersions.map((v,vi)=>{const t=budgetVerTotaux(vi);
-        return `<option value="${vi}"${vi===vIdx?" selected":""}>${v} — ch. ${Math.round(t.ch).toLocaleString("fr-FR")} / pr. ${Math.round(t.pr).toLocaleString("fr-FR")} €</option>`}).join("")}
+        return `<option value="${vi}"${vi===vIdx?" selected":""}>[${budgetVerYear(vi)}] ${v} — ch. ${Math.round(t.ch).toLocaleString("fr-FR")} / pr. ${Math.round(t.pr).toLocaleString("fr-FR")} €</option>`}).join("")}
     </select>
     <button class="b bd" onclick="openVersions()" title="Comparer, renommer, dupliquer ou supprimer les versions" style="font-size:9px">🗂 Versions</button>
     <button class="b bd" onclick="renameBudgetVersion()" title="Renommer la version affichée" style="font-size:9px">✏️</button>
@@ -3242,7 +3249,11 @@ function rBudget(el){
   </div>`;
 
   h+='<div style="overflow-x:auto;padding:0 0 12px"><table><thead><tr><th>Code comptable</th><th>Type</th>';
-  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px${vi===vIdx?";color:var(--accent);border-bottom:2px solid var(--accent)":""}">${v}${vi===vIdx?" ●":""}</th>`);
+  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px${vi===vIdx?";color:var(--accent);border-bottom:2px solid var(--accent)":""}">${v}${vi===vIdx?" ●":""}
+    <div style="font-weight:400;font-size:8px;color:var(--text-3)">exercice
+      <input class="cj" style="width:42px;font-size:8px;padding:1px 2px" value="${budgetVerYear(vi)}"
+        title="Exercice couvert par cette version. La trésorerie glissante lit le budget de l'année de chaque mois."
+        onchange="setBudgetVerYear(${vi},this.value)"></div></th>`);
   h+='<th style="min-width:180px">Saisonnalité (mois)</th><th></th></tr></thead><tbody>';
 
   D.budget.forEach((b,i)=>{
@@ -3310,6 +3321,12 @@ function sortBudget(){D.budget.sort((a,b)=>{if(a.type!==b.type)return a.type==="
 // au chargement et avant toute opération sur les versions.
 function normBudget(){
   const n=(D.budgetVersions||[]).length;
+  // Exercice de chaque version : aligné sur la liste des versions. Les versions
+  // créées avant l'introduction de cet exercice sont toutes des budgets 2026.
+  if(!Array.isArray(D.budgetVerYears))D.budgetVerYears=[];
+  while(D.budgetVerYears.length<n)D.budgetVerYears.push("2026");
+  if(D.budgetVerYears.length>n)D.budgetVerYears.length=n;
+  D.budgetVerYears=D.budgetVerYears.map(y=>/^\d{4}$/.test(String(y))?String(y):"2026");
   let corrige=0;
   (D.budget||[]).forEach(b=>{
     if(!Array.isArray(b.versions))b.versions=[];
@@ -3327,6 +3344,28 @@ function budgetVerTotaux(vi){
     if(b.type==="produit")pr+=v;else ch+=v});
   return {ch,pr,solde:pr-ch};
 }
+// ─── EXERCICE D'UNE VERSION DU BUDGET ───
+// Une version = un budget pour un exercice donné. La trésorerie glissante a
+// besoin de savoir quelle version lire pour les mois de 2027.
+function budgetVerYear(vi){
+  const y=(D.budgetVerYears||[])[vi];
+  return /^\d{4}$/.test(String(y))?String(y):"2026";
+}
+function setBudgetVerYear(vi,y){
+  normBudget();
+  const v=String(y||"").trim();
+  if(!/^\d{4}$/.test(v)){alert("L'exercice doit être une année sur 4 chiffres (ex. 2027).");render();return}
+  D.budgetVerYears[vi]=v;autoSave();render();
+}
+// Version à utiliser pour un exercice donné : celle affichée si elle porte cet
+// exercice, sinon la dernière version enregistrée pour cet exercice. -1 si aucune.
+function budgetVerPourAnnee(y){
+  const n=(D.budgetVersions||[]).length;
+  const cur=curVerIdx();
+  if(cur>=0&&cur<n&&budgetVerYear(cur)===String(y))return cur;
+  for(let i=n-1;i>=0;i--)if(budgetVerYear(i)===String(y))return i;
+  return -1;
+}
 function budgetVerLabel(name){const d=new Date();const dt=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   return (name||"Budget révisé")+" · "+dt}
 function addBudgetVersion(copie){
@@ -3334,10 +3373,16 @@ function addBudgetVersion(copie){
                           :"Nom de la nouvelle version vierge")
     +" (la date du jour est ajoutée automatiquement) :", copie?"Budget révisé":"Budget révisé");
   if(!name)return;
-  pushUndo();
   normBudget();                       // aligne les tableaux avant d'en ajouter un cran
   const src=curVerIdx();
+  const exo=prompt("Exercice couvert par cette version (année sur 4 chiffres) :\n\n"
+    +"Mettez 2027 pour préparer le budget de l'année prochaine :\nla trésorerie glissante l'utilisera pour les mois de 2027.",
+    copie?budgetVerYear(src):String(compYear));
+  if(exo===null)return;
+  if(!/^\d{4}$/.test(String(exo).trim())){alert("Exercice invalide : indiquez une année sur 4 chiffres (ex. 2027).");return}
+  pushUndo();
   D.budgetVersions.push(budgetVerLabel(name));
+  D.budgetVerYears.push(String(exo).trim());
   D.budget.forEach(b=>b.versions.push(copie?(parseFloat(b.versions[src])||0):0));
   autoSave();setBudgetVer(D.budgetVersions.length-1);
 }
@@ -3357,6 +3402,7 @@ function deleteBudgetVersion(){
   pushUndo();
   normBudget();
   D.budgetVersions.splice(i,1);
+  D.budgetVerYears.splice(i,1);
   D.budget.forEach(b=>b.versions.splice(i,1));
   // Une ligne vide sur toutes les versions restantes n'a plus de raison d'être
   D.budget=D.budget.filter(b=>b.cat||b.versions.some(v=>v));
@@ -3373,6 +3419,8 @@ function openVersions(){
     const nb=D.budget.filter(b=>(parseFloat(b.versions?.[vi])||0)!==0).length;
     return `<tr style="${vi===act?"background:var(--accent-bg)":""}">
       <td style="font-size:10px;font-weight:${vi===act?"700":"400"}">${vi===act?"● ":""}${v}</td>
+      <td><input class="cj" style="width:48px;font-size:9px" value="${budgetVerYear(vi)}"
+        title="Exercice couvert par cette version" onchange="setBudgetVerYear(${vi},this.value)"></td>
       <td style="text-align:right;font-size:10px" class="deb">${fmt(t.ch)}</td>
       <td style="text-align:right;font-size:10px" class="cre">${fmt(t.pr)}</td>
       <td style="text-align:right;font-size:10px;font-weight:600;color:${t.solde>=0?"var(--green)":"var(--red)"}">${fmt(t.solde)}</td>
@@ -3389,10 +3437,13 @@ function openVersions(){
     <p style="font-size:11px;color:var(--text-2);margin:6px 0 12px">
       Chaque version garde ses propres montants, ligne par ligne. La version <strong>affichée</strong>
       est celle qu'utilisent aussi ⚖️ Prévi. vs Réalisé et 💰 Trésorerie.
-      L'onglet Budget prévi. montre toutes les versions en colonnes, côte à côte.
+      L'onglet Budget prévi. montre toutes les versions en colonnes, côte à côte.<br>
+      L'<strong>exercice</strong> dit quelle année la version budgète : la trésorerie sur 12 mois glissants
+      lit le budget 2026 pour les mois de 2026 et le budget 2027 pour ceux de 2027.
+      Pour préparer 2027, dupliquez la version en cours et indiquez 2027 comme exercice.
     </p>
     <div style="overflow-x:auto;max-height:52vh"><table><thead><tr>
-      <th>Version</th><th style="text-align:right">Charges</th><th style="text-align:right">Produits</th>
+      <th>Version</th><th title="Exercice couvert par la version">Exercice</th><th style="text-align:right">Charges</th><th style="text-align:right">Produits</th>
       <th style="text-align:right">Solde</th><th style="text-align:right">Lignes</th><th></th>
     </tr></thead><tbody>${lignes}</tbody></table></div>
     <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
@@ -3481,6 +3532,7 @@ function revSave(){
   if(!nom)return;
   pushUndo();normBudget();
   D.budgetVersions.push(budgetVerLabel(nom));
+  D.budgetVerYears.push(budgetVerYear(revDraft.base));   // même exercice que la version révisée
   const vi=D.budgetVersions.length-1;
   D.budget.forEach(b=>b.versions.push(0));
   let maj=0,cre=0;
@@ -3617,7 +3669,8 @@ function rComp(el){
   }else{
     h+=`<div style="padding:6px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <button class="b bb" style="font-size:9px" onclick="revStart()" title="Ajouter une colonne modifiable préremplie avec la version affichée, puis l'enregistrer comme une nouvelle version">✏️ Réviser le budget</button>
-      <span style="font-size:9px;color:var(--text-3)">version « ${D.budgetVersions[vIdx]} » · la révision crée une nouvelle version, celle-ci n'est pas modifiée</span>
+      <span style="font-size:9px;color:var(--text-3)">version « ${D.budgetVersions[vIdx]} » (exercice ${budgetVerYear(vIdx)}) · la révision crée une nouvelle version, celle-ci n'est pas modifiée</span>
+      ${budgetVerYear(vIdx)!==String(compYear)?`<span style="font-size:9px;color:var(--amber)">⚠️ cette version budgète ${budgetVerYear(vIdx)}, la colonne Réalisé montre ${compYear} : les écarts ne veulent rien dire.</span>`:""}
     </div>`;
   }
 
@@ -3761,18 +3814,130 @@ function rComp(el){
 }
 
 // ─── TREASURY FORECAST ───
+// La fenêtre affichée est soit les 12 mois glissants à partir du mois courant
+// (par défaut), soit l'exercice civil sélectionné. Chaque mois porte donc sa
+// propre année : les charges et produits prévus d'un mois de 2027 sont lus dans
+// la version du budget dont l'exercice est 2027.
+// Avant, tout était indexé sur les 12 mois de compYear et la fenêtre ne pouvait
+// pas franchir le 31 décembre.
+let tresVue=(()=>{try{return localStorage.getItem("litup_tresVue")==="exo"?"exo":"roll"}catch(e){return "roll"}})();
+function setTresVue(v){
+  tresVue=(v==="exo")?"exo":"roll";
+  try{localStorage.setItem("litup_tresVue",tresVue)}catch(e){}
+  render();
+}
+const moisKeyDuJour=()=>{const d=new Date();return d.getFullYear()+"-"+MOS[d.getMonth()]};
+// Fenêtre : liste de mois {k:"AAAA-MM", y:"AAAA", m:0-11, nom}
+function tresFenetre(){
+  const out=[];
+  if(tresVue==="exo"){
+    for(let m=0;m<12;m++)out.push({k:compYear+"-"+MOS[m],y:String(compYear),m,nom:MONAMES[m]});
+    return out;
+  }
+  const d=new Date();let y=d.getFullYear(),m=d.getMonth();
+  for(let i=0;i<12;i++){
+    out.push({k:y+"-"+MOS[m],y:String(y),m,nom:MONAMES[m]+" "+String(y).substring(2)});
+    m++;if(m>11){m=0;y++}
+  }
+  return out;
+}
+// Mois de trésorerie d'un financement : le choix manuel prime, sinon la date de
+// versement effective, sinon la date prévue d'Airtable. "hors" = écarté,
+// "" = aucune date connue.
+function finMoisKey(x){
+  const o=String(x&&x.mtr||"");
+  if(o==="hors")return "hors";
+  if(/^\d{4}-\d{2}$/.test(o))return o;
+  const d=String(x&&(x.dev||x.dpv||x.dp)||"");
+  return /^\d{4}-\d{2}/.test(d)?d.substring(0,7):"";
+}
+const finSansDate=x=>!String(x&&(x.dev||x.dpv||x.dp)||"").trim();
+// Ventilation mensuelle d'une version du budget (saisonnalité comprise).
+// Les produits alimentés par Airtable (744/748/706/75412) sont exclus : ils
+// arrivent par les lignes Airtable, les compter deux fois doublerait la recette.
+function budgetMensuel(vi){
+  const ch=MOS.map(()=>0),pr=MOS.map(()=>0);
+  if(vi<0)return {ch,pr,absent:true};
+  (D.budget||[]).forEach(b=>{
+    const annuel=parseFloat(b.versions?.[vi])||0;if(!annuel)return;
+    const prod=b.type==="produit";
+    if(prod){
+      const cat=(b.cat||"").substring(0,5);
+      if(cat.startsWith("744")||cat.startsWith("748")||cat.startsWith("706")||(b.cat||"").startsWith("75412"))return;
+    }
+    const cible=prod?pr:ch;
+    if(b.seasonMode==="mois"&&b.months?.length){
+      const pm=annuel/b.months.length;
+      b.months.forEach(mi=>{if(mi>=0&&mi<12)cible[mi]+=pm});
+    }else{const pm=annuel/12;for(let i=0;i<12;i++)cible[i]+=pm}
+  });
+  return {ch,pr,absent:false};
+}
+// Montant retenu d'un financement : obtenu s'il est acquis, demandé sinon.
+function finAcquis(f){return ["versée","validée","payé","facturé","signé"].includes(f&&f.s)}
+// Les deux cellules Demandé / Obtenu. Seule celle qui compte porte un montant,
+// l'autre reste en info-bulle : afficher les deux laissait croire à un cumul.
+function finCellsMt(f){
+  const acquis=finAcquis(f),ret=finAmt(f);
+  const hasOb=f.ob!==undefined&&f.ob!==null&&f.ob!=="";
+  const hasMt=f.mt!==undefined&&f.mt!==null&&f.mt!=="";
+  const dim=(t)=>`<td style="text-align:right;font-size:9px;color:var(--text-3)" title="${t}">·</td>`;
+  const fort=(v,amb,t)=>`<td style="text-align:right;font-size:9px;font-weight:600${amb?";color:var(--amber)":""}" title="${t}">${fmt(v)}</td>`;
+  if(acquis){
+    const tMt=hasMt?"Montant demandé : "+fmt(f.mt)+" — non retenu, le financement est acquis":"Aucun montant demandé dans Airtable";
+    const tOb=hasOb?"Montant obtenu — c'est lui qui est retenu en trésorerie"
+                   :"Aucun montant obtenu dans Airtable : c'est le montant demandé qui est retenu";
+    return [dim(tMt),fort(ret,!hasOb,tOb)];
+  }
+  const tOb=hasOb?"Montant obtenu : "+fmt(f.ob)+" — pas encore acquis, c'est le demandé qui est retenu":"Aucun montant obtenu (financement non acquis)";
+  const tMt=hasMt?"Montant demandé — c'est lui qui est retenu en trésorerie tant que le financement n'est pas acquis"
+                 :"Aucun montant demandé dans Airtable : c'est le montant obtenu qui est retenu";
+  return [fort(ret,!hasMt,tMt),dim(tOb)];
+}
 function rTreasury(el){
-  const vIdx=curVerIdx();
-  const subs=D.airtableSubs||[];
-  let h='<div style="padding:10px 14px"><h3 style="font-size:13px;margin-bottom:4px">💰 Prévision de trésorerie '+compYear+'</h3>';
+  const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
+  const win=tresFenetre(),N=win.length;
+  const idxDe={};win.forEach((w,i)=>{idxDe[w.k]=i});
+  const kNow=moisKeyDuJour();
+  const roll=tresVue==="roll";
+
+  // Budget applicable à chaque année de la fenêtre
+  const annees=[...new Set(win.map(w=>w.y))];
+  const verAn={},budAn={},sansBudget=[];
+  annees.forEach(y=>{
+    const vi=budgetVerPourAnnee(y);verAn[y]=vi;budAn[y]=budgetMensuel(vi);
+    if(vi<0)sansBudget.push(y);
+  });
+
+  let h='<div style="padding:10px 14px"><h3 style="font-size:13px;margin-bottom:4px">💰 Prévision de trésorerie — '
+    +(roll?"12 mois glissants ("+win[0].nom.replace(/ (\d\d)$/," 20$1")+" → "+win[N-1].nom.replace(/ (\d\d)$/," 20$1")+")":"exercice "+compYear)+'</h3>';
+  h+=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+    <span style="font-size:9px;color:var(--text-3)">Fenêtre :</span>
+    <button class="b ${roll?"bp":"bd"}" style="font-size:9px" onclick="setTresVue('roll')"
+      title="Les 12 mois à venir à partir du mois courant, même s'ils franchissent le 31 décembre">📆 12 mois glissants</button>
+    <button class="b ${roll?"bd":"bp"}" style="font-size:9px" onclick="setTresVue('exo')"
+      title="Janvier à décembre de l'exercice sélectionné en haut de l'outil">🗓 Exercice ${compYear}</button>
+    <span style="font-size:9px;color:var(--text-3);margin-left:8px">Budget lu :
+      ${annees.map(y=>verAn[y]<0?`<strong style="color:var(--amber)">${y} : aucun</strong>`
+        :`${y} : <strong>${D.budgetVersions[verAn[y]]}</strong>`).join(" · ")}</span>
+  </div>`;
+  if(sansBudget.length){
+    h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.6">
+      ⚠️ Aucune version du budget n'est marquée « exercice ${sansBudget.join(" » ni « ")} ».
+      Les charges et produits prévus de ces mois sont donc à 0.<br>
+      Créez-la depuis l'onglet <strong>📊 Budget prévi.</strong> : <em>⧉ Dupliquer</em> la version en cours puis indiquez ${sansBudget[0]}
+      comme exercice, ou corrigez l'exercice d'une version existante dans <em>🗂 Versions</em>.
+    </div>`;
+  }
+
   const soldeTotal=(D.soldeInitial||0)+(D.soldeLivret||0);
-  h+=`<div style="font-size:9px;color:#94a3b8;margin-bottom:4px;line-height:1.8">
-    Solde initial C/C au <strong>${D.soldeDate||"01/01/2026"}</strong> : <strong style="color:#818cf8">${fmt(D.soldeInitial)}</strong>
+  h+=`<div style="font-size:9px;color:var(--text-2);margin-bottom:4px;line-height:1.8">
+    Solde initial C/C au <strong>${D.soldeDate||"2026-01-01"}</strong> : <strong style="color:var(--accent-l)">${fmt(D.soldeInitial)}</strong>
     · Livret : <strong style="color:#a78bfa">${fmt(D.soldeLivret||0)}</strong>
     · <strong>Total : ${fmt(soldeTotal)}</strong>
   </div>`;
   // Airtable sync info + filters
-  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:9px;color:#94a3b8">`;
+  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:9px;color:var(--text-2)">`;
   h+=`<span>🔄 Airtable : ${D.airtableSync||"jamais"} (${subs.length} subventions)</span>`;
   h+=`<label><input type="checkbox" ${tresFilt.versee?"checked":""} onchange="tresFilt.versee=this.checked;render()"> ✅ Versées</label>`;
   h+=`<label><input type="checkbox" ${tresFilt.validee?"checked":""} onchange="tresFilt.validee=this.checked;render()"> 🔵 Validées</label>`;
@@ -3780,47 +3945,25 @@ function rTreasury(el){
   h+=`<label><input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
   h+=`</div>`;
 
-  // Mois retenu pour la trésorerie. Le choix manuel prime, sinon la date de
-  // versement effective, sinon la date prévue d'Airtable. Rend -1 quand rien ne
-  // rattache le versement à l'exercice affiché.
-  // Avant, seule s.dp (effective ou prévue, confondues) était lue et tout
-  // financement sans date disparaissait du prévisionnel de trésorerie sans trace.
-  const finMoisTres=(x,annee)=>{
-    const o=String(x.mtr||"");
-    if(o==="hors")return -1;
-    if(/^\d{4}-\d{2}$/.test(o))return o.substring(0,4)===String(annee)?parseInt(o.substring(5,7))-1:-1;
-    const d=String(x.dev||x.dpv||x.dp||"");
-    if(d.substring(0,4)===String(annee)){const m=parseInt(d.substring(5,7));if(m>=1&&m<=12)return m-1}
-    return -1;
-  };
-  const finSansDate=x=>!String(x.dev||x.dpv||x.dp||"").trim();
-
   // Filters from state
   const fV=tresFilt.versee,fA2=tresFilt.validee;
   const fAt=tresFilt.attente,fS=tresFilt.sollicitee;
 
-  // Compute monthly forecast
-  const forecastCh=MOS.map(()=>0),forecastPr=MOS.map(()=>0),airtableSub=MOS.map(()=>0),airtablePrest=MOS.map(()=>0);
-  const realCh=MOS.map(()=>0),realPr=MOS.map(()=>0);
-  const prestas=D.airtablePrestas||[];
-
-  // Charges from budget
-  D.budget.filter(b=>b.type==="charge").forEach(b=>{
-    const annual=b.versions?.[vIdx]||0;if(!annual)return;
-    if(b.seasonMode==="mois"&&b.months?.length){
-      const perMonth=annual/b.months.length;b.months.forEach(mi=>{forecastCh[mi]+=perMonth});
-    }else{const pm=annual/12;MOS.forEach((m,mi)=>{forecastCh[mi]+=pm})}
-  });
+  // Prévisionnel mensuel, mois par mois de la fenêtre
+  const forecastCh=win.map(w=>budAn[w.y].ch[w.m]);
+  const forecastPr=win.map(w=>budAn[w.y].pr[w.m]);
+  const airtableSub=win.map(()=>0),airtablePrest=win.map(()=>0);
+  const realCh=win.map(()=>0),realPr=win.map(()=>0);
 
   // Subventions from Airtable (with filters)
   const subsSansMois=[];
   subs.forEach(s=>{
     const show=(s.s==="versée"&&fV)||(s.s==="validée"&&fA2)||(s.s==="attente"&&fAt)||(s.s==="sollicitée"&&fS);
     if(!show)return;
-    const mi=finMoisTres(s,compYear);
-    if(mi>=0&&mi<12){airtableSub[mi]+=finAmt(s);return}
+    const k=finMoisKey(s),i=idxDe[k];
+    if(k!=="hors"&&i!==undefined){airtableSub[i]+=finAmt(s);return}
     // Sans date et sans mois choisi : à signaler, pas à faire disparaître
-    if(finSansDate(s)&&String(s.mtr||"")!=="hors")subsSansMois.push(s);
+    if(finSansDate(s)&&k!=="hors")subsSansMois.push(s);
   });
 
   // Prestations from Airtable (with filters: signé/payé=validée, facturé=validée, négo=sollicitée)
@@ -3830,41 +3973,61 @@ function rTreasury(el){
     const isNego=p.s==="négo";
     const show=(isConfirmed&&(fA2||fV))||(isNego&&fS);
     if(!show)return;
-    const mi=finMoisTres(p,compYear);
-    if(mi>=0&&mi<12){airtablePrest[mi]+=finAmt(p);return}
-    if(finSansDate(p)&&String(p.mtr||"")!=="hors")prestasSansMois.push(p);
-  });
-
-  // Non-subvention/presta produits from budget (dons, cotisations, etc.)
-  D.budget.filter(b=>b.type==="produit").forEach(b=>{
-    const annual=b.versions?.[vIdx]||0;if(!annual)return;
-    const cat=(b.cat||"").substring(0,5);
-    // Skip categories fed by Airtable (74xxx subventions, 70xxx prestations, 75412 mécénat)
-    if(cat.startsWith("744")||cat.startsWith("748")||cat.startsWith("706")||(b.cat||"").startsWith("75412"))return;
-    if(b.seasonMode==="mois"&&b.months?.length){
-      const perMonth=annual/b.months.length;b.months.forEach(mi=>{forecastPr[mi]+=perMonth});
-    }else{const pm=annual/12;MOS.forEach((m,mi)=>{forecastPr[mi]+=pm})}
+    const k=finMoisKey(p),i=idxDe[k];
+    if(k!=="hors"&&i!==undefined){airtablePrest[i]+=finAmt(p);return}
+    if(finSansDate(p)&&k!=="hors")prestasSansMois.push(p);
   });
 
   // Total forecast produits = budget non-sub + airtable subs + airtable prestas
-  const totForecastPr=MOS.map((m,i)=>forecastPr[i]+airtableSub[i]+airtablePrest[i]);
+  const totForecastPr=win.map((w,i)=>forecastPr[i]+airtableSub[i]+airtablePrest[i]);
 
-  // Real data by month
-  D.rows.filter(r=>r.yr===compYear).forEach(r=>{const mi=parseInt((r.dt||"").substring(5,7))-1;if(mi>=0&&mi<12){realCh[mi]+=r.deb||0;realPr[mi]+=r.cre||0}});
+  // Réalisé mois par mois, à partir des écritures bancaires.
+  // Le mois vient de la date de l'écriture, sans passer par r.yr : ce champ
+  // revient parfois du Sheet en nombre (2026) et la comparaison stricte avec
+  // compYear ("2026") échouait — les deux lignes de réalisé restaient à 0.
+  // Les virements internes sont exclus, comme dans ⚖️ Prévi. vs Réalisé.
+  let nbReal=0;
+  (D.rows||[]).forEach(r=>{
+    if(isVirInterne(r))return;
+    const i=idxDe[moKey(r.dt)];
+    if(i===undefined)return;
+    realCh[i]+=r.deb||0;realPr[i]+=r.cre||0;nbReal++;
+  });
+
+  // Solde au premier mois de la fenêtre. Le solde initial est daté : quand la
+  // fenêtre commence plus tard, on y ajoute le réalisé des mois écoulés depuis,
+  // sinon la courbe repartirait du solde de janvier au milieu de l'année.
+  const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,7);
+  let soldeDebut=D.soldeInitial||0,nbAvant=0;
+  (D.rows||[]).forEach(r=>{
+    if(isVirInterne(r))return;
+    const k=moKey(r.dt);
+    if(!/^\d{4}-\d{2}$/.test(k))return;
+    if(soldeRef&&k<soldeRef)return;
+    if(k>=debutWin)return;
+    soldeDebut+=(r.cre||0)-(r.deb||0);nbAvant++;
+  });
+  if(nbAvant){
+    h+=`<div style="font-size:9px;color:var(--text-3);margin-bottom:6px">
+      Point de départ de la fenêtre : <strong>${fmt(soldeDebut)}</strong> au 1er ${win[0].nom.replace(/ (\d\d)$/," 20$1")}
+      = solde initial ${fmt(D.soldeInitial)} + ${nbAvant} écriture(s) réalisée(s) avant la fenêtre.</div>`;
+  }
 
   h+='<div style="overflow-x:auto"><table><thead><tr><th></th>';
-  MONAMES.forEach(m=>h+=`<th style="text-align:right;min-width:70px">${m}</th>`);
+  win.forEach(w=>h+=`<th style="text-align:right;min-width:70px${w.k===kNow?";color:var(--accent);border-bottom:2px solid var(--accent)":""}" title="${w.k}${w.k===kNow?" · mois en cours":""}">${w.nom}</th>`);
   h+='<th style="text-align:right;font-weight:700">TOTAL</th></tr></thead><tbody>';
 
   // Forecast charges
-  h+='<tr><td style="font-weight:600;color:#f87171">Charges prévues</td>';
-  let totFC=0;forecastCh.forEach(v=>{totFC+=v;h+=`<td style="text-align:right;font-size:9px;color:#f8717188">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#f87171">${fmt(totFC)}</td></tr>`;
+  h+='<tr><td style="font-weight:600;color:var(--red)">Charges prévues</td>';
+  let totFC=0;forecastCh.forEach(v=>{totFC+=v;h+=`<td style="text-align:right;font-size:9px;color:var(--red);opacity:.6">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:var(--red)">${fmt(totFC)}</td></tr>`;
 
-  // Real charges
-  h+='<tr><td style="font-weight:600;color:#f87171">Charges réelles</td>';
-  let totRC=0;realCh.forEach(v=>{totRC+=v;h+=`<td style="text-align:right;font-size:9px;color:#f87171">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#f87171">${fmt(totRC)}</td></tr>`;
+  // Real charges — uniquement les mois écoulés, un 0 sur un mois à venir n'est pas une information
+  h+='<tr><td style="font-weight:600;color:var(--red)" title="Débits des écritures bancaires importées, hors virements internes">Charges réelles</td>';
+  let totRC=0;win.forEach((w,i)=>{
+    if(w.k>kNow&&!realCh[i]){h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>';return}
+    totRC+=realCh[i];h+=`<td style="text-align:right;font-size:9px;color:var(--red)">${fmt(realCh[i])}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:var(--red)">${fmt(totRC)}</td></tr>`;
 
   // Airtable subventions row
   h+='<tr><td style="font-weight:600;color:#818cf8">Subventions (Airtable)</td>';
@@ -3875,69 +4038,85 @@ function rTreasury(el){
   let totPR=0;airtablePrest.forEach(v=>{totPR+=v;h+=`<td style="text-align:right;font-size:9px;color:#a78bfa">${v?fmt(v):""}</td>`});
   h+=`<td style="text-align:right;font-weight:600;color:#a78bfa">${fmt(totPR)}</td></tr>`;
 
-  // Other produits (prestas, dons...)
-  h+='<tr><td style="font-weight:600;color:#4ade80">Autres produits prévus</td>';
-  let totOP=0;forecastPr.forEach(v=>{totOP+=v;h+=`<td style="text-align:right;font-size:9px;color:#4ade8088">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#4ade80">${fmt(totOP)}</td></tr>`;
+  // Other produits (dons, cotisations...)
+  h+='<tr><td style="font-weight:600;color:var(--green)">Autres produits prévus</td>';
+  let totOP=0;forecastPr.forEach(v=>{totOP+=v;h+=`<td style="text-align:right;font-size:9px;color:var(--green);opacity:.6">${fmt(v)}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:var(--green)">${fmt(totOP)}</td></tr>`;
 
   // Real produits
-  h+='<tr><td style="font-weight:600;color:#4ade80">Produits réels</td>';
-  let totRP=0;realPr.forEach(v=>{totRP+=v;h+=`<td style="text-align:right;font-size:9px;color:#4ade80">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#4ade80">${fmt(totRP)}</td></tr>`;
+  h+='<tr><td style="font-weight:600;color:var(--green)" title="Crédits des écritures bancaires importées, hors virements internes">Produits réels</td>';
+  let totRP=0;win.forEach((w,i)=>{
+    if(w.k>kNow&&!realPr[i]){h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>';return}
+    totRP+=realPr[i];h+=`<td style="text-align:right;font-size:9px;color:var(--green)">${fmt(realPr[i])}</td>`});
+  h+=`<td style="text-align:right;font-weight:600;color:var(--green)">${fmt(totRP)}</td></tr>`;
 
   // Solde prévisionnel cumulé
-  h+='<tr style="border-top:2px solid #6366f1"><td style="font-weight:700">Solde prévu cumulé</td>';
-  let soldeF=D.soldeInitial;MOS.forEach((m,mi)=>{soldeF+=totForecastPr[mi]-forecastCh[mi];
-    h+=`<td style="text-align:right;font-weight:600;color:${soldeF>=0?"#4ade80":"#ef4444"}">${fmt(soldeF)}</td>`});
-  h+=`<td style="text-align:right;font-weight:700;color:${soldeF>=0?"#4ade80":"#ef4444"}">${fmt(soldeF)}</td></tr>`;
+  h+='<tr style="border-top:2px solid var(--accent)"><td style="font-weight:700">Solde prévu cumulé</td>';
+  let soldeF=soldeDebut;win.forEach((w,i)=>{soldeF+=totForecastPr[i]-forecastCh[i];
+    h+=`<td style="text-align:right;font-weight:600;color:${soldeF>=0?"var(--green)":"var(--red)"}">${fmt(soldeF)}</td>`});
+  h+=`<td style="text-align:right;font-weight:700;color:${soldeF>=0?"var(--green)":"var(--red)"}">${fmt(soldeF)}</td></tr>`;
 
   // Solde réel cumulé
   h+='<tr><td style="font-weight:700">Solde réel cumulé</td>';
-  let soldeR=D.soldeInitial;const now=new Date().getMonth();
-  MOS.forEach((m,mi)=>{if(mi<=now){soldeR+=realPr[mi]-realCh[mi];
-    h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"#22c55e":"#ef4444"}">${fmt(soldeR)}</td>`}
-    else h+=`<td style="text-align:right;font-size:8px;color:#64748b">—</td>`});
+  let soldeR=soldeDebut;
+  win.forEach((w,i)=>{if(w.k<=kNow){soldeR+=realPr[i]-realCh[i];
+    h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"var(--green)":"var(--red)"}">${fmt(soldeR)}</td>`}
+    else h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>'});
   h+=`<td></td></tr>`;
 
   // Alert row
   h+='<tr><td style="font-weight:600">Écart</td>';
-  let sF2=D.soldeInitial,sR2=D.soldeInitial;
-  MOS.forEach((m,mi)=>{sF2+=totForecastPr[mi]-forecastCh[mi];
-    if(mi<=now){sR2+=realPr[mi]-realCh[mi];const diff=sR2-sF2;
-      h+=`<td style="text-align:right;font-size:9px;font-weight:600;color:${diff>=0?"#22c55e":"#ef4444"}">${diff>=0?"+":""}${fmt(diff)}</td>`}
+  let sF2=soldeDebut,sR2=soldeDebut;
+  win.forEach((w,i)=>{sF2+=totForecastPr[i]-forecastCh[i];
+    if(w.k<=kNow){sR2+=realPr[i]-realCh[i];const diff=sR2-sF2;
+      h+=`<td style="text-align:right;font-size:9px;font-weight:600;color:${diff>=0?"var(--green)":"var(--red)"}">${diff>=0?"+":""}${fmt(diff)}</td>`}
     else h+='<td></td>'});
   h+='<td></td></tr>';
+  h+='</tbody></table></div>';
+  if(!nbReal){
+    h+=`<div style="font-size:9px;color:var(--amber);margin-top:6px">
+      ⚠️ Aucune écriture bancaire ne tombe dans cette fenêtre : les lignes de réalisé sont donc vides.
+      Vérifiez que les relevés sont importés et que leurs dates sont bien renseignées.</div>`;
+  }
 
   // Sélecteur du mois de trésorerie d'un financement.
   const moisSel=(coll,i,x)=>{
     const cur=String(x.mtr||"");
     const auto=finSansDate(x)?"":(String(x.dev||x.dpv||x.dp||"").substring(0,7));
     const o=[`<option value=""${cur?"":" selected"}>${auto?"auto · "+auto:"— à affecter —"}</option>`];
-    MONAMES.forEach((nm,mi)=>{const v=compYear+"-"+MOS[mi];
-      o.push(`<option value="${v}"${cur===v?" selected":""}>${nm} ${compYear}</option>`)});
-    o.push(`<option value="hors"${cur==="hors"?" selected":""}>hors exercice</option>`);
+    win.forEach(w=>o.push(`<option value="${w.k}"${cur===w.k?" selected":""}>${MONAMES[w.m]} ${w.y}</option>`));
+    if(cur&&cur!=="hors"&&idxDe[cur]===undefined)
+      o.push(`<option value="${cur}" selected>${cur} — hors fenêtre affichée</option>`);
+    o.push(`<option value="hors"${cur==="hors"?" selected":""}>hors trésorerie</option>`);
     return `<select class="ms" style="min-width:104px${cur?";border-color:var(--accent)":(auto?"":";border-color:var(--amber)")}"
       title="Mois où ce versement est attendu en trésorerie. « auto » suit la date Airtable."
       onchange="D.${coll}[${i}].mtr=this.value;autoSave();render()">${o.join("")}</select>`;
   };
+  // Rang d'affichage : ordre de la fenêtre, les non affectés en dernier
+  const rang=x=>{const i=idxDe[finMoisKey(x)];return i===undefined?99:i};
 
   // Détail subventions Airtable
-  h+='</tbody></table></div>';
   if(subs.length){
-    h+='<h4 style="font-size:11px;margin:16px 0 6px">📋 Détail subventions Airtable (versements '+compYear+')</h4>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Financeur</th><th>Statut</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th><th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Territoire</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
-    const statColors={versée:"#22c55e",validée:"#60a5fa",attente:"#facc15",sollicitée:"#fb923c"};
-    // On liste les versements rattachés à l'exercice, et ceux sans aucune date :
+    h+='<h4 style="font-size:11px;margin:16px 0 6px">📋 Détail subventions Airtable (versements de la fenêtre)</h4>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Financeur</th><th>Statut</th>'
+      +'<th style="text-align:right" title="Montant demandé — retenu tant que la subvention n\'est pas acquise">Demandé</th>'
+      +'<th style="text-align:right" title="Montant obtenu — retenu dès que la subvention est validée ou versée">Obtenu</th>'
+      +'<th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th>'
+      +'<th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Territoire</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    const statColors={versée:"var(--green)",validée:"#60a5fa",attente:"#facc15",sollicitée:"#fb923c"};
+    // On liste les versements de la fenêtre, et ceux sans aucune date :
     // ces derniers n'apparaissaient nulle part alors qu'ils sont attendus.
-    const subsAff=subs.filter(s=>finMoisTres(s,compYear)>=0||(finSansDate(s)&&String(s.mtr||"")!=="hors"))
-      .sort((a,b)=>{const ma=finMoisTres(a,compYear),mb=finMoisTres(b,compYear);
-        if(ma!==mb)return (ma<0?99:ma)-(mb<0?99:mb);
+    const subsAff=subs.filter(s=>{const k=finMoisKey(s);
+        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(s)&&k!=="hors")})
+      .sort((a,b)=>{const ra=rang(a),rb=rang(b);
+        if(ra!==rb)return ra-rb;
         return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
     subsAff.forEach(s=>{
-      const col=statColors[s.s]||"#94a3b8";
-      const si=subs.indexOf(s);const yr=finAnnee(s)||compYear;const cc=s.cc||"";
-      const sansMois=finMoisTres(s,compYear)<0;
-      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td><td style="text-align:right;font-size:9px">${fmt(s.mt)}</td><td style="text-align:right;font-size:9px">${s.ob?fmt(s.ob):""}</td>`;
+      const col=statColors[s.s]||"var(--text-2)";
+      const si=subs.indexOf(s);const yr=finAnnee(s)||win[0].y;const cc=s.cc||"";
+      const sansMois=rang(s)>=99;
+      const cells=finCellsMt(s);
+      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td>${cells[0]}${cells[1]}`;
       h+=`<td style="font-size:9px${s.dpv&&!s.dev?";color:var(--blue);font-weight:600":""}">${s.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${s.dev?"var(--green)":"var(--text-3)"}">${s.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtableSubs",si,s)}</td>`;
@@ -3945,40 +4124,48 @@ function rTreasury(el){
       h+=`<td><input class="cj" style="width:50px${s.yrM?";border-color:var(--accent)":""}" value="${yr}" title="${s.yrM?"Saisie manuelle : conservée aux prochaines synchros":"Déduit des dates de financement Airtable"}" onchange="D.airtableSubs[${si}].yrM=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtableSubs[${si}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totSub=subsAff.reduce((a,s)=>a+finAmt(s),0);
-    const totRet=subsAff.filter(s=>finMoisTres(s,compYear)>=0).reduce((a,s)=>a+finAmt(s),0);
-    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td></td><td style="text-align:right">${fmt(totSub)}</td><td colspan="2"></td>
-      <td style="font-size:9px;color:var(--text-3)">retenu en trésorerie</td>
+    const totDem=subsAff.filter(s=>!finAcquis(s)).reduce((a,s)=>a+finAmt(s),0);
+    const totObt=subsAff.filter(s=>finAcquis(s)).reduce((a,s)=>a+finAmt(s),0);
+    const totRet=subsAff.filter(s=>rang(s)<99).reduce((a,s)=>a+finAmt(s),0);
+    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td></td>
+      <td style="text-align:right" title="Somme des montants demandés encore non acquis">${fmt(totDem)}</td>
+      <td style="text-align:right" title="Somme des montants obtenus (validés ou versés)">${fmt(totObt)}</td>
+      <td colspan="2" style="font-size:9px;color:var(--text-3);text-align:right">retenu en trésorerie</td>
       <td style="text-align:right;font-size:9px;font-weight:700">${fmt(totRet)}</td><td colspan="3"></td></tr>`;
     if(subsSansMois.length){
       const t=subsSansMois.reduce((a,x)=>a+finAmt(x),0);
       h+=`<tr><td colspan="10" style="font-size:9px;color:var(--amber);padding:5px 6px">
         ⚠️ ${subsSansMois.length} subvention(s) sans date de versement dans Airtable, pour ${fmt(t)} :
         elles ne sont pas comptées dans le prévisionnel tant qu'un mois n'est pas choisi ci-dessus
-        (ou « hors exercice » pour les écarter).</td></tr>`;
+        (ou « hors trésorerie » pour les écarter).</td></tr>`;
     }
-    const horsEx=subs.filter(s=>finMoisTres(s,compYear)<0&&!finSansDate(s)&&String(s.mtr||"")!=="hors");
+    const horsEx=subs.filter(s=>{const k=finMoisKey(s);return k&&k!=="hors"&&idxDe[k]===undefined});
     if(horsEx.length){
       h+=`<tr><td colspan="10" style="font-size:9px;color:var(--text-3);padding:4px 6px">
-        ${horsEx.length} versement(s) daté(s) d'un autre exercice, non listé(s) ici (${fmt(horsEx.reduce((a,x)=>a+finAmt(x),0))}).
-        Pour en rattacher un à ${compYear}, changez l'exercice affiché puis choisissez son mois.</td></tr>`;
+        ${horsEx.length} versement(s) daté(s) hors de la fenêtre affichée, non listé(s) ici (${fmt(horsEx.reduce((a,x)=>a+finAmt(x),0))}).</td></tr>`;
     }
     h+='</tbody></table></div>';
   }
   // Détail prestations Airtable
   if(prestas.length){
-    h+='<h4 style="font-size:11px;margin:16px 0 6px">🏢 Détail prestations Airtable ('+compYear+')</h4>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Commanditaire</th><th>Statut</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th><th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Parcours</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
-    const pColors={payé:"#22c55e",signé:"#60a5fa",facturé:"#818cf8",négo:"#fb923c"};
-    const presAff=prestas.filter(p=>finMoisTres(p,compYear)>=0||(finSansDate(p)&&String(p.mtr||"")!=="hors"))
-      .sort((a,b)=>{const ma=finMoisTres(a,compYear),mb=finMoisTres(b,compYear);
-        if(ma!==mb)return (ma<0?99:ma)-(mb<0?99:mb);
+    h+='<h4 style="font-size:11px;margin:16px 0 6px">🏢 Détail prestations Airtable (versements de la fenêtre)</h4>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Commanditaire</th><th>Statut</th><th>Type</th>'
+      +'<th style="text-align:right" title="Montant demandé — retenu tant que la prestation n\'est pas signée, facturée ou payée">Demandé</th>'
+      +'<th style="text-align:right" title="Montant obtenu — retenu dès que la prestation est signée, facturée ou payée">Obtenu</th>'
+      +'<th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th>'
+      +'<th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Parcours</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    const pColors={payé:"var(--green)",signé:"#60a5fa",facturé:"#818cf8",négo:"#fb923c"};
+    const presAff=prestas.filter(p=>{const k=finMoisKey(p);
+        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(p)&&k!=="hors")})
+      .sort((a,b)=>{const ra=rang(a),rb=rang(b);
+        if(ra!==rb)return ra-rb;
         return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
     presAff.forEach(p=>{
-      const col=pColors[p.s]||"#94a3b8";const pi=prestas.indexOf(p);
-      const yr=finAnnee(p)||compYear;const cc=p.cc||"";
-      const sansMois=finMoisTres(p,compYear)<0;
-      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:var(--text-2)">${p.tp||""}</td><td style="text-align:right;font-size:9px">${fmt(p.mt)}</td><td style="text-align:right;font-size:9px">${p.ob?fmt(p.ob):""}</td>`;
+      const col=pColors[p.s]||"var(--text-2)";const pi=prestas.indexOf(p);
+      const yr=finAnnee(p)||win[0].y;const cc=p.cc||"";
+      const sansMois=rang(p)>=99;
+      const cells=finCellsMt(p);
+      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:var(--text-2)">${p.tp||""}</td>${cells[0]}${cells[1]}`;
       h+=`<td style="font-size:9px${p.dpv&&!p.dev?";color:var(--blue);font-weight:600":""}">${p.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${p.dev?"var(--green)":"var(--text-3)"}">${p.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtablePrestas",pi,p)}</td>`;
@@ -3986,10 +4173,13 @@ function rTreasury(el){
       h+=`<td><input class="cj" style="width:50px${p.yrM?";border-color:var(--accent)":""}" value="${yr}" title="${p.yrM?"Saisie manuelle : conservée aux prochaines synchros":"Déduit des dates Airtable"}" onchange="D.airtablePrestas[${pi}].yrM=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtablePrestas[${pi}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totPres=presAff.reduce((a,p)=>a+finAmt(p),0);
-    const totPresRet=presAff.filter(p=>finMoisTres(p,compYear)>=0).reduce((a,p)=>a+finAmt(p),0);
-    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td colspan="2"></td><td style="text-align:right">${fmt(totPres)}</td><td colspan="2"></td>
-      <td style="font-size:9px;color:var(--text-3)">retenu</td>
+    const totPDem=presAff.filter(p=>!finAcquis(p)).reduce((a,p)=>a+finAmt(p),0);
+    const totPObt=presAff.filter(p=>finAcquis(p)).reduce((a,p)=>a+finAmt(p),0);
+    const totPresRet=presAff.filter(p=>rang(p)<99).reduce((a,p)=>a+finAmt(p),0);
+    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td colspan="2"></td>
+      <td style="text-align:right" title="Somme des montants demandés encore non acquis">${fmt(totPDem)}</td>
+      <td style="text-align:right" title="Somme des montants obtenus">${fmt(totPObt)}</td>
+      <td colspan="2" style="font-size:9px;color:var(--text-3);text-align:right">retenu</td>
       <td style="text-align:right;font-size:9px;font-weight:700">${fmt(totPresRet)}</td><td colspan="3"></td></tr>`;
     if(prestasSansMois.length){
       const t=prestasSansMois.reduce((a,x)=>a+finAmt(x),0);
@@ -4389,7 +4579,10 @@ function applyBudgetAirtable(){
     +picked+" financement(s) sur "+Object.keys(byTarget).length+" ligne(s) budgétaire(s)"+(nNew?", dont "+nNew+" ligne(s) à créer":"")+" :\n\n"+recap+"\n\nAppliquer ?")){return}
   pushUndo();
   if(mkVer){
+    normBudget();
     D.budgetVersions.push(budgetVerLabel(verName));
+    const exoV=String(window._bfaExo||"");
+    D.budgetVerYears.push(/^\d{4}$/.test(exoV)?exoV:budgetVerYear(vIdx));
     D.budget.forEach(b=>{if(!b.versions)b.versions=[];b.versions.push(b.versions[vIdx]||0)});
     vIdx=D.budgetVersions.length-1;
   }
