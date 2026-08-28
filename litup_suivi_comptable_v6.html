@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25h <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25i <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -826,15 +826,22 @@ function majCloudBadge(){
   const el=$("cloudBadge");if(!el)return;
   const cs=D.cloudSaved;
   const quand=cs&&cs.at?new Date(cs.at).toLocaleString("fr-FR"):null;
+  // Qui et quand, en clair : à deux sur le même Sheet, l'info-bulle se rate.
+  const court=cs&&cs.at?new Date(cs.at).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
   if(cloudDirty){
-    el.textContent="●";el.style.color="var(--amber)";
+    el.innerHTML='<span style="color:var(--amber)">●</span>'
+      +(quand?' <span style="font-weight:400;color:var(--text-3)">'+cs.by+" · "+court+"</span>":"");
     el.title="Modifications non sauvegardées dans le Google Sheet."
-      +(quand?"\nDernière sauvegarde : "+quand+" par "+cs.by
-             :"\nAucune sauvegarde connue depuis ce navigateur.");
+      +(quand?"\nDernière sauvegarde connue : "+quand+" par "+cs.by
+             :"\nAucune sauvegarde connue depuis ce navigateur : chargez la dernière sauvegarde avant de modifier.");
   }else if(quand){
-    el.textContent="✓";el.style.color="var(--green)";
+    el.innerHTML='<span style="color:var(--green)">✓</span>'
+      +' <span style="font-weight:400;color:var(--text-3)">'+cs.by+" · "+court+"</span>";
     el.title="À jour dans le Google Sheet.\nSauvegardé le "+quand+" par "+cs.by;
-  }else{el.textContent="";el.title=""}
+  }else{
+    el.innerHTML='<span style="color:var(--amber)">?</span> <span style="font-weight:400;color:var(--text-3)">jamais chargé</span>';
+    el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
+  }
 }
 function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
@@ -933,6 +940,7 @@ async function saveComptaToSheet(){
       budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,
       rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,
       rhAlloc:D.rhAlloc,savedBy:qui,
+      rowCount:(D.rows||[]).length,
       savedAt:new Date().toISOString()};
     // Un navigateur dont le cache a été vidé repart sur les données de démo.
     // Sauvegarder depuis cet état écrasait le Sheet : les lignes sont épargnées
@@ -942,7 +950,29 @@ async function saveComptaToSheet(){
       +"Si vous avez rechargé la page sans charger la dernière sauvegarde, vous êtes sur les données\n"
       +"de démonstration : sauvegarder remplacerait le budget et les paramètres du Sheet par ceux-ci.\n\n"
       +"Faites plutôt 🔄 Actualisation → ☁️ Dernière sauvegarde.\n\nSauvegarder quand même ?"))return;
-    const res=await sheetAPI("saveCompta",{rows:D.rows,meta});
+    // baseAt = l'horodatage de la version chargée. Le backend refuse d'écraser
+    // une sauvegarde plus récente : à deux, la seconde sauvegarde effaçait
+    // silencieusement tout le travail de la première.
+    const baseAt=(D.cloudSaved&&D.cloudSaved.at)||"";
+    let res=await sheetAPI("saveCompta",{rows:D.rows,meta,baseAt});
+    if(res.conflict){
+      const q=res.savedBy||"quelqu'un d'autre";
+      const q_at=res.savedAt?new Date(res.savedAt).toLocaleString("fr-FR"):"?";
+      const forcer=confirm("🛑 Sauvegarde refusée : le Google Sheet a été modifié depuis votre dernier chargement.\n\n"
+        +"Dernière sauvegarde dans le Sheet :\n"
+        +"   par « "+q+" »\n"
+        +"   le "+q_at+"\n"
+        +(res.rows?"   "+res.rows+" écriture(s)\n":"")
+        +"\nVotre version part de "+(baseAt?new Date(baseAt).toLocaleString("fr-FR"):"aucun chargement")+".\n\n"
+        +"➡️ Recommandé : Annuler, puis 🔄 Actualisation → ☁️ Dernière sauvegarde\n"
+        +"   pour récupérer son travail. Vos modifications non sauvegardées seront perdues :\n"
+        +"   faites d'abord 📤 Export → 💾 JSON si vous voulez les garder.\n\n"
+        +"OK = ÉCRASER le travail de "+q+". Cette action est irréversible côté Sheet.");
+      if(!forcer)return;
+      if(!confirm("Dernière confirmation : écraser la sauvegarde de « "+q+" » du "+q_at+" ?\n\n"
+        +"Son travail sera définitivement perdu."))return;
+      res=await sheetAPI("saveCompta",{rows:D.rows,meta,baseAt,force:true});
+    }
     if(res.error){alert("❌ Erreur : "+res.error);return}
     if(res.metaError){alert("⚠️ "+res.metaError+"\n\nLes lignes sont sauvegardées, mais PAS le budget ni les paramètres. Réessayez.");return}
     D.cloudSaved={at:meta.savedAt,by:qui};
@@ -1906,7 +1936,7 @@ function renderRowFin(){
       <span style="font-size:10px;color:${Math.abs(rest)<0.01?"var(--green)":rest<0?"var(--red)":"#fb923c"}">Reste : <strong>${fmt(rest)}</strong></span>
     </div>`;
   if(rest>0.009&&sel.length)h+=`<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:10px;color:var(--text-2);cursor:pointer">
-    <input type="checkbox" id="rfKeepRest" checked> Laisser le reliquat de ${fmt(rest)} sur une ligne « En attente »
+    <input type="checkbox" id="rfKeepRest" checked disabled title="Obligatoire : décocher réduisait le montant du crédit, et le solde de l'outil ne correspondait plus à la banque."> <strong>Reliquat de ${fmt(rest)}</strong> conservé sur une ligne « En attente »
     <span style="color:var(--text-3)">exercice</span>
     <input class="cf" id="rfRestYr" value="${row.yr||""}" style="width:60px;font-size:10px;padding:2px 4px"></label>`;
   if(rest<-0.009)h+=`<p style="font-size:10px;color:var(--red);margin-top:8px">⚠️ Le total imputé dépasse le montant du crédit de ${fmt(-rest)} : ajustez les parts avant d'appliquer.</p>`;
@@ -1930,11 +1960,14 @@ function applyRowFin(){
   const tot=sel.reduce((s,x)=>s+Number(x.part),0);
   if(tot>(row.cre||0)+0.009){alert("Le total imputé ("+fmt(tot)+") dépasse le montant du crédit ("+fmt(row.cre)+").");return}
   const rest=Math.round(((row.cre||0)-tot)*100)/100;
-  const keepRest=rest>0.009&&$("rfKeepRest")?.checked;
+  // Le reliquat est toujours conservé. Le décocher réduisait le crédit bancaire :
+  // le total de l'outil ne correspondait plus au relevé, sans moyen de le
+  // retrouver ensuite. Un montant venu de la banque ne doit jamais être amputé.
+  const keepRest=rest>0.009;
   const restYr=String($("rfRestYr")?.value||row.yr||"").trim();
   const recap=sel.map(x=>{const f=fins[x.fi]||{};return "• "+(f.fr||f.n)+" : "+fmt(x.part)+" sur "+x.yr+(finCompte(f).code?" → "+finCompte(f).code:" → compte à choisir")}).join("\n")
     +(keepRest?"\n• Reliquat "+fmt(rest)+" → ligne « En attente » sur "+restYr:"")
-    +(rest>0.009&&!keepRest?"\n⚠️ Reliquat de "+fmt(rest)+" non imputé : le montant du crédit sera réduit à "+fmt(tot):"");
+    ;
   if(!confirm((sel.length>1?"La ligne sera scindée en "+sel.length+" lignes :\n\n":"Imputation :\n\n")+recap+"\n\nAppliquer ?"))return;
   pushUndo();
   const idx=D.rows.findIndex(r=>r.id===row.id);
@@ -3725,6 +3758,7 @@ function rComp(el){
     h+=`<div style="padding:6px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <button class="b bb" style="font-size:9px" onclick="revStart()" title="Ajouter une colonne modifiable préremplie avec la version affichée, puis l'enregistrer comme une nouvelle version">✏️ Réviser le budget</button>
       <span style="font-size:9px;color:var(--text-3)">version « ${D.budgetVersions[vIdx]} » (exercice ${budgetVerYear(vIdx)}) · la révision crée une nouvelle version, celle-ci n'est pas modifiée</span>
+      <span style="font-size:9px;color:var(--accent-l);cursor:help" title="Cet onglet raisonne en RÉSULTAT D'EXERCICE : une écriture compte sur son année d'affectation (colonne « An. »), et le budget est pris en entier.&#10;&#10;💰 Trésorerie raisonne en ARGENT SUR LE COMPTE : une écriture compte au mois de sa date bancaire, et le budget y est net des financements Airtable déjà identifiés.&#10;&#10;Exemple : une subvention de 20 000 € pour 2026 versée le 15 janvier 2027 apparaît sur l'exercice 2026 ici, et en janvier 2027 dans la trésorerie. Les deux sont justes.">ℹ️ pourquoi les montants diffèrent de 💰 Trésorerie</span>
       ${budgetVerYear(vIdx)!==String(compYear)?`<span style="font-size:9px;color:var(--amber)">⚠️ cette version budgète ${budgetVerYear(vIdx)}, la colonne Réalisé montre ${compYear} : les écarts ne veulent rien dire.</span>`:""}
     </div>`;
   }
@@ -4155,7 +4189,8 @@ const TRES_LIB={
   subventions:"Subventions (Airtable)",
   prestations:"Prestations (Airtable)",
   resteAObtenir:"Budget : reste à obtenir",
-  produitsReels:"Produits réels"
+  produitsReels:"Produits réels",
+  mvtInternes:"Mouvements internes C/C"
 };
 function tresMoisLabel(mk){
   const m=parseInt(String(mk).substring(5,7));
@@ -4202,6 +4237,19 @@ function tresCellDetail(kind,mks){
         ?"Chaque ligne est le budget du compte moins ce qu'Airtable identifie déjà nominativement, réparti selon sa saisonnalité. Une ligne entièrement couverte par Airtable n'apparaît pas."
         :"Le montant annuel de chaque ligne de budget, réparti selon sa saisonnalité. Le prévisionnel ne déduit pas le réalisé : c'est le plan, pas le solde.",
       vide:"Aucune ligne de budget n'alimente ce mois."
+    };
+  }
+  if(kind==="mvtInternes"){
+    const rows=(D.rows||[]).filter(r=>isVirInterne(r)&&estCC(r)&&setM.has(moKey(r.dt)))
+      .sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
+    return {
+      cols:["Date","Libellé","Nature","Sortie du C/C","Entrée sur le C/C","Effet net"],
+      lignes:rows.map(r=>[String(r.dt||"").substring(0,10),r.lib||"",r.modal||"",
+                          r.deb?fmt(r.deb):"",r.cre?fmt(r.cre):"",fmt((r.cre||0)-(r.deb||0))]),
+      total:rows.reduce((a,r)=>a+((r.cre||0)-(r.deb||0)),0),
+      note:"Virements entre vos comptes (livret, compte à terme). Ni charge ni produit — ils n'apparaissent pas dans les deux lignes de réalisé — mais ils entrent et sortent du compte courant, donc le solde réel les compte.",
+      vide:"Aucun mouvement interne sur ce mois.",
+      jump:mks.length===1?mks[0]:""
     };
   }
   if(kind==="chargesReelles"||kind==="produitsReels"){
@@ -4287,20 +4335,23 @@ function voirLignesMois(mk){
 // bloc au mauvais financement, ou une écriture classée sur le mauvais compte.
 // C'est ici qu'on le rattrape : les écritures rapprochées sont listées, et leur
 // compte comptable comme leur code projet sont modifiables sur place.
+// Écritures rapprochées d'un financement, et celles qui portent son nom sans
+// pouvoir lui être attribuées. Rendre ces dernières séparément, au lieu de les
+// écarter en silence, est ce qui distingue « le virement n'est pas arrivé » de
+// « le virement est là mais l'outil ne sait pas à qui il appartient » — deux
+// situations que la modale annonçait toutes les deux « aucun crédit rapproché ».
 function finRowsDe(f){
   const rid=String(f&&f.rid||"").trim(),nom=String(f&&f.n||"").trim();
-  // Un nom porté par plusieurs financements ne peut pas servir de repli :
-  // il ramènerait les écritures de l'homonyme.
-  const vus={};let homonyme=false;
-  finList().forEach(x=>{const k=String(x.n||"").trim();if(!k)return;
-    if(vus[k]&&k===nom)homonyme=true;vus[k]=1});
-  return (D.rows||[]).filter(r=>{
-    if(!((r.cre||0)>0)||isVirInterne(r))return false;
+  const memes=finList().filter(x=>String(x.n||"").trim()===nom);
+  const homonyme=memes.length>1;      // le nom ne peut plus servir de repli
+  const rows=[],ambigus=[];
+  (D.rows||[]).forEach(r=>{
+    if(!((r.cre||0)>0)||isVirInterne(r))return;
     const tr=finTrace(r);
-    if(rid&&tr.some(x=>x.rid===rid))return true;
-    if(homonyme)return false;
-    return tr.some(x=>!x.rid&&x.nom===nom);
+    if(rid&&tr.some(x=>x.rid===rid)){rows.push(r);return}
+    if(tr.some(x=>!x.rid&&x.nom===nom))(homonyme?ambigus:rows).push(r);
   });
+  return {rows,ambigus,homonyme,memes};
 }
 // Détache une écriture de son financement : la trace part, le classement reste.
 function finDetacher(rowId,coll,i){
@@ -4337,7 +4388,9 @@ function finAlignerCompte(rowId,coll,i){
 }
 function openFinBanque(coll,i){
   const f=(D[coll]||[])[i];if(!f)return;
-  const rows=finRowsDe(f).sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
+  const dd=finRowsDe(f);
+  const tri=(a,b)=>String(a.dt||"").localeCompare(String(b.dt||""));
+  const rows=dd.rows.slice().sort(tri),ambigus=dd.ambigus.slice().sort(tri);
   const att=finAmt(f)||0;
   const recu=rows.reduce((a,r)=>a+(r.cre||0),0);
   const ec=Math.round((recu-att)*100)/100;
@@ -4373,8 +4426,26 @@ function openFinBanque(coll,i){
           onclick="finDetacher('${r.id}','${coll}',${i})">✖</button>
       </td></tr>`;
   }).join("");
+  const lignesAmb=ambigus.map(r=>`<tr style="background:var(--amber-bg)">
+      <td style="font-size:9px;white-space:nowrap">${String(r.dt||"").substring(0,10)}</td>
+      <td style="font-size:9px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib||""}</td>
+      <td class="cre" style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(r.cre)}</td>
+      <td colspan="2" style="font-size:9px;color:var(--amber)">rattachée au nom « ${f.n} », porté par ${dd.memes.length} financements</td>
+      <td style="white-space:nowrap"><button class="b bp" style="font-size:8px;padding:2px 5px"
+        title="Refaire le rapprochement en désignant le bon financement : il sera attaché par identifiant Airtable, ce qui lève l'ambiguïté définitivement"
+        onclick="closeM();openRowFin('${r.id}')">🔗 Désigner le bon financement</button></td></tr>`).join("");
   let diag="";
-  if(!rows.length){
+  if(dd.homonyme){
+    diag=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:8px 10px;margin-bottom:10px;line-height:1.6">
+      ❓ <strong>Le nom « ${f.n} » est porté par ${dd.memes.length} financements dans Airtable.</strong>
+      Les rapprochements faits avant l'identifiant Airtable ne tiennent que par le nom : l'outil ne peut donc pas
+      savoir auquel appartient ${ambigus.length>1?"les "+ambigus.length+" écritures":"l'écriture"} ci-dessous, et ne ${ambigus.length>1?"les":"la"} compte pour aucun.
+      C'est ce qui explique le « reçu en banque » à 0 alors que l'écriture existe bien.
+      <br><strong>Deux réparations :</strong> refaire le rapprochement avec le bouton de la ligne ambre (il attache par identifiant, ce qui règle le cas définitivement — nécessite l'Apps Script redéployé),
+      ou distinguer les deux noms dans Airtable puis resynchroniser.
+      <br>Les ${dd.memes.length} homonymes : ${dd.memes.map(x=>fmt(finAmt(x))+" ("+(x.s||"?")+(finMoisKey(x)&&finMoisKey(x)!=="hors"?", "+tresMoisLabel(finMoisKey(x)):"")+")").join(" · ")}
+    </div>`;
+  }else if(!rows.length){
     diag=`<div style="font-size:10px;color:var(--red);background:var(--red-bg);border-radius:5px;padding:8px 10px;margin-bottom:10px;line-height:1.6">
       🔴 <strong>Aucun crédit bancaire n'est rapproché de ce financement</strong>, alors qu'Airtable le donne « ${f.s||"?"} ».
       Deux causes possibles : le virement n'est pas arrivé, ou il est bien en banque mais pas encore rapproché.
@@ -4398,11 +4469,11 @@ function openFinBanque(coll,i){
       <br>Les deux sélecteurs modifient directement l'écriture bancaire : le compte comptable commande ⚖️ Prévi. vs Réalisé, le code projet commande 📈 Suivi codes.
     </p>
     ${diag}
-    ${rows.length?`<div style="overflow:auto;max-height:50vh"><table><thead><tr>
+    ${(rows.length||ambigus.length)?`<div style="overflow:auto;max-height:50vh"><table><thead><tr>
       <th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th>
-      <th>Compte comptable</th><th>Code projet</th><th></th></tr></thead><tbody>${lignes}
+      <th>Compte comptable</th><th>Code projet</th><th></th></tr></thead><tbody>${lignesAmb}${lignes}
       <tr style="border-top:1px solid var(--border);font-weight:700">
-        <td colspan="2" style="font-size:10px">TOTAL — ${rows.length} écriture(s)</td>
+        <td colspan="2" style="font-size:10px">TOTAL retenu — ${rows.length} écriture(s)${ambigus.length?" (les "+ambigus.length+" ligne(s) ambre ne sont comptées pour aucun financement)":""}</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(recu)}</td>
         <td colspan="3"></td></tr></tbody></table></div>`:""}
     <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
@@ -4564,14 +4635,21 @@ function rTreasury(el){
   // Périmètre : le compte courant seul. Le solde de départ de cette colonne est
   // le solde C/C ; y mélanger les mouvements du livret (intérêts, placements)
   // faisait varier une trésorerie de compte courant au rythme de l'épargne.
+  // Un virement vers le livret n'est ni une charge ni un produit — mais il sort
+  // bel et bien du compte courant. Les deux lignes de réalisé l'excluent (ce
+  // sont des flux économiques) ; le solde bancaire doit l'inclure, sinon il
+  // surestime le compte courant de tout ce qui a été placé.
   let nbLivret=0;
+  const mvtInt=win.map(()=>0);
   (D.rows||[]).forEach(r=>{
-    if(isVirInterne(r))return;
     if(estLivret(r)){nbLivret++;return}
     const i=idxDe[moKey(r.dt)];
     if(i===undefined)return;
+    if(isVirInterne(r)){mvtInt[i]+=(r.cre||0)-(r.deb||0);return}
     realCh[i]+=r.deb||0;realPr[i]+=r.cre||0;nbReal++;
   });
+  // Variation réelle du compte courant, mois par mois
+  const netCC=win.map((w,i)=>realPr[i]-realCh[i]+mvtInt[i]);
 
   // Solde au premier mois de la fenêtre. Le solde initial est daté : quand la
   // fenêtre commence plus tard, on y ajoute le réalisé des mois écoulés depuis,
@@ -4579,7 +4657,7 @@ function rTreasury(el){
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,7);
   let soldeDebut=D.soldeInitial||0,nbAvant=0;
   (D.rows||[]).forEach(r=>{
-    if(isVirInterne(r)||estLivret(r))return;
+    if(estLivret(r))return;               // virements internes compris : ils bougent le C/C
     const k=moKey(r.dt);
     if(!/^\d{4}-\d{2}$/.test(k))return;
     if(soldeRef&&k<soldeRef)return;
@@ -4624,19 +4702,32 @@ function rTreasury(el){
   // pouvaient décrire le même compte avec deux valeurs différentes, et personne
   // ne le voyait.
   {
-    const soldeCarte=(D.soldeInitialCC||0)+(D.rows||[]).filter(estCC).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
-    const soldeTres=(D.soldeInitial||0)+(D.rows||[]).filter(r=>estCC(r)&&!isVirInterne(r)).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    // Les deux chemins additionnent maintenant exactement les mêmes écritures
+    // (compte courant, virements internes compris) : il ne reste qu'une seule
+    // cause possible d'écart, le solde initial de départ.
+    const ccRows=(D.rows||[]).filter(estCC);
+    const fluxTotal=ccRows.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    const soldeRef=String(D.soldeDate||"").substring(0,7);
+    const fluxDepuis=ccRows.filter(r=>!soldeRef||moKey(r.dt)>=soldeRef).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    const avant=ccRows.filter(r=>soldeRef&&moKey(r.dt)&&moKey(r.dt)<soldeRef);
+    const soldeCarte=(D.soldeInitialCC||0)+fluxTotal;
+    const soldeTres=(D.soldeInitial||0)+fluxDepuis;
     const ec=Math.round((soldeTres-soldeCarte)*100)/100;
     if(Math.abs(ec)>0.5){
-      h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.6">
-        ⚠️ <strong>Deux soldes de compte courant divergent de ${fmt(Math.abs(ec))}.</strong>
-        La carte « C/C » en haut de l'outil part du solde initial lu dans le relevé
-        (<strong>${fmt(D.soldeInitialCC||0)}</strong>) et arrive à <strong>${fmt(soldeCarte)}</strong>.
-        La trésorerie part du solde initial saisi au ${D.soldeDate||"?"}
-        (<strong>${fmt(D.soldeInitial)}</strong>) et arrive à <strong>${fmt(soldeTres)}</strong>.
-        Un seul des deux peut être juste. Comparez au solde réel de votre banque et corrigez le mauvais
-        dans 📋 Budget prévi. (« Solde C/C au … » et « C/C initial »).
-        <br><em>Note : l'écart peut aussi venir de virements internes non étiquetés, comptés d'un côté et pas de l'autre.</em>
+      h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:7px 9px;margin-bottom:8px;line-height:1.7">
+        ⚠️ <strong>Les deux soldes de compte courant de l'outil ne concordent pas : écart de ${fmt(Math.abs(ec))}.</strong>
+        Les deux devraient donner le solde réel de votre banque aujourd'hui.
+        <br>① Carte « C/C » du haut : <strong>${fmt(D.soldeInitialCC||0)}</strong> (C/C initial, avant la 1<sup>re</sup> écriture importée)
+        + ${ccRows.length} écriture(s) → <strong>${fmt(soldeCarte)}</strong>
+        <br>② Trésorerie : <strong>${fmt(D.soldeInitial)}</strong> (solde au ${D.soldeDate||"?"})
+        + les écritures depuis cette date → <strong>${fmt(soldeTres)}</strong>
+        ${avant.length?`<br><span style="color:var(--amber)">Cause probable : ${avant.length} écriture(s) sont antérieures au ${D.soldeDate}
+          (${fmt(avant.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0))} net). Le chemin ② les ignore, le chemin ① les compte.
+          Si le solde du ${D.soldeDate} est bien un solde d'ouverture, ces écritures ne devraient pas être avant lui : la date est probablement fausse.</span>`
+         :`<br>Les deux chemins comptent les mêmes écritures : l'écart vient donc uniquement des deux soldes initiaux, dont un seul peut être juste.`}
+        <br><strong>À faire :</strong> relevez le solde réel de votre compte courant aujourd'hui, comparez-le à ① et à ②,
+        puis corrigez dans 📋 Budget prévi. le champ du chemin qui se trompe — « C/C initial » pour ①, « Solde C/C au … » (montant et date) pour ②.
+        Le bouton 🔍 Vérif. donne le même calcul compte par compte.
       </div>`;
     }
     if(nbLivret){
@@ -4645,6 +4736,22 @@ function rTreasury(el){
         Le livret apparaît dans les cartes du haut.</div>`;
     }
   }
+
+  h+=`<details style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
+    ℹ️ Pourquoi cet onglet et ⚖️ Prévi. vs Réalisé n'affichent pas les mêmes montants</summary>
+    <div style="font-size:9px;color:var(--text-2);line-height:1.8;padding:6px 4px 2px">
+    Les deux sont justes : ils ne répondent pas à la même question.<br>
+    <strong>💰 Trésorerie = l'argent sur le compte.</strong> Une écriture compte au mois de sa <em>date bancaire</em>,
+    et les financements Airtable comptent au mois de leur <em>versement</em>.<br>
+    <strong>⚖️ Prévi. vs Réalisé = le résultat de l'exercice.</strong> Une écriture compte sur son <em>année d'affectation</em>
+    (colonne « An. », modifiable), qui peut différer de sa date.<br>
+    <em>Exemple.</em> Une subvention de 20 000 € pour le projet 2026, versée le 15 janvier 2027 :
+    elle apparaît en <strong>janvier 2027</strong> dans la trésorerie (c'est là que l'argent arrive)
+    et sur l'<strong>exercice 2026</strong> dans Prévi. vs Réalisé (c'est l'année qu'elle finance).<br>
+    Deuxième différence : ici le budget ne compte que le <strong>reste à obtenir</strong>, financements Airtable déduits,
+    pour ne pas compter deux fois le même euro. Prévi. vs Réalisé affiche le budget entier.
+    Les produits prévus d'une même version diffèrent donc entre les deux onglets, et c'est normal.
+    </div></details>`;
 
   h+='<div style="overflow-x:auto"><table><thead><tr><th></th>';
   win.forEach(w=>h+=`<th style="text-align:right;min-width:70px${w.k===kNow?";color:var(--accent);border-bottom:2px solid var(--accent)":""}" title="${w.k}${w.k===kNow?" · mois en cours":""}${moisPartiel(w)?" · réalisé partiel : banque chargée jusqu'au "+dernBq:""}">${w.nom}${moisPartiel(w)?'<span style="color:var(--amber)" title="Réalisé partiel">◔</span>':""}</th>`);
@@ -4693,6 +4800,14 @@ function rTreasury(el){
       moisPartiel(w)?"Mois incomplet : relevé importé jusqu'au "+dernBq:"")});
   h+=cel("produitsReels","*",fmt(totRP),"font-weight:600;color:var(--green)")+"</tr>";
 
+  // Mouvements internes : ni charge ni produit, mais ils déplacent la trésorerie
+  if(mvtInt.some(v=>Math.abs(v)>0.005)){
+    h+='<tr><td style="font-weight:600;color:#a78bfa" title="Virements entre vos comptes (livret, compte à terme). Ni charge ni produit, mais ils entrent et sortent du compte courant : le solde réel en tient compte.">Mouvements internes C/C</td>';
+    let totMI=0;win.forEach((w,i)=>{totMI+=mvtInt[i];
+      h+=cel("mvtInternes",w.k,mvtInt[i]?fmt(mvtInt[i]):"","font-size:9px;color:#a78bfa")});
+    h+=cel("mvtInternes","*",fmt(totMI),"font-weight:600;color:#a78bfa")+"</tr>";
+  }
+
   // Solde prévisionnel cumulé
   h+='<tr style="border-top:2px solid var(--accent)"><td style="font-weight:700">Solde prévu cumulé</td>';
   let soldeF=soldeDebut;win.forEach((w,i)=>{soldeF+=totForecastPr[i]-forecastCh[i];
@@ -4702,7 +4817,7 @@ function rTreasury(el){
   // Solde réel cumulé
   h+='<tr><td style="font-weight:700">Solde réel cumulé</td>';
   let soldeR=soldeDebut;
-  win.forEach((w,i)=>{if(moisCouvert(w)){soldeR+=realPr[i]-realCh[i];
+  win.forEach((w,i)=>{if(moisCouvert(w)){soldeR+=netCC[i];
     h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"var(--green)":"var(--red)"}"${moisPartiel(w)?` title="Solde au ${dernBq}, dernière écriture importée"`:""}>${fmt(soldeR)}${moisPartiel(w)?"*":""}</td>`}
     else h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>'});
   h+=`<td></td></tr>`;
@@ -4717,7 +4832,7 @@ function rTreasury(el){
     h+=`<tr style="background:var(--accent-bg)"><td style="font-weight:700" title="Réalisé sur les mois entièrement couverts par le relevé bancaire (jusqu'au ${dernBq}), prévisionnel ensuite">Solde projeté</td>`;
     let sp=soldeDebut;
     win.forEach((w,i)=>{
-      sp+=moisPlein(w)?(realPr[i]-realCh[i]):(totForecastPr[i]-forecastCh[i]);
+      sp+=moisPlein(w)?netCC[i]:(totForecastPr[i]-forecastCh[i]);
       h+=`<td style="text-align:right;font-weight:600;color:${sp>=0?"var(--green)":"var(--red)"}"${moisPlein(w)?"":' title="Prévisionnel"'}>${fmt(sp)}</td>`});
     h+=`<td style="text-align:right;font-weight:700;color:${sp>=0?"var(--green)":"var(--red)"}">${fmt(sp)}</td></tr>`;
   }
@@ -4726,7 +4841,7 @@ function rTreasury(el){
   h+='<tr><td style="font-weight:600">Écart</td>';
   let sF2=soldeDebut,sR2=soldeDebut;
   win.forEach((w,i)=>{sF2+=totForecastPr[i]-forecastCh[i];
-    if(moisCouvert(w)){sR2+=realPr[i]-realCh[i];const diff=sR2-sF2;
+    if(moisCouvert(w)){sR2+=netCC[i];const diff=sR2-sF2;
       h+=`<td style="text-align:right;font-size:9px;font-weight:600;color:${diff>=0?"var(--green)":"var(--red)"}">${diff>=0?"+":""}${fmt(diff)}</td>`}
     else h+='<td></td>'});
   h+='<td></td></tr>';

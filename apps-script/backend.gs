@@ -330,6 +330,25 @@ function saveCompta(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET_COMPTA);
   if (!sh) { onOpen(); sh = ss.getSheetByName(SHEET_COMPTA); }
+  // ── Refus d'écraser une sauvegarde plus récente que celle qu'a chargée l'appelant.
+  // La sauvegarde efface la feuille et la réécrit : à deux, la seconde
+  // sauvegarde effaçait tout le travail de la première, sans aucun signal.
+  // L'appelant envoie baseAt = l'horodatage de la version qu'il a chargée.
+  // Le contrôle est fait AVANT de toucher à la feuille, pour ne rien détruire
+  // en cas de conflit.
+  if (data.baseAt !== undefined && !data.force) {
+    var precedent = null;
+    try { precedent = JSON.parse(getConfigChunked("compta_meta") || "null"); } catch (e) {}
+    var dejaAt = (precedent && precedent.savedAt) ? String(precedent.savedAt) : "";
+    if (dejaAt && String(data.baseAt || "") !== dejaAt) {
+      return {
+        conflict: true,
+        savedAt: dejaAt,
+        savedBy: (precedent && precedent.savedBy) || "quelqu'un d'autre",
+        rows: (precedent && precedent.rowCount) || 0
+      };
+    }
+  }
   if (data.rows && data.rows.length) {
     const headers = ["id", "dt", "yr", "lib", "four", "cat", "act", "deb", "cre", "modal", "stat", "resp", "numj", "src", "ndf", "compte", "driveUrl", "comment"];
     sh.clear();
