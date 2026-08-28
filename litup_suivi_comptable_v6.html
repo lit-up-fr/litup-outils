@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25j <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25k <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -4387,6 +4387,92 @@ function finAlignerCompte(rowId,coll,i){
   }
   finSetRow(rowId,"cat",lbl,coll,i);
 }
+// ─── RATTACHER UN CRÉDIT DEPUIS LA MODALE DU FINANCEMENT ───
+// Sans ça, un 🔴 obligeait à sortir vers 📋 Classement, retrouver la ligne et
+// rouvrir un autre écran : le diagnostic était là, la réparation ailleurs.
+const moisNum=k=>/^\d{4}-\d{2}$/.test(String(k||""))?parseInt(k.substring(0,4))*12+parseInt(k.substring(5,7)):null;
+// Crédits non encore rattachés, classés par vraisemblance : même montant
+// d'abord, puis proximité avec le mois de versement attendu.
+function finCandidats(f,q){
+  const att=finAmt(f)||0;
+  const mk=finMoisKey(f),cible=moisNum(mk&&mk!=="hors"?mk:"");
+  const filtre=String(q||"").trim().toLowerCase();
+  const out=[];
+  (D.rows||[]).forEach(r=>{
+    if(!((r.cre||0)>0)||isVirInterne(r)||estLivret(r))return;
+    if(finAffected(r))return;                       // déjà rattaché à un financement
+    if(filtre&&!(String(r.lib||"").toLowerCase().includes(filtre)
+      ||String(r.four||"").toLowerCase().includes(filtre)
+      ||String(Math.round(r.cre||0)).includes(filtre)))return;
+    const ec=Math.round(((r.cre||0)-att)*100)/100;
+    const mr=moisNum(moKey(r.dt));
+    out.push({r,ec,exact:Math.abs(ec)<0.01?0:1,
+              dist:(cible!==null&&mr!==null)?Math.abs(mr-cible):99});
+  });
+  out.sort((a,b)=>a.exact-b.exact||a.dist-b.dist||Math.abs(a.ec)-Math.abs(b.ec));
+  return out;
+}
+function finRattacher(rowId,coll,i){
+  const f=(D[coll]||[])[i],r=(D.rows||[]).find(x=>x.id===rowId);
+  if(!f||!r)return;
+  const att=finAmt(f)||0,ec=Math.round(((r.cre||0)-att)*100)/100;
+  if(!confirm("Rattacher ce crédit au financement « "+(f.n||"?")+" » ?\n\n"
+    +"   "+String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,60)+"\n"
+    +"   "+fmt(r.cre)+"   (montant Airtable : "+fmt(att)+")\n"
+    +(Math.abs(ec)>0.5?"\n⚠️ Écart de "+fmt(ec)+"."
+        +(ec>0?"\nSi ce virement regroupe plusieurs financements, utilisez plutôt « ⧉ Répartir »\npour le scinder et imputer chaque part sur son compte.":"")+"\n":"")
+    +(finCompte(f).code&&!r.cat?"\nLe compte comptable "+finCompte(f).code+" sera repris sur l'écriture.\n":"")
+    +"\nAnnulable avec ↩️."))return;
+  pushUndo();
+  const autres=String(r.comment||"").split("·").map(x=>x.trim()).filter(x=>x&&!/^Airtable:/.test(x));
+  r.comment=[...autres,finRef(f)].join(" · ");
+  if(!r.four)r.four=String(f.n||"").replace(/^[\d._]+/,"").trim()||f.n;
+  if(!r.stat||String(r.stat).includes("manquant"))
+    r.stat=(coll==="airtablePrestas")?"Classé - Facture":"Classé - Convention";
+  const cc=finCompte(f).code;
+  if(cc&&!r.cat){
+    const lbl=catForCode(cc);
+    if(lbl){
+      if(!(D.cats||[]).some(x=>catKey(x)===catKey(lbl))){
+        D.cats.push(lbl);D.cats.sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true}));
+      }
+      r.cat=lbl;
+    }
+  }
+  if(!r.yr)r.yr=yrOf(r.dt);
+  autoSave();render();openFinBanque(coll,i);
+}
+// Rendu isolé de la liste des candidats : la recherche ne doit pas reconstruire
+// la modale entière, sinon le champ perd le focus à chaque frappe.
+function finCandRender(coll,i){
+  const f=(D[coll]||[])[i];if(!f)return;
+  const box=$("fbCand");if(!box)return;
+  const q=$("fbQ")?.value||"";
+  const tous=finCandidats(f,q);
+  const LIM=12,liste=tous.slice(0,LIM);
+  if(!tous.length){
+    box.innerHTML=`<div style="font-size:10px;color:var(--text-3);padding:8px">
+      ${q?"Aucun crédit non rattaché ne correspond à « "+q+" ».":
+        "Aucun crédit bancaire disponible : tous les crédits importés sont déjà rattachés à un financement. Le virement n'est peut-être pas encore importé (📥 Import → Banque)."}</div>`;
+    return;
+  }
+  box.innerHTML=`<table><thead><tr><th>Date</th><th>Libellé banque</th><th style="text-align:right">Montant</th>
+    <th style="text-align:right">Écart</th><th></th></tr></thead><tbody>
+    ${liste.map(c=>`<tr${c.exact===0?' style="background:var(--green-bg)"':""}>
+      <td style="font-size:9px;white-space:nowrap">${String(c.r.dt||"").substring(0,10)}</td>
+      <td style="font-size:9px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.r.lib||"").replace(/"/g,"&quot;")}">${c.r.lib||""}</td>
+      <td class="cre" style="text-align:right;font-family:var(--mono);font-size:9px;white-space:nowrap">${fmt(c.r.cre)}</td>
+      <td style="text-align:right;font-size:9px;white-space:nowrap;color:${c.exact===0?"var(--green)":"var(--amber)"}">${c.exact===0?"✓ exact":fmt(c.ec)}</td>
+      <td style="white-space:nowrap">
+        <button class="b bp" style="font-size:8px;padding:2px 6px" onclick="finRattacher('${c.r.id}','${coll}',${i})"
+          title="Écrire la trace de rapprochement sur cette écriture et lui donner le compte comptable du financement">🔗 Rattacher</button>
+        ${c.exact!==0?`<button class="b bd" style="font-size:8px;padding:2px 5px" onclick="closeM();openRowFin('${c.r.id}')"
+          title="Ce virement regroupe peut-être plusieurs financements : le scinder et imputer chaque part">⧉ Répartir</button>`:""}
+      </td></tr>`).join("")}
+    ${tous.length>LIM?`<tr><td colspan="5" style="font-size:9px;color:var(--text-3);padding:5px 6px">
+      … ${tous.length-LIM} autre(s) crédit(s) non rattaché(s) : affinez la recherche ci-dessus.</td></tr>`:""}
+  </tbody></table>`;
+}
 function openFinBanque(coll,i){
   const f=(D[coll]||[])[i];if(!f)return;
   const dd=finRowsDe(f);
@@ -4427,6 +4513,9 @@ function openFinBanque(coll,i){
           onclick="finDetacher('${r.id}','${coll}',${i})">✖</button>
       </td></tr>`;
   }).join("");
+  // La section de rattachement s'ouvre d'office quand il y a quelque chose à
+  // réparer : rien de rapproché, un écart, ou une écriture non attribuable.
+  const ouvrirCand=!rows.length||Math.abs(ec)>0.5||ambigus.length>0;
   const lignesAmb=ambigus.map(r=>`<tr style="background:var(--amber-bg)">
       <td style="font-size:9px;white-space:nowrap">${String(r.dt||"").substring(0,10)}</td>
       <td style="font-size:9px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.lib||"").replace(/"/g,"&quot;")}">${r.lib||""}</td>
@@ -4477,11 +4566,26 @@ function openFinBanque(coll,i){
         <td colspan="2" style="font-size:10px">TOTAL retenu — ${rows.length} écriture(s)${ambigus.length?" (les "+ambigus.length+" ligne(s) ambre ne sont comptées pour aucun financement)":""}</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(recu)}</td>
         <td colspan="3"></td></tr></tbody></table></div>`:""}
+    <details ${ouvrirCand?"open":""} style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+      <summary style="font-size:10px;font-weight:600;color:var(--accent-l);cursor:pointer">
+        🔗 Rattacher un crédit bancaire à ce financement</summary>
+      <p style="font-size:9px;color:var(--text-2);margin:6px 0 8px;line-height:1.6">
+        Crédits importés qui ne sont rattachés à aucun financement, les plus vraisemblables d'abord :
+        même montant que ${fmt(att)}, puis proximité avec ${mk&&mk!=="hors"?tresMoisLabel(mk):"la date attendue"}.
+        « Rattacher » écrit la trace de rapprochement et reprend le compte comptable du financement si l'écriture n'en a pas.
+        Si un virement regroupe plusieurs financements, « ⧉ Répartir » le scinde.
+      </p>
+      <input id="fbQ" class="cj" placeholder="🔍 Filtrer par libellé, fournisseur ou montant…"
+        style="width:100%;max-width:340px;margin-bottom:8px" oninput="finCandRender('${coll}',${i})">
+      <div id="fbCand" style="overflow:auto;max-height:34vh"></div>
+    </details>
     <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
       ${mk&&mk!=="hors"?`<button class="b bb" onclick="closeM();voirLignesMois('${mk}')"
-        title="Ouvrir 📋 Classement filtré sur ce mois pour retrouver le virement et le rapprocher">📋 Voir les écritures de ${tresMoisLabel(mk)}</button>`:""}
+        title="Ouvrir 📋 Classement filtré sur ce mois, pour voir toutes les écritures du mois y compris celles déjà rattachées">📋 Voir les écritures de ${tresMoisLabel(mk)}</button>`:""}
       <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
     </div></div></div>`;
+  // La liste des candidats est rendue à part : la recherche la rafraîchit seule.
+  finCandRender(coll,i);
 }
 
 // ─── JUSQU'OÙ LE RÉALISÉ EST-IL CONNU ? ───
