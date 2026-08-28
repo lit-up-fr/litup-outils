@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25f <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25g <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -606,6 +606,10 @@ const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Viremen
 const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Classé - Virement interne","Justificatif manquant","En attente","À créer","À demander","Absence"];
 // Virement interne (CC↔Livret, CC↔Cpte à terme) : ni charge ni produit
 const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
+// Compte porteur d'une écriture. L'import écrit "cc"/"livret" en minuscules ;
+// une écriture sans compte est du compte courant (format de relevé mono-compte).
+const estLivret=r=>String(r.compte||"").toLowerCase()==="livret";
+const estCC=r=>!estLivret(r);
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
 let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
@@ -930,6 +934,14 @@ async function saveComptaToSheet(){
       rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,
       rhAlloc:D.rhAlloc,savedBy:qui,
       savedAt:new Date().toISOString()};
+    // Un navigateur dont le cache a été vidé repart sur les données de démo.
+    // Sauvegarder depuis cet état écrasait le Sheet : les lignes sont épargnées
+    // (le backend ne les écrit que si le tableau est non vide) mais les
+    // métadonnées, budget compris, partaient quand même.
+    if(!D.rows.length&&!confirm("⚠️ Aucune écriture bancaire dans cet onglet.\n\n"
+      +"Si vous avez rechargé la page sans charger la dernière sauvegarde, vous êtes sur les données\n"
+      +"de démonstration : sauvegarder remplacerait le budget et les paramètres du Sheet par ceux-ci.\n\n"
+      +"Faites plutôt 🔄 Actualisation → ☁️ Dernière sauvegarde.\n\nSauvegarder quand même ?"))return;
     const res=await sheetAPI("saveCompta",{rows:D.rows,meta});
     if(res.error){alert("❌ Erreur : "+res.error);return}
     if(res.metaError){alert("⚠️ "+res.metaError+"\n\nLes lignes sont sauvegardées, mais PAS le budget ni les paramètres. Réessayez.");return}
@@ -1586,11 +1598,31 @@ function exportFEC(){
   alert("FEC exporté : "+ecNum+" écritures\nFichier : "+SIREN+"FEC"+cloture+".txt\n\nJournaux : BQ (Banque), NDF (Notes de frais)\nFormat : TSV conforme article A.47 A-1 du LPF");
 }
 
+// ─── PART DE L'EXERCICE RÉELLEMENT COUVERTE PAR LES DONNÉES ───
+// Tout ce qui compare le réalisé au budget (consommation, projection annuelle,
+// alertes de dépassement) a besoin de savoir sur combien de mois porte le
+// réalisé. Le calendrier ne le dit pas : il dit la date du jour, pas jusqu'où
+// le relevé est importé. Un relevé arrêté fin juillet consulté en octobre
+// faisait diviser le réalisé de 7 mois par 10/12 — la projection annuelle des
+// charges était sous-évaluée de 30 %, en vert, sans un mot.
+// Pour un exercice déjà dépassé par les données, la couverture est de 100 %.
+function partExerciceCouverte(exo){
+  const dern=derniereEcriture();
+  if(!dern)return 0;
+  const y=String(exo),ky=dern.substring(0,4);
+  if(ky>y)return 1;                       // exercice clos, données au-delà
+  if(ky<y)return 0;                       // rien d'importé sur cet exercice
+  const d=new Date(),kNow=d.getFullYear()+"-"+MOS[d.getMonth()];
+  let m=parseInt(dern.substring(5,7));    // 1-12
+  if(dern.substring(0,7)>=kNow)m-=1;      // le mois en cours est incomplet
+  return Math.min(1,Math.max(0,m/12));
+}
+
 // ─── ALERTS DASHBOARD ───
 function getAlerts(){
   const alerts=[];
   const vIdx=curVerIdx();
-  const now=new Date();const elapsed=(now.getMonth()+1)/12;
+  const elapsed=partExerciceCouverte(compYear);
   // NDF en attente dans le buffer
   const ndfCount=Object.keys(D.ndfBuffer||{}).length;
   // Justificatifs manquants
@@ -1611,6 +1643,7 @@ function getAlerts(){
     const real=realized[catKey(b.cat)];
     const realVal=b.type==="charge"?(real?.deb||0):(real?.cre||0);
     const pct=annual>0?(realVal/annual):0;
+    if(!elapsed)return;
     if(b.type==="charge"&&pct>1)alerts.push({type:"danger",icon:"🔴",text:b.cat.substring(0,20)+" dépasse le budget de "+Math.round((pct-1)*100)+"%"});
     else if(b.type==="charge"&&pct>elapsed+0.15)alerts.push({type:"warn",icon:"🟠",text:b.cat.substring(0,20)+" en avance de consommation ("+Math.round(pct*100)+"% pour "+Math.round(elapsed*100)+"% de l'année)"});
   });
@@ -3627,8 +3660,10 @@ function rhCompteNote(cat){
 
 // ─── COMPARATIF PRÉVISIONNEL vs RÉALISÉ ───
 function rComp(el){
-  const now=new Date();const curMonth=now.getMonth();// 0-indexed
-  const elapsed=(curMonth+1)/12;// % of year elapsed
+  // Périmètre du réalisé : la dernière écriture importée sur cet exercice.
+  const elapsed=partExerciceCouverte(compYear);
+  const curMonth=Math.round(elapsed*12)-1;   // dernier mois complet, -1 si rien
+  const dernEcr=derniereEcriture();
   const vIdx=curVerIdx();// Version sélectionnée
 
   // Compute realized by cat
@@ -3660,15 +3695,19 @@ function rComp(el){
   const totRealPr=D.rows.filter(r=>String(r.yr||"")===String(compYear)&&!isVirInterne(r)).reduce((s,r)=>s+(r.cre||0),0);
   const pctCh=totBudgetCh>0?(totRealCh/totBudgetCh*100):0;
   const pctPr=totBudgetPr>0?(totRealPr/totBudgetPr*100):0;
-  const projection=totBudgetCh>0?(totRealCh/elapsed):0;
+  // Sans mois complet importé, aucune projection n'a de sens : mieux vaut ne
+  // rien afficher qu'un chiffre divisé par zéro ou par un mois partiel.
+  const projection=(totBudgetCh>0&&elapsed>0)?(totRealCh/elapsed):0;
 
   let h='<div class="dash">';
-  h+=`<div class="dash-c"><div class="dash-v" style="color:#818cf8">${fmtP(elapsed*100)}</div><div class="dash-l">Année écoulée</div></div>`;
+  h+=`<div class="dash-c" title="Part de l'exercice ${compYear} couverte par les écritures importées${dernEcr?" (dernière : "+dernEcr+")":" — aucune écriture"}. C'est cette part, et non la date du jour, qui sert de base à la consommation et à la projection.">
+    <div class="dash-v" style="color:#818cf8">${fmtP(elapsed*100)}</div><div class="dash-l">Exercice couvert</div></div>`;
   h+=`<div class="dash-c"><div class="dash-v ${pctCh>elapsed*100+10?"alert-danger":pctCh>elapsed*100?"alert-warn":"alert-ok"}">${fmtP(pctCh)}</div><div class="dash-l">Charges consommées</div></div>`;
   h+=`<div class="dash-c"><div class="dash-v ${pctPr<elapsed*100-15?"alert-warn":"alert-ok"}">${fmtP(pctPr)}</div><div class="dash-l">Produits encaissés</div></div>`;
   h+=`<div class="dash-c"><div class="dash-v" style="color:#f87171">${fmt(totRealCh)}</div><div class="dash-l">Réalisé charges</div></div>`;
   h+=`<div class="dash-c"><div class="dash-v" style="color:#4ade80">${fmt(totRealPr)}</div><div class="dash-l">Réalisé produits</div></div>`;
-  h+=`<div class="dash-c"><div class="dash-v" style="color:${projection>totBudgetCh*1.05?"#ef4444":"#22c55e"}">${fmt(projection)}</div><div class="dash-l">Projection annuelle charges</div></div>`;
+  h+=`<div class="dash-c" title="${elapsed>0?"Charges réalisées rapportées à l'année entière : "+fmt(totRealCh)+" sur "+fmtP(elapsed*100)+" de l'exercice.":"Aucun mois complet importé sur cet exercice : rien à projeter."}">
+    <div class="dash-v" style="color:${!elapsed?"var(--text-3)":projection>totBudgetCh*1.05?"#ef4444":"#22c55e"}">${elapsed>0?fmt(projection):"—"}</div><div class="dash-l">Projection annuelle charges</div></div>`;
   h+='</div>';
 
   // ── Barre de révision ──
@@ -4392,8 +4431,13 @@ function rTreasury(el){
   // compYear ("2026") échouait — les deux lignes de réalisé restaient à 0.
   // Les virements internes sont exclus, comme dans ⚖️ Prévi. vs Réalisé.
   let nbReal=0;
+  // Périmètre : le compte courant seul. Le solde de départ de cette colonne est
+  // le solde C/C ; y mélanger les mouvements du livret (intérêts, placements)
+  // faisait varier une trésorerie de compte courant au rythme de l'épargne.
+  let nbLivret=0;
   (D.rows||[]).forEach(r=>{
     if(isVirInterne(r))return;
+    if(estLivret(r)){nbLivret++;return}
     const i=idxDe[moKey(r.dt)];
     if(i===undefined)return;
     realCh[i]+=r.deb||0;realPr[i]+=r.cre||0;nbReal++;
@@ -4405,7 +4449,7 @@ function rTreasury(el){
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,7);
   let soldeDebut=D.soldeInitial||0,nbAvant=0;
   (D.rows||[]).forEach(r=>{
-    if(isVirInterne(r))return;
+    if(isVirInterne(r)||estLivret(r))return;
     const k=moKey(r.dt);
     if(!/^\d{4}-\d{2}$/.test(k))return;
     if(soldeRef&&k<soldeRef)return;
@@ -4441,6 +4485,34 @@ function rTreasury(el){
         Le mois en cours garde son prévisionnel complet : un demi-mois de dépenses sous-estimerait le mois entier.
         Les « Charges prévues » ne déduisent jamais les « Charges réelles » — ce sont deux lignes indépendantes, le plan et le fait.`;
       h+='</div>';
+    }
+  }
+
+  // ── Contrôle : les deux soldes de compte courant de l'outil doivent concorder ──
+  // La carte « C/C » du haut part de soldeInitialCC (lu dans le relevé), la
+  // trésorerie part de soldeInitial (saisi à la main). Rien ne les reliait : ils
+  // pouvaient décrire le même compte avec deux valeurs différentes, et personne
+  // ne le voyait.
+  {
+    const soldeCarte=(D.soldeInitialCC||0)+(D.rows||[]).filter(estCC).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    const soldeTres=(D.soldeInitial||0)+(D.rows||[]).filter(r=>estCC(r)&&!isVirInterne(r)).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    const ec=Math.round((soldeTres-soldeCarte)*100)/100;
+    if(Math.abs(ec)>0.5){
+      h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.6">
+        ⚠️ <strong>Deux soldes de compte courant divergent de ${fmt(Math.abs(ec))}.</strong>
+        La carte « C/C » en haut de l'outil part du solde initial lu dans le relevé
+        (<strong>${fmt(D.soldeInitialCC||0)}</strong>) et arrive à <strong>${fmt(soldeCarte)}</strong>.
+        La trésorerie part du solde initial saisi au ${D.soldeDate||"?"}
+        (<strong>${fmt(D.soldeInitial)}</strong>) et arrive à <strong>${fmt(soldeTres)}</strong>.
+        Un seul des deux peut être juste. Comparez au solde réel de votre banque et corrigez le mauvais
+        dans 📋 Budget prévi. (« Solde C/C au … » et « C/C initial »).
+        <br><em>Note : l'écart peut aussi venir de virements internes non étiquetés, comptés d'un côté et pas de l'autre.</em>
+      </div>`;
+    }
+    if(nbLivret){
+      h+=`<div style="font-size:9px;color:var(--text-3);margin-bottom:8px">
+        ${nbLivret} écriture(s) du livret exclue(s) de ce tableau : la trésorerie suit le compte courant.
+        Le livret apparaît dans les cartes du haut.</div>`;
     }
   }
 
@@ -5216,9 +5288,30 @@ function exportAirtableReq(){
 }
 
 // ─── SOLDE VERIFICATION ───
+// Vérification compte par compte. L'ancienne version additionnait les écritures
+// des DEUX comptes au seul solde initial du compte courant : le total annoncé
+// était faux dès qu'un livret était importé, donc inutilisable comme contrôle.
 function checkSolde(){
-  const computed=D.soldeInitial+D.rows.reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
-  alert("Solde calculé par l'outil : "+fmt(computed)+"\n\nSolde initial ("+D.soldeDate+") : "+fmt(D.soldeInitial)+"\n+ Crédits : "+fmt(D.rows.reduce((s,r)=>s+(r.cre||0),0))+"\n- Débits : "+fmt(D.rows.reduce((s,r)=>s+(r.deb||0),0))+"\n\nSi ce montant diffère du solde affiché par votre banque, il y a des lignes manquantes ou en doublon.");
+  const cc=(D.rows||[]).filter(estCC),liv=(D.rows||[]).filter(estLivret);
+  const som=(a,f)=>a.reduce((s,r)=>s+(f(r)||0),0);
+  const bloc=(nom,arr,init,dt)=>{
+    const cre=som(arr,r=>r.cre),deb=som(arr,r=>r.deb);
+    return nom+"\n"+
+      "  Solde initial"+(dt?" ("+dt+")":"")+" : "+fmt(init)+"\n"+
+      "  + crédits : "+fmt(cre)+"\n"+
+      "  − débits  : "+fmt(deb)+"\n"+
+      "  = "+fmt(init+cre-deb)+"   sur "+arr.length+" écriture(s)\n";
+  };
+  const sCC=(D.soldeInitialCC||D.soldeInitial||0)+som(cc,r=>r.cre)-som(cc,r=>r.deb);
+  const sLiv=(D.soldeInitialLivret||0)+som(liv,r=>r.cre)-som(liv,r=>r.deb);
+  alert("🔍 Contrôle des soldes, compte par compte\n\n"
+    +bloc("COMPTE COURANT",cc,(D.soldeInitialCC||D.soldeInitial||0),D.soldeDate)
+    +(liv.length?"\n"+bloc("LIVRET",liv,(D.soldeInitialLivret||0),""):"\n(aucune écriture de livret importée)\n")
+    +"\nTOTAL BANQUE : "+fmt(sCC+sLiv+(D.soldeInitialCAT||0))
+    +(D.soldeInitialCAT?"  (dont compte à terme "+fmt(D.soldeInitialCAT)+")":"")
+    +"\n\nComparez chaque ligne au solde de votre banque. Un écart signale des écritures"
+    +"\nmanquantes, en doublon, ou un solde initial erroné — pas les deux à la fois :"
+    +"\ntraitez un compte après l'autre.");
 }
 
 // ─── MAIN RENDER ───
