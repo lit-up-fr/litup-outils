@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25e <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25f <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -617,7 +617,7 @@ function curVerIdx(){const n=(D.budgetVersions||[]).length;if(budgetVer===null||
 function setBudgetVer(v){budgetVer=(v===""||v===null)?null:parseInt(v);try{(v===""||v===null)?localStorage.removeItem("litup_budgetVer"):localStorage.setItem("litup_budgetVer",String(budgetVer))}catch(e){}render()}
 function setStatsYear(v){statsYear=v;try{localStorage.setItem("litup_statsYear",v)}catch(e){}render()}
 function mkStatCards(arr){return arr.map(s=>`<div class="sc" style="${s.f?'cursor:pointer':''}${curFilt===s.f?';outline:2px solid '+s.c+';border-radius:6px':''}" onclick="${s.f?`tglF2('${s.f}')`:''}" title="${s.f?'Cliquer pour filtrer':''}"><div class="sl">${s.l}</div><div class="sv" style="color:${s.c}">${s.v}</div></div>`).join("")}
-let tresFilt={versee:true,validee:true,attente:true,sollicitee:false};
+let tresFilt={versee:true,validee:true,attente:true,sollicitee:false,autres:false};
 let openDD=null;
 
 // Helper: get act labels array (for dropdowns, backward compat)
@@ -3918,17 +3918,43 @@ function saisonLabel(b){
     return "mois : "+b.months.filter(m=>m>=0&&m<12).map(m=>MONAMES[m]).join(", ");
   return "lissé (1/12)";
 }
-// Statuts retenus en trésorerie, d'après les cases à cocher de l'onglet.
-// Définis une seule fois : le tableau et le détail d'une cellule doivent
-// toujours retenir exactement les mêmes financements.
+// ─── STATUTS RETENUS EN TRÉSORERIE ───
+// Correspondance avec Airtable, établie par le backend (getAirtableData) :
+//   SUBVENTIONS (3.2, les refus sont exclus à la source)
+//     versée     ← « validée et versée »
+//     validée    ← « validée et non versée »
+//     attente    ← « prévue mais non validée », « Renouvellement - dossier à déposer »
+//     sollicitée ← « attente retour dépôt dossier »
+//   PRESTATIONS (3.4) : dérivé du préfixe du statut, le champ virement primant
+//     payé ← virement renseigné, ou statut 6.x   ·   facturé ← 4.x, 5.x
+//     signé ← 2.x, 3.x                            ·   négo ← 1.x ou statut inconnu
+// Définis une seule fois : le tableau, le détail d'une cellule et les totaux
+// doivent retenir exactement les mêmes financements.
+const TRES_STATUTS_SUB=["versée","validée","attente","sollicitée"];
+const TRES_STATUTS_PRESTA=["payé","signé","facturé","négo"];
+// Un statut Airtable absent de la table de correspondance remonte tel quel.
+// Il ne correspondait alors à aucune case : le financement était exclu du
+// prévisionnel sans le dire, alors qu'il restait compté dans le total du
+// tableau de détail. La case « ❔ Autres statuts » le rend visible et
+// décidable, décochée par défaut.
+function tresStatutConnu(x,presta){
+  return (presta?TRES_STATUTS_PRESTA:TRES_STATUTS_SUB).includes(String(x&&x.s||""));
+}
 function tresShowSub(x){
+  if(!tresStatutConnu(x,false))return !!tresFilt.autres;
   return (x.s==="versée"&&tresFilt.versee)||(x.s==="validée"&&tresFilt.validee)
        ||(x.s==="attente"&&tresFilt.attente)||(x.s==="sollicitée"&&tresFilt.sollicitee);
 }
+// Chaque statut suit désormais sa propre case : une prestation payée
+// s'affichait dès que « Versées » OU « Validées » était cochée, donc décocher
+// « Versées » ne la retirait pas. Aucun statut de prestation ne relève de
+// « Attente » : cette case n'a pas d'effet sur les prestations.
 function tresShowPresta(x){
-  const confirme=x.s==="signé"||x.s==="payé"||x.s==="facturé";
-  return (confirme&&(tresFilt.validee||tresFilt.versee))||(x.s==="négo"&&tresFilt.sollicitee);
+  if(!tresStatutConnu(x,true))return !!tresFilt.autres;
+  return (x.s==="payé"&&tresFilt.versee)||((x.s==="signé"||x.s==="facturé")&&tresFilt.validee)
+       ||(x.s==="négo"&&tresFilt.sollicitee);
 }
+function tresShow(x,presta){return presta?tresShowPresta(x):tresShowSub(x)}
 // Ventilation mensuelle d'une version du budget (saisonnalité comprise),
 // produits nets des financements Airtable déjà identifiés.
 function budgetMensuel(vi,net){
@@ -4310,11 +4336,27 @@ function rTreasury(el){
   // Airtable sync info + filters
   h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:9px;color:var(--text-2)">`;
   h+=`<span>🔄 Airtable : ${D.airtableSync||"jamais"} (${subs.length} subventions)</span>`;
-  h+=`<label><input type="checkbox" ${tresFilt.versee?"checked":""} onchange="tresFilt.versee=this.checked;render()"> ✅ Versées</label>`;
-  h+=`<label><input type="checkbox" ${tresFilt.validee?"checked":""} onchange="tresFilt.validee=this.checked;render()"> 🔵 Validées</label>`;
-  h+=`<label><input type="checkbox" ${tresFilt.attente?"checked":""} onchange="tresFilt.attente=this.checked;render()"> 🟡 Attente</label>`;
-  h+=`<label><input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
+  const inconnus=[...(D.airtableSubs||[]).filter(x=>!tresStatutConnu(x,false)),
+                  ...(D.airtablePrestas||[]).filter(x=>!tresStatutConnu(x,true))];
+  const libInconnus=[...new Set(inconnus.map(x=>String(x.s||"(vide)")))];
+  h+=`<label title="Subventions « validée et versée » dans Airtable · prestations dont le virement est renseigné (ou statut 6.x). L'argent est arrivé : à confronter au relevé bancaire dans le tableau de détail.">
+    <input type="checkbox" ${tresFilt.versee?"checked":""} onchange="tresFilt.versee=this.checked;render()"> ✅ Versées</label>`;
+  h+=`<label title="Subventions « validée et non versée » : accord du financeur obtenu, versement à venir · prestations signées (statut 2.x, 3.x) ou facturées (4.x, 5.x). Le montant est acquis, la date reste à confirmer.">
+    <input type="checkbox" ${tresFilt.validee?"checked":""} onchange="tresFilt.validee=this.checked;render()"> 🔵 Validées</label>`;
+  h+=`<label title="Subventions « prévue mais non validée » ou « Renouvellement - dossier à déposer » : espérées, dossier pas encore déposé. Aucun statut de prestation ne relève de cette case.">
+    <input type="checkbox" ${tresFilt.attente?"checked":""} onchange="tresFilt.attente=this.checked;render()"> 🟡 Attente</label>`;
+  h+=`<label title="Subventions « attente retour dépôt dossier » : dossier déposé, réponse attendue · prestations en négociation (statut 1.x). Le plus incertain : à décocher pour voir la trésorerie sans les paris.">
+    <input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
+  if(inconnus.length)
+    h+=`<label style="color:var(--amber)" title="Statuts Airtable absents de la table de correspondance du backend : ${libInconnus.join(" · ")}. Ils ne relèvent d'aucune des quatre cases ci-dessus. Cochez pour les inclure au prévisionnel, ou faites-les ajouter à la correspondance.">
+      <input type="checkbox" ${tresFilt.autres?"checked":""} onchange="tresFilt.autres=this.checked;render()"> ❔ Autres statuts (${inconnus.length})</label>`;
   h+=`</div>`;
+  if(inconnus.length&&!tresFilt.autres){
+    h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.6">
+      ⚠️ ${inconnus.length} financement(s) portent un statut Airtable inconnu de l'outil (${libInconnus.join(", ")}), pour ${fmt(inconnus.reduce((a,x)=>a+finAmt(x),0))}.
+      Ils ne sont <strong>pas</strong> comptés dans le prévisionnel. Cochez « ❔ Autres statuts » pour les inclure,
+      ou dites-moi à quelle case chacun devrait correspondre pour l'ajouter à la correspondance côté Apps Script.</div>`;
+  }
 
   // Prévisionnel mensuel, mois par mois de la fenêtre
   const forecastCh=win.map(w=>budAn[w.y].ch[w.m]);
@@ -4561,8 +4603,10 @@ function rTreasury(el){
     const statColors={versée:"var(--green)",validée:"#60a5fa",attente:"#facc15",sollicitée:"#fb923c"};
     // On liste les versements de la fenêtre, et ceux sans aucune date :
     // ces derniers n'apparaissaient nulle part alors qu'ils sont attendus.
-    const subsAff=subs.filter(s=>{const k=finMoisKey(s);
-        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(s)&&k!=="hors")})
+    // Même garde de statut que le tableau mensuel : sinon « retenu en trésorerie »
+    // annonçait un total que la ligne Subventions ne contenait pas.
+    const subsAff=subs.filter(s=>tresShowSub(s)&&(()=>{const k=finMoisKey(s);
+        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(s)&&k!=="hors")})())
       .sort((a,b)=>{const ra=rang(a),rb=rang(b);
         if(ra!==rb)return ra-rb;
         return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
@@ -4631,8 +4675,8 @@ function rTreasury(el){
       +'<th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Parcours</th><th>Année affect.</th>'
       +'<th title="Compte de produit du plan comptable. Il relie la prestation à sa ligne de budget.">Code comptable</th></tr></thead><tbody>';
     const pColors={payé:"var(--green)",signé:"#60a5fa",facturé:"#818cf8",négo:"#fb923c"};
-    const presAff=prestas.filter(p=>{const k=finMoisKey(p);
-        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(p)&&k!=="hors")})
+    const presAff=prestas.filter(p=>tresShowPresta(p)&&(()=>{const k=finMoisKey(p);
+        return (k!=="hors"&&idxDe[k]!==undefined)||(finSansDate(p)&&k!=="hors")})())
       .sort((a,b)=>{const ra=rang(a),rb=rang(b);
         if(ra!==rb)return ra-rb;
         return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
