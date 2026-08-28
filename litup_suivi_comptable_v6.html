@@ -96,6 +96,10 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 .ci{background:transparent;color:var(--text-1);border:none;font-size:12px;width:100%;padding:2px 0;outline:none;font-family:var(--sans)}
 .cj{background:transparent;color:var(--text-1);border:1px solid var(--border);border-radius:4px;font-size:11px;width:100%;padding:3px 5px;outline:none;font-family:var(--sans);transition:border .2s}.cj:focus{border-color:var(--accent)}
 .ms{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:11px;width:100%;outline:none;font-family:var(--sans)}.ms:focus{border-color:var(--accent)}
+/* Cellule mensuelle de la trésorerie : cliquable pour voir les lignes qui la composent. */
+.tcell{cursor:pointer;position:relative}
+.tcell:hover{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent)}
+.tcell:active{background:var(--bg-3)}
 .yr{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:11px;width:60px;outline:none;font-family:var(--sans);text-align:center}
 .ni{background:var(--bg-0);color:var(--text-1);border:1px solid var(--border);border-radius:4px;font-size:11px;padding:4px 6px;outline:none;font-family:var(--mono);text-align:right;width:95px}
 
@@ -148,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25d <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25e <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -3899,18 +3903,39 @@ function finIdentifiesParCompte(annee){
   });
   return {parCompte,sansCompte,nSansCompte,total,n};
 }
-function ventileBudget(b,montant,cible){
+// Répartition d'un montant annuel sur les 12 mois, selon la saisonnalité de la
+// ligne. Rend le tableau des parts pour pouvoir l'expliquer ligne par ligne.
+function ventileParts(b,montant){
+  const p=MOS.map(()=>0);
   if(b.seasonMode==="mois"&&b.months?.length){
     const pm=montant/b.months.length;
-    b.months.forEach(mi=>{if(mi>=0&&mi<12)cible[mi]+=pm});
-  }else{const pm=montant/12;for(let i=0;i<12;i++)cible[i]+=pm}
+    b.months.forEach(mi=>{if(mi>=0&&mi<12)p[mi]+=pm});
+  }else{const pm=montant/12;for(let i=0;i<12;i++)p[i]=pm}
+  return p;
+}
+function saisonLabel(b){
+  if(b.seasonMode==="mois"&&b.months?.length)
+    return "mois : "+b.months.filter(m=>m>=0&&m<12).map(m=>MONAMES[m]).join(", ");
+  return "lissé (1/12)";
+}
+// Statuts retenus en trésorerie, d'après les cases à cocher de l'onglet.
+// Définis une seule fois : le tableau et le détail d'une cellule doivent
+// toujours retenir exactement les mêmes financements.
+function tresShowSub(x){
+  return (x.s==="versée"&&tresFilt.versee)||(x.s==="validée"&&tresFilt.validee)
+       ||(x.s==="attente"&&tresFilt.attente)||(x.s==="sollicitée"&&tresFilt.sollicitee);
+}
+function tresShowPresta(x){
+  const confirme=x.s==="signé"||x.s==="payé"||x.s==="facturé";
+  return (confirme&&(tresFilt.validee||tresFilt.versee))||(x.s==="négo"&&tresFilt.sollicitee);
 }
 // Ventilation mensuelle d'une version du budget (saisonnalité comprise),
 // produits nets des financements Airtable déjà identifiés.
 function budgetMensuel(vi,net){
   const ch=MOS.map(()=>0),pr=MOS.map(()=>0);
   const bilan={budgetCh:0,budgetPr:0,identifie:0,nonRattache:0,reste:0};
-  if(vi<0)return {ch,pr,absent:true,bilan};
+  const lignes=[];        // détail par ligne de budget, pour expliquer une cellule
+  if(vi<0)return {ch,pr,absent:true,bilan,lignes};
   const prods=[];
   (D.budget||[]).forEach(b=>{
     const annuel=parseFloat(b.versions?.[vi])||0;if(!annuel)return;
@@ -3918,11 +3943,13 @@ function budgetMensuel(vi,net){
       bilan.budgetPr+=annuel;
       const dej=Math.min((net&&net.parCompte[catKey(b.cat)])||0,annuel);
       bilan.identifie+=dej;
-      prods.push({b,net:annuel-dej});
+      prods.push({b,net:annuel-dej,identifie:dej});
       return;
     }
     bilan.budgetCh+=annuel;
-    ventileBudget(b,annuel,ch);
+    const parts=ventileParts(b,annuel);
+    for(let i=0;i<12;i++)ch[i]+=parts[i];
+    lignes.push({cat:b.cat,type:"charge",annuel,identifie:0,net:annuel,parts,saison:saisonLabel(b)});
   });
   // Financements sans compte comptable : on ignore quelle ligne de budget ils
   // couvrent, mais on sait qu'ils en couvrent une. On les retire au prorata des
@@ -3937,8 +3964,15 @@ function budgetMensuel(vi,net){
     const dispo=cibles.reduce((a,x)=>a+x.net,0);
     if(dispo>0){const f=Math.min(1,sans/dispo);cibles.forEach(x=>{x.net-=x.net*f})}
   }
-  prods.forEach(x=>{if(x.net>0){bilan.reste+=x.net;ventileBudget(x.b,x.net,pr)}});
-  return {ch,pr,absent:false,bilan};
+  prods.forEach(x=>{
+    if(x.net<=0)return;
+    bilan.reste+=x.net;
+    const parts=ventileParts(x.b,x.net);
+    for(let i=0;i<12;i++)pr[i]+=parts[i];
+    lignes.push({cat:x.b.cat,type:"produit",annuel:parseFloat(x.b.versions?.[vi])||0,
+                 identifie:x.identifie,net:x.net,parts,saison:saisonLabel(x.b)});
+  });
+  return {ch,pr,absent:false,bilan,lignes};
 }
 // ─── BANQUE ↔ AIRTABLE ───
 // Crédits bancaires rapprochés d'un financement, retrouvés par la trace
@@ -4045,6 +4079,144 @@ function tresConfirmerMois(coll){
   aConf.forEach(x=>{x.mtr=finMoisKey(x)});
   autoSave();render();
 }
+// ─── DÉTAIL D'UNE CELLULE DU TABLEAU DE TRÉSORERIE ───
+// Un montant mensuel agrège jusqu'à trois sources ; sans le détail, un chiffre
+// inattendu n'était pas vérifiable. Chaque cellule est recalculée à la demande
+// à partir des mêmes fonctions que le tableau — jamais d'une copie figée qui
+// divergerait au rendu suivant.
+const TRES_LIB={
+  chargesPrevues:"Charges prévues",
+  chargesReelles:"Charges réelles",
+  subventions:"Subventions (Airtable)",
+  prestations:"Prestations (Airtable)",
+  resteAObtenir:"Budget : reste à obtenir",
+  produitsReels:"Produits réels"
+};
+function tresMoisLabel(mk){
+  const m=parseInt(String(mk).substring(5,7));
+  return (m>=1&&m<=12?MONAMES[m-1]:"?")+" "+String(mk).substring(0,4);
+}
+// Lignes de budget qui alimentent un mois donné, pour un type (charge/produit)
+function tresLignesBudget(mks,type){
+  const out=[];
+  const parAn={};
+  mks.forEach(mk=>{
+    const y=String(mk).substring(0,4),mi=parseInt(String(mk).substring(5,7))-1;
+    if(mi<0||mi>11)return;
+    if(!parAn[y]){
+      const vi=budgetVerPourAnnee(y);
+      parAn[y]={vi,bm:budgetMensuel(vi,finIdentifiesParCompte(y))};
+    }
+    const {vi,bm}=parAn[y];
+    if(vi<0)return;
+    bm.lignes.filter(l=>l.type===type&&l.parts[mi]>0.004).forEach(l=>{
+      out.push({mois:mk,exo:y,ver:D.budgetVersions[vi],cat:l.cat,annuel:l.annuel,
+                identifie:l.identifie,net:l.net,saison:l.saison,part:l.parts[mi]});
+    });
+  });
+  return out;
+}
+function tresCellDetail(kind,mks){
+  const setM=new Set(mks);
+  if(kind==="chargesPrevues"||kind==="resteAObtenir"){
+    const type=kind==="chargesPrevues"?"charge":"produit";
+    // Les lignes qui pèsent le plus d'abord : sur 40 comptes, l'ordre du plan
+    // comptable n'aide pas à comprendre d'où vient le montant.
+    const lig=tresLignesBudget(mks,type).sort((a,b)=>b.part-a.part);
+    // Sur les charges, « reste réparti » vaut toujours le budget annuel (rien à
+    // déduire) : la colonne n'apparaît que pour les produits, où elle explique
+    // ce qu'Airtable a déjà pris en charge.
+    const prod=type==="produit";
+    return {
+      cols:["Mois","Compte","Saisonnalité","Budget annuel",
+            prod?"dont identifié Airtable":"",prod?"Reste réparti":"","Part du mois"],
+      lignes:lig.map(l=>[tresMoisLabel(l.mois),l.cat,l.saison,fmt(l.annuel),
+                         prod?fmt(l.identifie):"",prod?fmt(l.net):"",fmt(l.part)]),
+      total:lig.reduce((a,l)=>a+l.part,0),
+      note:type==="produit"
+        ?"Chaque ligne est le budget du compte moins ce qu'Airtable identifie déjà nominativement, réparti selon sa saisonnalité. Une ligne entièrement couverte par Airtable n'apparaît pas."
+        :"Le montant annuel de chaque ligne de budget, réparti selon sa saisonnalité. Le prévisionnel ne déduit pas le réalisé : c'est le plan, pas le solde.",
+      vide:"Aucune ligne de budget n'alimente ce mois."
+    };
+  }
+  if(kind==="chargesReelles"||kind==="produitsReels"){
+    const deb=kind==="chargesReelles";
+    const rows=(D.rows||[]).filter(r=>!isVirInterne(r)&&setM.has(moKey(r.dt))
+      &&((deb?r.deb:r.cre)||0)>0)
+      .sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
+    return {
+      cols:["Date","Libellé","Fournisseur","Compte comptable","Code projet","Statut","Montant"],
+      lignes:rows.map(r=>[String(r.dt||"").substring(0,10),r.lib||"",r.four||"",r.cat||"⚠️ non classé",
+                          r.act||"",r.stat||"",fmt((deb?r.deb:r.cre)||0)]),
+      total:rows.reduce((a,r)=>a+((deb?r.deb:r.cre)||0),0),
+      note:"Écritures bancaires importées, virements internes exclus. Un compte « non classé » compte quand même en trésorerie : la banque fait foi.",
+      vide:"Aucune écriture bancaire importée sur ce mois.",
+      jump:(mks.length===1&&rows.length)?mks[0]:""
+    };
+  }
+  if(kind==="subventions"||kind==="prestations"){
+    const sub=kind==="subventions";
+    const coll=sub?(D.airtableSubs||[]):(D.airtablePrestas||[]);
+    const garde=sub?tresShowSub:tresShowPresta;
+    const bq=finBanqueIndex();
+    const rows=coll.filter(x=>garde(x)&&setM.has(finMoisKey(x)))
+      .sort((a,b)=>String(finMoisKey(a)).localeCompare(String(finMoisKey(b))));
+    return {
+      cols:["Mois retenu","Financement","Statut","Montant retenu","Origine du mois",
+            "Prévue","Versée le","Reçu en banque","Compte comptable"],
+      lignes:rows.map(x=>{
+        const v=finVsBanque(x,finBanqueDe(x,bq));
+        return [tresMoisLabel(finMoisKey(x)),x.n||"",x.s||"",fmt(finAmt(x)),
+                String(x.mtr||"")?"choisi à la main":"date Airtable",
+                x.dpv||"—",x.dev||"—",(v.ic||"—")+(v.recu?" "+fmt(v.recu):""),
+                finCompte(x).code||"⚠️ à renseigner"];
+      }),
+      total:rows.reduce((a,x)=>a+finAmt(x),0),
+      note:"Montant retenu : l'obtenu dès que le financement est acquis, le demandé sinon. Les cases à cocher de l'onglet (Versées, Validées, Attente, Sollicitées) s'appliquent ici aussi.",
+      vide:"Aucun financement rattaché à ce mois avec les statuts cochés."
+    };
+  }
+  return null;
+}
+function openTresCell(kind,mk){
+  if(!TRES_LIB[kind])return;
+  const win=tresFenetre();
+  const mks=(mk==="*")?win.map(w=>w.k):[mk];
+  const d=tresCellDetail(kind,mks);
+  if(!d)return;
+  const titreMois=(mk==="*")?"toute la fenêtre ("+win.length+" mois)":tresMoisLabel(mk);
+  const cols=d.cols.filter(c=>c!=="");
+  const idxVides=d.cols.map((c,i)=>c===""?i:-1).filter(i=>i>=0);
+  const corps=d.lignes.length
+    ? d.lignes.map(l=>`<tr>${l.filter((_,i)=>!idxVides.includes(i))
+        .map((v,i)=>`<td style="font-size:9px${i===cols.length-1?";text-align:right;font-family:var(--mono);white-space:nowrap":""}">${String(v)}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${cols.length}" style="font-size:10px;color:var(--text-3);padding:12px">${d.vide}</td></tr>`;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1040px">
+    <h3>${TRES_LIB[kind]} — ${titreMois}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px">${d.note}</p>
+    <div style="overflow:auto;max-height:56vh"><table><thead><tr>${
+      cols.map((c,i)=>`<th${i===cols.length-1?' style="text-align:right"':""}>${c}</th>`).join("")
+    }</tr></thead><tbody>${corps}
+      <tr style="border-top:1px solid var(--border);font-weight:700">
+        <td colspan="${cols.length-1}" style="font-size:10px">TOTAL — ${d.lignes.length} ligne(s)</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(d.total)}</td></tr>
+    </tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      ${d.jump?`<button class="b bb" onclick="closeM();voirLignesMois('${d.jump}')" title="Ouvrir 📋 Classement filtré sur ce mois, pour corriger une écriture">📋 Voir ces lignes dans Classement</button>`:""}
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+// Ouvre le Classement filtré sur un mois. Le filtre de colonne « Date » accepte
+// un préfixe : « 2026-08 » retient tout le mois.
+function voirLignesMois(mk){
+  window._colFilters={dt:String(mk)};
+  window._colMultiFilters={};
+  _cfDraft=null;curFilt="";curTab="class";
+  const si=$("si");if(si)si.value="";
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
 // ─── JUSQU'OÙ LE RÉALISÉ EST-IL CONNU ? ───
 // Le calendrier ne dit pas jusqu'où le relevé bancaire est importé. S'y fier
 // fait passer pour « mois sans dépense » un mois simplement pas encore chargé,
@@ -4073,6 +4245,10 @@ function rTreasury(el){
   // réalisé vaut mieux que le prévisionnel dans la projection.
   const moisPartiel=w=>!!kBq&&w.k===kBq&&kBq>=kNow;
   const moisPlein=w=>moisCouvert(w)&&!moisPartiel(w);
+  // Cellule cliquable : ouvre le détail des lignes qui composent ce montant.
+  const cel=(kind,mk,txt,style,titre)=>`<td class="tcell" style="text-align:right;${style||""}"
+    onclick="openTresCell('${kind}','${mk}')"
+    title="${(titre||"").replace(/"/g,"&quot;")}${titre?" — ":""}Cliquer pour voir les lignes qui composent ce montant">${txt}</td>`;
 
   // Budget applicable à chaque année de la fenêtre
   const annees=[...new Set(win.map(w=>w.y))];
@@ -4140,10 +4316,6 @@ function rTreasury(el){
   h+=`<label><input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
   h+=`</div>`;
 
-  // Filters from state
-  const fV=tresFilt.versee,fA2=tresFilt.validee;
-  const fAt=tresFilt.attente,fS=tresFilt.sollicitee;
-
   // Prévisionnel mensuel, mois par mois de la fenêtre
   const forecastCh=win.map(w=>budAn[w.y].ch[w.m]);
   const forecastPr=win.map(w=>budAn[w.y].pr[w.m]);
@@ -4153,8 +4325,7 @@ function rTreasury(el){
   // Subventions from Airtable (with filters)
   const subsSansMois=[];
   subs.forEach(s=>{
-    const show=(s.s==="versée"&&fV)||(s.s==="validée"&&fA2)||(s.s==="attente"&&fAt)||(s.s==="sollicitée"&&fS);
-    if(!show)return;
+    if(!tresShowSub(s))return;
     const k=finMoisKey(s),i=idxDe[k];
     if(k!=="hors"&&i!==undefined){airtableSub[i]+=finAmt(s);return}
     // Sans date et sans mois choisi : à signaler, pas à faire disparaître
@@ -4164,10 +4335,7 @@ function rTreasury(el){
   // Prestations from Airtable (with filters: signé/payé=validée, facturé=validée, négo=sollicitée)
   const prestasSansMois=[];
   prestas.forEach(p=>{
-    const isConfirmed=p.s==="signé"||p.s==="payé"||p.s==="facturé";
-    const isNego=p.s==="négo";
-    const show=(isConfirmed&&(fA2||fV))||(isNego&&fS);
-    if(!show)return;
+    if(!tresShowPresta(p))return;
     const k=finMoisKey(p),i=idxDe[k];
     if(k!=="hors"&&i!==undefined){airtablePrest[i]+=finAmt(p);return}
     if(finSansDate(p)&&k!=="hors")prestasSansMois.push(p);
@@ -4240,38 +4408,46 @@ function rTreasury(el){
 
   // Forecast charges
   h+='<tr><td style="font-weight:600;color:var(--red)">Charges prévues</td>';
-  let totFC=0;forecastCh.forEach(v=>{totFC+=v;h+=`<td style="text-align:right;font-size:9px;color:var(--red);opacity:.6">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:var(--red)">${fmt(totFC)}</td></tr>`;
+  let totFC=0;win.forEach((w,i)=>{totFC+=forecastCh[i];
+    h+=cel("chargesPrevues",w.k,fmt(forecastCh[i]),"font-size:9px;color:var(--red);opacity:.6")});
+  h+=cel("chargesPrevues","*",fmt(totFC),"font-weight:600;color:var(--red);opacity:1")+"</tr>";
 
   // Real charges — uniquement les mois écoulés, un 0 sur un mois à venir n'est pas une information
   h+='<tr><td style="font-weight:600;color:var(--red)" title="Débits des écritures bancaires importées, hors virements internes">Charges réelles</td>';
   let totRC=0;win.forEach((w,i)=>{
     if(!moisCouvert(w)&&!realCh[i]){h+=`<td style="text-align:right;font-size:8px;color:var(--text-3)" title="Aucune écriture importée pour ce mois${kBq?" (banque chargée jusqu'au "+dernBq+")":""}">—</td>`;return}
     totRC+=realCh[i];
-    h+=`<td style="text-align:right;font-size:9px;color:var(--red)${moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""}"${moisPartiel(w)?` title="Mois incomplet : relevé importé jusqu'au ${dernBq}"`:""}>${fmt(realCh[i])}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:var(--red)">${fmt(totRC)}</td></tr>`;
+    h+=cel("chargesReelles",w.k,fmt(realCh[i]),
+      "font-size:9px;color:var(--red)"+(moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""),
+      moisPartiel(w)?"Mois incomplet : relevé importé jusqu'au "+dernBq:"")});
+  h+=cel("chargesReelles","*",fmt(totRC),"font-weight:600;color:var(--red)")+"</tr>";
 
   // Airtable subventions row
   h+='<tr><td style="font-weight:600;color:#818cf8">Subventions (Airtable)</td>';
-  let totAT=0;airtableSub.forEach(v=>{totAT+=v;h+=`<td style="text-align:right;font-size:9px;color:#818cf8">${v?fmt(v):""}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#818cf8">${fmt(totAT)}</td></tr>`;
+  let totAT=0;win.forEach((w,i)=>{totAT+=airtableSub[i];
+    h+=cel("subventions",w.k,airtableSub[i]?fmt(airtableSub[i]):"","font-size:9px;color:#818cf8")});
+  h+=cel("subventions","*",fmt(totAT),"font-weight:600;color:#818cf8")+"</tr>";
 
   h+='<tr><td style="font-weight:600;color:#a78bfa">Prestations (Airtable)</td>';
-  let totPR=0;airtablePrest.forEach(v=>{totPR+=v;h+=`<td style="text-align:right;font-size:9px;color:#a78bfa">${v?fmt(v):""}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:#a78bfa">${fmt(totPR)}</td></tr>`;
+  let totPR=0;win.forEach((w,i)=>{totPR+=airtablePrest[i];
+    h+=cel("prestations",w.k,airtablePrest[i]?fmt(airtablePrest[i]):"","font-size:9px;color:#a78bfa")});
+  h+=cel("prestations","*",fmt(totPR),"font-weight:600;color:#a78bfa")+"</tr>";
 
   // Other produits (dons, cotisations...)
   h+='<tr><td style="font-weight:600;color:var(--green)" title="Produits du budget non encore identifiés comme un financement Airtable précis, lissés par la saisonnalité de leur ligne">Budget : reste à obtenir</td>';
-  let totOP=0;forecastPr.forEach(v=>{totOP+=v;h+=`<td style="text-align:right;font-size:9px;color:var(--green);opacity:.6">${fmt(v)}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:var(--green)">${fmt(totOP)}</td></tr>`;
+  let totOP=0;win.forEach((w,i)=>{totOP+=forecastPr[i];
+    h+=cel("resteAObtenir",w.k,fmt(forecastPr[i]),"font-size:9px;color:var(--green);opacity:.6")});
+  h+=cel("resteAObtenir","*",fmt(totOP),"font-weight:600;color:var(--green);opacity:1")+"</tr>";
 
   // Real produits
   h+='<tr><td style="font-weight:600;color:var(--green)" title="Crédits des écritures bancaires importées, hors virements internes">Produits réels</td>';
   let totRP=0;win.forEach((w,i)=>{
     if(!moisCouvert(w)&&!realPr[i]){h+=`<td style="text-align:right;font-size:8px;color:var(--text-3)" title="Aucune écriture importée pour ce mois${kBq?" (banque chargée jusqu'au "+dernBq+")":""}">—</td>`;return}
     totRP+=realPr[i];
-    h+=`<td style="text-align:right;font-size:9px;color:var(--green)${moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""}"${moisPartiel(w)?` title="Mois incomplet : relevé importé jusqu'au ${dernBq}"`:""}>${fmt(realPr[i])}</td>`});
-  h+=`<td style="text-align:right;font-weight:600;color:var(--green)">${fmt(totRP)}</td></tr>`;
+    h+=cel("produitsReels",w.k,fmt(realPr[i]),
+      "font-size:9px;color:var(--green)"+(moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""),
+      moisPartiel(w)?"Mois incomplet : relevé importé jusqu'au "+dernBq:"")});
+  h+=cel("produitsReels","*",fmt(totRP),"font-weight:600;color:var(--green)")+"</tr>";
 
   // Solde prévisionnel cumulé
   h+='<tr style="border-top:2px solid var(--accent)"><td style="font-weight:700">Solde prévu cumulé</td>';
