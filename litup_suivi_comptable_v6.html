@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-23e <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24a <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -805,7 +805,7 @@ function applyRulesToUnaffected(){
 }
 
 // Auto-save
-function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSave(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -873,7 +873,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -889,6 +889,7 @@ async function saveComptaToSheet(){
       soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
+      rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,
       rhAlloc:D.rhAlloc,savedBy:prompt("Votre nom (pour le suivi) :","Direction")||"?",
       savedAt:new Date().toISOString()};
     const res=await sheetAPI("saveCompta",{rows:D.rows,meta});
@@ -928,6 +929,10 @@ async function loadComptaFromSheet(){
       if(m.airtableSubs)D.airtableSubs=m.airtableSubs;
       if(m.airtablePrestas)D.airtablePrestas=m.airtablePrestas;
       if(m.rhAlloc)D.rhAlloc=m.rhAlloc;
+      if(m.rhPostes)D.rhPostes=m.rhPostes;
+      if(m.rhTx)D.rhTx=m.rhTx;
+      if(m.rhBulletins)D.rhBulletins=m.rhBulletins;
+      if(m.rhDriveFolder!==undefined)D.rhDriveFolder=m.rhDriveFolder;
     }
     autoSave();render();
     const info=res.meta?.savedBy?" (sauvé par "+res.meta.savedBy+" le "+(res.meta.savedAt||"?").split("T")[0]+")":"";
@@ -2102,73 +2107,654 @@ async function splitNDF(bankId){
     (ndfLines[0]?.act?"Code projet reporté depuis la NDF":""));
 }
 
-// ─── RH MODULE: salary allocation per project ───
-if(!D.rhAlloc)D.rhAlloc=[];
+// ═══════════════════════════════════════════════════════════════════════════
+// ONGLET RH — PRÉVISIONNEL DE MASSE SALARIALE
+// ═══════════════════════════════════════════════════════════════════════════
+// Le dépôt est public : AUCUNE donnée nominative ni aucun salaire n'est écrit
+// dans ce fichier. Les postes sont saisis dans l'outil, stockés dans
+// D.rhPostes (localStorage + Google Sheet, tous deux à accès restreint).
+//
+// La grille de taux ci-dessous est calibrée sur le détail des cotisations de
+// JUILLET 2026 (édition groupée du cabinet) : total patronal reconstruit à
+// 5 801,77 € sur un brut de 13 935,94 €, soit 41,63 %. Les taux sont des
+// paramètres, pas des constantes : ils s'éditent dans l'onglet.
+
+const RH_COMPTES = {
+  brut:         "64110000 - Salaires et appointements",
+  cp:           "64120000 - Congés payés",
+  chargesCp:    "64500000 - Charges sociales sur CP",
+  urssaf:       "64510000 - Cotisations URSSAF",
+  prev:         "64520000 - Cotisations Prévoyance/Santé",
+  retraite:     "64530000 - Cotisations Retraite",
+  paritarisme:  "64580000 - Cotisations paritarisme",
+  formation:    "63130000 - Participation employeur formation pro",
+  apprentissage:"63110000 - Taxe d'apprentissage",
+  taxeSalaires: "63180000 - Taxe sur les salaires"
+};
+// Les deux derniers comptes n'existaient pas avant 2026 (taxe d'apprentissage
+// désormais due par l'association, taxe sur les salaires apparue au bordereau).
+const RH_COMPTES_NOUVEAUX = [RH_COMPTES.apprentissage, RH_COMPTES.taxeSalaires];
+
+const RH_TX_DEFAUT = {
+  ref: { mois:"2026-07", brut:13935.94, patronal:5801.77, reduc:1801.69, nb:5 },
+  // Cotisations sociales patronales collectées par l'URSSAF → 64510000
+  urssaf: [
+    { l:"Maladie", t:7.00 }, { l:"Maladie (complément)", t:6.00 },
+    { l:"Contribution Solidarité Autonomie", t:0.30 },
+    { l:"Vieillesse déplafonnée", t:2.11 }, { l:"Vieillesse plafonnée", t:8.55 },
+    { l:"Allocations familiales", t:3.45 }, { l:"Alloc. familiales (complément)", t:1.80 },
+    { l:"Accident du travail", t:1.20 }, { l:"FNAL plafonné", t:0.10 },
+    { l:"Contribution au dialogue social", t:0.016 },
+    { l:"Assurance chômage", t:4.00 }, { l:"AGS", t:0.25 }
+  ],
+  // Retraite complémentaire AG2R Arrco → 64530000
+  retraite: [ { l:"Retraite TU1", t:4.72 }, { l:"Contribution d'Équilibre Général TU1", t:1.29 } ],
+  // Prévoyance ALLIANZ (% du brut) + mutuelle Harmonie (forfait par tête) → 64520000
+  prevoyance: { tauxBrut:0.625 },
+  mutuelle:   { forfaitMois:29.84 },
+  // Formation professionnelle → 63130000. CPF-CDD : sur le brut des CDD seulement.
+  formation:  { legal:0.55, conventionnel:0.95, cpfCdd:1.00 },
+  paritarisme: 0.05,                                        // → 64580000
+  apprentissage: { principale:0.59, liberatoire:0.09 },      // → 63110000
+  // Taxe sur les salaires : barème par tranches, par salarié.
+  // Seuils déduits du bordereau de juillet 2026 (contrôle exact au centime).
+  // L'abattement des associations (art. 1679 A CGI) s'applique au montant
+  // annuel : à 23 616 €, la taxe due peut être nulle. À confirmer au cabinet.
+  taxeSalaires: { actif:true, coefBase:1.01696, taux:4.25, maj1:4.25, maj2:9.35,
+                  seuil1An:9229, seuil2An:18423, abattementAn:23616 },
+  // Provision congés payés : 10 % du brut (2,5 j/mois), charges au taux patronal
+  cp: { tauxProvision:10.0 },
+  // Réduction générale dégressive unique (réforme 2026). Barème linéaire :
+  // taux maximal au SMIC, nul au plafond. Calibré pour reproduire le
+  // bordereau de juillet 2026 — à affiner avec la ligne « réduction » des
+  // bulletins individuels, qui seule donne la vraie pente.
+  reduc: { max:17.93, plafondSmic:3.0, smicAn:21744, partRetraite:15.10 }
+};
+
+if(!D.rhPostes) D.rhPostes=[];
+if(!D.rhTx) D.rhTx=JSON.parse(JSON.stringify(RH_TX_DEFAUT));
+if(!D.rhBulletins) D.rhBulletins={};
+if(D.rhDriveFolder===undefined) D.rhDriveFolder="";
+let rhYear=String(new Date().getFullYear()), rhVue="result";
+
+// ─── CALCUL ───
+function rhMoisList(y){ return MOS.map(m=>y+"-"+m) }
+// Brut annuel applicable à un mois donné : base, puis dernière évolution due.
+function rhBrutAnnuel(p,ym){
+  let b=parseFloat(p.brut)||0;
+  (p.evols||[]).slice()
+    .sort((a,b2)=>String(a.date||"").localeCompare(String(b2.date||"")))
+    .forEach(e=>{ if(e.date&&String(e.date)<=ym){const v=parseFloat(e.brut);if(!isNaN(v))b=v} });
+  return b*((parseFloat(p.quotite)||100)/100);
+}
+function rhActif(p,ym){
+  if(p.debut&&ym<String(p.debut))return false;
+  if(p.fin&&ym>String(p.fin))return false;
+  return true;
+}
+// Taux de réduction générale applicable à un brut annuel (barème linéaire).
+function rhReducTaux(brutAn){
+  const r=D.rhTx.reduc||{},smic=parseFloat(r.smicAn)||0;
+  const P=smic*(parseFloat(r.plafondSmic)||1.6);
+  if(!smic||P<=smic||brutAn<=0)return 0;
+  const k=(P-brutAn)/(P-smic);
+  return Math.max(0,Math.min(1,k))*((parseFloat(r.max)||0)/100);
+}
+// Taxe sur les salaires théorique d'un poste sur un mois, avant abattement.
+function rhTsMois(brutMois){
+  const t=D.rhTx.taxeSalaires||{};
+  if(!t.actif)return 0;
+  const base=brutMois*(parseFloat(t.coefBase)||1);
+  const s1=(parseFloat(t.seuil1An)||0)/12, s2=(parseFloat(t.seuil2An)||0)/12;
+  const tr1=Math.max(0,Math.min(base,s2)-s1);      // tranche taux majoré 1
+  const tr2=Math.max(0,base-s2);                   // tranche taux majoré 2
+  return base*((parseFloat(t.taux)||0)/100)
+       + tr1*((parseFloat(t.maj1)||0)/100)
+       + tr2*((parseFloat(t.maj2)||0)/100);
+}
+// Prévisionnel complet d'une année : un montant par compte et par mois.
+function rhCompute(y){
+  const T=D.rhTx,mois=rhMoisList(y);
+  const z=()=>new Array(12).fill(0);
+  const acc={};Object.values(RH_COMPTES).forEach(c=>acc[c]=z());
+  const brut=z(),reduc=z(),nb=z(),tsBrut=z();
+  const txUrssaf=(T.urssaf||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)/100;
+  const txRetr=(T.retraite||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)/100;
+  const parPoste=D.rhPostes.map(p=>({lib:p.lib||"(sans intitulé)",brut:0,cout:0,mois:0}));
+
+  mois.forEach((ym,mi)=>{
+    let brutCdd=0;
+    D.rhPostes.forEach((p,pi)=>{
+      if(!rhActif(p,ym))return;
+      const ba=rhBrutAnnuel(p,ym);
+      let bm=ba/12;
+      (p.primes||[]).forEach(pr=>{ if(pr.mois===ym) bm+=(parseFloat(pr.montant)||0) });
+      if(bm<=0)return;
+      brut[mi]+=bm; nb[mi]++;
+      if(p.cdd)brutCdd+=bm;
+      reduc[mi]+=rhReducTaux(ba)*bm;
+      tsBrut[mi]+=rhTsMois(bm);
+      parPoste[pi].brut+=bm; parPoste[pi].mois++;
+    });
+    const b=brut[mi],r=reduc[mi];
+    const rRet=r*((parseFloat(T.reduc.partRetraite)||0)/100), rUrs=r-rRet;
+    acc[RH_COMPTES.brut][mi]        = b;
+    acc[RH_COMPTES.urssaf][mi]      = b*txUrssaf - rUrs;
+    acc[RH_COMPTES.retraite][mi]    = b*txRetr - rRet;
+    acc[RH_COMPTES.prev][mi]        = b*((parseFloat(T.prevoyance.tauxBrut)||0)/100)
+                                    + nb[mi]*(parseFloat(T.mutuelle.forfaitMois)||0);
+    acc[RH_COMPTES.paritarisme][mi] = b*((parseFloat(T.paritarisme)||0)/100);
+    acc[RH_COMPTES.formation][mi]   = b*(((parseFloat(T.formation.legal)||0)+(parseFloat(T.formation.conventionnel)||0))/100)
+                                    + brutCdd*((parseFloat(T.formation.cpfCdd)||0)/100);
+    acc[RH_COMPTES.apprentissage][mi]= b*(((parseFloat(T.apprentissage.principale)||0)+(parseFloat(T.apprentissage.liberatoire)||0))/100);
+    const cp=b*((parseFloat(T.cp.tauxProvision)||0)/100);
+    acc[RH_COMPTES.cp][mi]          = cp;
+    // Charges sur CP : au taux patronal social du mois (hors taxes assises
+    // sur la masse salariale, qui frapperont les CP au moment de leur paiement)
+    const txPat=b>0?(acc[RH_COMPTES.urssaf][mi]+acc[RH_COMPTES.retraite][mi]
+                    +acc[RH_COMPTES.prev][mi]+acc[RH_COMPTES.paritarisme][mi])/b:0;
+    acc[RH_COMPTES.chargesCp][mi]   = cp*txPat;
+  });
+
+  // Taxe sur les salaires : l'abattement s'applique au montant ANNUEL, puis on
+  // le répartit au prorata des mois pour la trésorerie.
+  const tsAn=tsBrut.reduce((a,b2)=>a+b2,0);
+  const ab=parseFloat((T.taxeSalaires||{}).abattementAn)||0;
+  const tsDu=Math.max(0,tsAn-ab);
+  const k=tsAn>0?tsDu/tsAn:0;
+  tsBrut.forEach((v,mi)=>{acc[RH_COMPTES.taxeSalaires][mi]=v*k});
+
+  const som=a=>a.reduce((x,y2)=>x+y2,0);
+  const brutAn=som(brut);
+  // Trois agrégats distincts, pour que chaque chiffre affiché soit comparable à
+  // quelque chose : les cotisations et taxes assises sur la masse salariale
+  // (comparables au bordereau du cabinet), la provision congés payés et ses
+  // charges (interne à l'association), et le total budgétaire.
+  const provCp=som(acc[RH_COMPTES.cp])+som(acc[RH_COMPTES.chargesCp]);
+  const chargesSoc=Object.entries(acc)
+    .filter(([c])=>c!==RH_COMPTES.brut&&c!==RH_COMPTES.cp&&c!==RH_COMPTES.chargesCp)
+    .reduce((s,[,a])=>s+som(a),0);
+  const totalAn=brutAn+provCp+chargesSoc;
+  parPoste.forEach(p=>{p.cout=brutAn>0?p.brut*(totalAn/brutAn):0});
+  return { mois, acc, brut, reduc, nb, tsAn, tsDu, tsAbattu:tsAn-tsDu,
+           brutAn, chargesSoc, provCp, totalAn, parPoste,
+           txPatronal:brutAn>0?chargesSoc/brutAn*100:0 };
+}
+
+// ─── ACTIONS : POSTES ───
+function rhAddPoste(){
+  pushUndo();
+  D.rhPostes.push({id:"p"+Date.now().toString(36),lib:"",statut:"CDI",terr:"NAT",
+    debut:rhYear+"-01",fin:"",quotite:100,brut:0,cdd:false,evols:[],primes:[]});
+  autoSave();render();
+}
+function rhDelPoste(i){
+  const p=D.rhPostes[i];if(!p)return;
+  if(!confirm("Supprimer le poste « "+(p.lib||"sans intitulé")+" » ?"))return;
+  pushUndo();D.rhPostes.splice(i,1);autoSave();render();
+}
+function rhSetPoste(i,f,v){
+  const p=D.rhPostes[i];if(!p)return;
+  if(f==="brut"||f==="quotite")v=parseFloat(String(v).replace(",","."))||0;
+  if(f==="statut"){p.cdd=(v==="CDD")}
+  p[f]=v;autoSave();
+  if(f==="lib"||f==="terr")return;      // champs texte : pas de re-rendu
+  render();
+}
+function rhAddEvol(i){pushUndo();const p=D.rhPostes[i];if(!p)return;
+  (p.evols=p.evols||[]).push({date:rhYear+"-08",brut:p.brut||0});autoSave();render()}
+function rhDelEvol(i,j){pushUndo();D.rhPostes[i].evols.splice(j,1);autoSave();render()}
+function rhSetEvol(i,j,f,v){const e=D.rhPostes[i].evols[j];if(!e)return;
+  e[f]=f==="brut"?(parseFloat(String(v).replace(",","."))||0):v;autoSave();render()}
+function rhAddPrime(i){pushUndo();const p=D.rhPostes[i];if(!p)return;
+  (p.primes=p.primes||[]).push({mois:rhYear+"-12",montant:0});autoSave();render()}
+function rhDelPrime(i,j){pushUndo();D.rhPostes[i].primes.splice(j,1);autoSave();render()}
+function rhSetPrime(i,j,f,v){const pr=D.rhPostes[i].primes[j];if(!pr)return;
+  pr[f]=f==="montant"?(parseFloat(String(v).replace(",","."))||0):v;autoSave();render()}
+
+// Import / export des postes en JSON : évite la saisie manuelle et permet de
+// transmettre la liste sans passer par le code source (dépôt public).
+function rhImportPostes(){
+  const ta=$("rhJson");if(!ta)return;
+  let arr;try{arr=JSON.parse(ta.value)}catch(e){alert("JSON invalide : "+e.message);return}
+  if(!Array.isArray(arr)){alert("Le JSON doit être un tableau de postes.");return}
+  if(D.rhPostes.length&&!confirm("Remplacer les "+D.rhPostes.length+" poste(s) existant(s) ?"))return;
+  pushUndo();
+  D.rhPostes=arr.map((p,i)=>({
+    id:p.id||("p"+Date.now().toString(36)+i),
+    lib:String(p.lib||""),statut:p.statut||"CDI",terr:p.terr||"NAT",
+    debut:p.debut||"",fin:p.fin||"",
+    quotite:parseFloat(p.quotite)||100,brut:parseFloat(p.brut)||0,
+    cdd:!!p.cdd||p.statut==="CDD",
+    evols:Array.isArray(p.evols)?p.evols:[],primes:Array.isArray(p.primes)?p.primes:[]
+  }));
+  autoSave();render();
+  alert("✅ "+D.rhPostes.length+" poste(s) importé(s).");
+}
+function rhExportPostes(){
+  const ta=$("rhJson");if(ta)ta.value=JSON.stringify(D.rhPostes,null,1);
+}
+
+// ─── ACTIONS : TAUX ───
+function rhSetTx(path,v){
+  const ks=String(path).split(".");let o=D.rhTx;
+  for(let i=0;i<ks.length-1;i++){if(o[ks[i]]===undefined)return;o=o[ks[i]]}
+  const last=ks[ks.length-1];
+  o[last]=typeof o[last]==="boolean"?!!v:(parseFloat(String(v).replace(",","."))||0);
+  autoSave();render();
+}
+function rhResetTx(){
+  if(!confirm("Rétablir la grille de taux calibrée sur juillet 2026 ?\n\nVos modifications de taux seront perdues (les postes ne sont pas touchés)."))return;
+  pushUndo();D.rhTx=JSON.parse(JSON.stringify(RH_TX_DEFAUT));autoSave();render();
+}
+// Recale le taux maximal de réduction pour reproduire le mois de référence.
+function rhCalibrerReduc(){
+  const r=D.rhTx.reduc,ref=D.rhTx.ref;
+  if(!ref||!ref.reduc){alert("Pas de mois de référence renseigné.");return}
+  // Somme des (part dégressive x brut mensuel) sur les postes actifs au mois de référence
+  let assiette=0;
+  D.rhPostes.forEach(p=>{
+    if(!rhActif(p,ref.mois))return;
+    const ba=rhBrutAnnuel(p,ref.mois);
+    const smic=parseFloat(r.smicAn)||0,P=smic*(parseFloat(r.plafondSmic)||1.6);
+    if(!smic||P<=smic)return;
+    assiette+=Math.max(0,Math.min(1,(P-ba)/(P-smic)))*(ba/12);
+  });
+  if(assiette<=0){alert("Aucun poste actif en "+ref.mois+" : saisissez d'abord les postes.");return}
+  pushUndo();
+  r.max=Math.round(ref.reduc/assiette*10000)/100;
+  autoSave();render();
+  alert("✅ Taux maximal recalé à "+r.max+" % pour retrouver "+fmt(ref.reduc)+" en "+ref.mois+".");
+}
+
+// ─── COMPTES MANQUANTS ───
+function rhComptesManquants(){
+  return RH_COMPTES_NOUVEAUX.filter(c=>!D.cats.some(x=>catKey(x)===catKey(c)));
+}
+function rhCreerComptes(){
+  const m=rhComptesManquants();if(!m.length)return;
+  pushUndo();m.forEach(c=>D.cats.push(c));
+  D.cats.sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true}));
+  autoSave();render();
+  alert("✅ Compte(s) créé(s) :\n"+m.join("\n"));
+}
+
+// ─── INJECTION DANS LE BUDGET PRÉVISIONNEL ───
+function rhToBudget(){
+  const m=rhComptesManquants();
+  if(m.length&&!confirm("Ces comptes n'existent pas encore et vont être créés :\n"+m.join("\n")+"\n\nContinuer ?"))return;
+  if(m.length){pushUndo();m.forEach(c=>D.cats.push(c));
+    D.cats.sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true}))}
+  const vIdx=curVerIdx(),res=rhCompute(rhYear),ver=D.budgetVersions[vIdx];
+  // Deux garde-fous : ne pas écraser un budget voté par le CA, et ne pas injecter
+  // une année dans une version qui sert à comparer une autre année.
+  let alerte="";
+  if(/vot[ée]/i.test(String(ver)))
+    alerte+="\n⚠️ « "+ver+" » ressemble à un budget voté par le CA. L'écraser fait perdre la référence votée.\n"+
+            "   Créez plutôt une nouvelle version (Budget prévi. → 🆕 Nouveau budget daté) avant d'injecter.\n";
+  if(String(rhYear)!==String(compYear))
+    alerte+="\n⚠️ Vous injectez l'exercice "+rhYear+" alors que l'outil compare l'exercice "+compYear+".\n";
+  if(!confirm("Injecter le prévisionnel RH "+rhYear+" dans la version « "+ver+" » ?\n"+alerte+"\n"+
+    Object.keys(RH_COMPTES).length+" comptes seront écrasés par les montants calculés.\n"+
+    "Total : "+fmt(res.totalAn)+"."))return;
+  pushUndo();
+  let maj=0,cre=0;
+  Object.values(RH_COMPTES).forEach(cat=>{
+    const arr=res.acc[cat]||[];
+    const annuel=arr.reduce((a,b)=>a+b,0);
+    let b=D.budget.find(x=>catKey(x.cat)===catKey(cat));
+    if(!b){b={cat,type:"charge",versions:[],seasonMode:"lisse",months:[]};D.budget.push(b);cre++}
+    else maj++;
+    while(b.versions.length<=vIdx)b.versions.push(0);
+    b.versions[vIdx]=Math.round(annuel);
+    // Mois actifs : ceux qui portent réellement un montant, pour que la
+    // trésorerie ne lisse pas une embauche d'octobre sur douze mois.
+    const actifs=arr.map((v,i)=>Math.abs(v)>0.5?i:-1).filter(i=>i>=0);
+    if(actifs.length===0||actifs.length===12){b.seasonMode="lisse";b.months=[]}
+    else{b.seasonMode="mois";b.months=actifs}
+  });
+  autoSave();render();
+  alert("✅ Budget "+rhYear+" mis à jour : "+maj+" ligne(s) modifiée(s), "+cre+" créée(s).\n\n"+
+    "Pensez à ☁️ Sauvegarder, puis regardez ⚖️ Prévi. vs Réalisé.");
+}
+
+// ─── BULLETINS DE SALAIRE (PDF mensuel) ───
+function rhSetFolder(v){D.rhDriveFolder=String(v||"").trim();autoSave()}
+function rhPickBulletin(ym){
+  if(!D.rhDriveFolder){alert("Renseignez d'abord l'identifiant du dossier Drive des bulletins (onglet Taux & paramètres).");return}
+  const inp=document.createElement("input");inp.type="file";inp.accept=".pdf";
+  inp.onchange=e=>{const f=e.target.files[0];if(f)rhUploadBulletin(ym,f)};
+  inp.click();
+}
+async function rhUploadBulletin(ym,file){
+  const cell=$("rhbul_"+ym);if(cell)cell.textContent="⏳";
+  try{
+    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();
+      r.onload=()=>res(r.result);r.onerror=()=>rej(new Error("lecture impossible"));r.readAsDataURL(file)});
+    const name="BULLETINS-"+ym+".pdf";
+    const r=await sheetAPI("uploadJustif",{folderId:D.rhDriveFolder,fileName:name,fileData:dataUrl});
+    if(r&&r.ok&&r.fileUrl){
+      pushUndo();
+      D.rhBulletins[ym]={name,url:r.fileUrl,id:r.fileId,at:new Date().toISOString()};
+      autoSave();render();
+    }else{
+      if(cell)cell.textContent="⚠️";
+      alert("❌ Envoi impossible : "+((r&&r.error)||"réponse inattendue du serveur"));
+    }
+  }catch(e){if(cell)cell.textContent="⚠️";alert("❌ "+e.message)}
+}
+function rhDelBulletin(ym){
+  if(!confirm("Retirer le lien du bulletin de "+ym+" ?\n\nLe fichier reste sur le Drive."))return;
+  pushUndo();delete D.rhBulletins[ym];autoSave();render();
+}
+
+// ─── RENDU ───
+function rhSwitchVue(v){rhVue=v;render()}
+function rhSetYear(v){rhYear=String(v);render()}
+const RH_MOIS_L=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
 function rRH(el){
-  const salaries=[
-    {nom:"Laetitia DE BORDE",poste:"Co-directrice SUD",brut:3282,net:2583,charges:1400,t:"SUD"},
-    {nom:"Clémentine CLAUDON",poste:"Co-directrice IDF",brut:3282,net:2583,charges:1400,t:"IDF"},
-    {nom:"Pauline GIRAUDO",poste:"Coord. Jeunes SUD",brut:2479,net:1950,charges:1060,t:"SUD"},
-    {nom:"Laura BOURIGAULT",poste:"Coord. Jeunes IDF",brut:2479,net:1950,charges:1060,t:"IDF"},
-    {nom:"Léa BURELLO",poste:"Resp. Labo Péda",brut:2854,net:2245,charges:1220,t:"NAT"},
-    {nom:"Claire SALEM",poste:"Resp. Recherche",brut:1600,net:1259,charges:680,t:"NAT"},
-  ];
-  let h='<div style="padding:14px 16px"><h3 style="font-size:14px;margin-bottom:6px">👥 Répartition RH par projet</h3>';
-  h+='<p style="font-size:10px;color:#5c6a80;margin-bottom:12px">Affectez un % du temps de chaque salarié à un ou plusieurs codes projet. Les charges patronales sont réparties au pro-rata de la masse salariale totale.</p>';
+  const res=rhCompute(rhYear);
+  const vues=[["result","📊 Prévisionnel"],["postes","👤 Postes"],["taux","⚙️ Taux & paramètres"],["projets","🎯 Par projet"]];
+  const annees=[];for(let y=new Date().getFullYear()-1;y<=new Date().getFullYear()+2;y++)annees.push(String(y));
 
-  salaries.forEach((s,si)=>{
-    const allocs=(D.rhAlloc||[]).filter(a=>a.sal===s.nom);
-    const totPct=allocs.reduce((sum,a)=>sum+(a.pct||0),0);
-    const color=totPct>100?"#ef4444":totPct===100?"#22c55e":"#fbbf24";
-    h+=`<div class="scard" style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div><strong style="font-size:11px">${s.nom}</strong> <span style="font-size:10px;color:#5c6a80">— ${s.poste}</span></div>
-        <div style="font-size:10px">Net: <strong style="font-family:'JetBrains Mono'">${fmt(s.net)}</strong>/mois · <span style="color:${color};font-weight:700">${totPct}%</span> affecté</div>
-      </div>`;
-    allocs.forEach((a,ai)=>{
-      const idx=D.rhAlloc.indexOf(a);
-      h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
-        <select class="ms" style="width:220px" onchange="D.rhAlloc[${idx}].act=this.value;autoSave();render()">
-          ${actOptions(a.act,"— Code projet —")}
-        </select>
-        <input type="number" class="cj" style="width:60px;text-align:center" value="${a.pct||0}" min="0" max="100" onchange="D.rhAlloc[${idx}].pct=parseInt(this.value)||0;autoSave();render()">
-        <span style="font-size:10px;color:#5c6a80">%</span>
-        <span style="font-size:10px;font-family:'JetBrains Mono';color:#7c8cf5;width:80px;text-align:right">${fmt(s.net*(a.pct||0)/100)}</span>
-        <button class="ib" onclick="pushUndo();D.rhAlloc.splice(${idx},1);autoSave();render()">🗑</button>
-      </div>`;
-    });
-    h+=`<button class="b bd" style="margin-top:3px;font-size:9px" onclick="D.rhAlloc.push({sal:'${s.nom}',act:'',pct:0});autoSave();render()">+ Ajouter projet</button>`;
-    h+=`</div>`;
-  });
+  let h=`<div style="padding:10px 14px;border-bottom:1px solid #1e2030;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    ${vues.map(([v,l])=>`<button class="b ${rhVue===v?"bp":"bd"}" onclick="rhSwitchVue('${v}')">${l}</button>`).join("")}
+    <span style="font-size:9px;color:#64748b;margin-left:8px">Exercice</span>
+    <select class="ms" style="max-width:90px" onchange="rhSetYear(this.value)">
+      ${annees.map(y=>`<option${y===rhYear?" selected":""}>${y}</option>`).join("")}
+    </select>
+    <span style="font-size:9px;color:#64748b;margin-left:auto">${D.rhPostes.length} poste(s) · brut ${fmt(res.brutAn)} · charges ${res.txPatronal.toFixed(2)} % · <strong style="color:#fbbf24">total ${fmt(res.totalAn)}</strong></span>
+  </div><div style="padding:14px 16px">`;
 
-  // Summary table
-  h+='<h4 style="font-size:12px;margin:16px 0 8px">📊 Synthèse par code projet</h4>';
-  const byProject={};
-  (D.rhAlloc||[]).forEach(a=>{
-    if(!a.act||!a.pct)return;
-    const sal=salaries.find(s=>s.nom===a.sal);if(!sal)return;
-    if(!byProject[a.act])byProject[a.act]={net:0,charges:0,salaries:[]};
-    const netPart=sal.net*a.pct/100;
-    const chPart=sal.charges*a.pct/100;
-    byProject[a.act].net+=netPart;
-    byProject[a.act].charges+=chPart;
-    byProject[a.act].salaries.push({nom:sal.nom,pct:a.pct,net:netPart});
-  });
-  if(Object.keys(byProject).length){
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Code projet</th><th style="text-align:right">Salaires net/mois</th><th style="text-align:right">Charges pat./mois</th><th style="text-align:right">Coût total/mois</th><th style="text-align:right">Coût annuel</th><th>Détail</th></tr></thead><tbody>';
-    Object.entries(byProject).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([act,d])=>{
-      const total=d.net+d.charges;
-      h+=`<tr><td style="font-weight:600;font-size:10px">${act}</td>
-        <td class="deb">${fmt(d.net)}</td>
-        <td class="deb">${fmt(d.charges)}</td>
-        <td style="text-align:right;font-weight:700;font-family:'JetBrains Mono';font-size:10px">${fmt(total)}</td>
-        <td style="text-align:right;font-weight:700;font-family:'JetBrains Mono';font-size:10px;color:#fbbf24">${fmt(total*12)}</td>
-        <td style="font-size:9px;color:#5c6a80">${d.salaries.map(s=>s.nom.split(" ").pop()+" "+s.pct+"%").join(", ")}</td></tr>`;
-    });
-    h+='</tbody></table></div>';
+  const manquants=rhComptesManquants();
+  if(manquants.length){
+    h+=`<div style="margin-bottom:12px;padding:8px 10px;border-radius:6px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);font-size:10px;color:var(--text-2)">
+      ⚠️ Comptes absents du plan comptable de l'outil : <strong>${manquants.join(" · ")}</strong>
+      <button class="b bg" style="margin-left:8px;font-size:9px" onclick="rhCreerComptes()">Créer</button>
+      <div style="margin-top:4px;color:#64748b">La taxe d'apprentissage est due par l'association depuis 2026, et la taxe sur les salaires apparaît au bordereau. Sans ces comptes, le prévisionnel RH ne peut pas être ventilé complètement.</div>
+    </div>`;
   }
+  if(!D.rhPostes.length&&rhVue!=="taux"){
+    h+=`<div class="scard" style="text-align:center;padding:22px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px">Aucun poste saisi</div>
+      <div style="font-size:10px;color:#5c6a80;max-width:520px;margin:0 auto 10px">
+        Les salaires ne sont pas stockés dans le code de l'outil (le dépôt est public) :
+        ils vivent ici, dans votre navigateur et dans le Google Sheet.
+        Saisissez les postes, ou collez la liste au format JSON.
+      </div>
+      <button class="b bp" onclick="rhSwitchVue('postes')">👤 Saisir les postes</button>
+    </div>`;
+  }
+
+  // ══ PRÉVISIONNEL ══
+  if(rhVue==="result"&&D.rhPostes.length){
+    const ordre=["brut","cp","chargesCp","urssaf","prev","retraite","paritarisme","formation","apprentissage","taxeSalaires"];
+    const vIdx=curVerIdx();
+    h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <h4 style="font-size:12px;margin:0">Ventilation par compte · ${rhYear}</h4>
+      <button class="b bp" style="font-size:9px" onclick="rhToBudget()" title="Écrase les lignes 63/64 de la version de budget affichée avec les montants calculés ici">→ Injecter dans le budget prévisionnel</button>
+      <span style="font-size:9px;color:#64748b">version « ${D.budgetVersions[vIdx]} »</span>
+    </div>
+    <div style="overflow-x:auto"><table style="font-size:9px"><thead><tr>
+      <th style="min-width:210px">Compte</th>${RH_MOIS_L.map(m=>`<th style="text-align:right;min-width:58px">${m}</th>`).join("")}
+      <th style="text-align:right;min-width:78px">Année</th><th style="text-align:right;min-width:78px">Budget voté</th><th style="text-align:right;min-width:70px">Écart</th></tr></thead><tbody>`;
+    let totAn=0;
+    ordre.forEach(k=>{
+      const cat=RH_COMPTES[k],arr=res.acc[cat]||[];
+      const an=arr.reduce((a,b)=>a+b,0);totAn+=an;
+      const bl=D.budget.find(x=>catKey(x.cat)===catKey(cat));
+      const vote=bl?(parseFloat(bl.versions[vIdx])||0):null;
+      const ecart=vote===null?null:an-vote;
+      const gras=k==="brut"?"font-weight:700;":"";
+      h+=`<tr><td style="${gras}font-size:9px">${cat}</td>`;
+      arr.forEach(v=>{h+=`<td style="text-align:right;font-family:'JetBrains Mono';color:${v?"#e2e8f0":"#3a4055"}">${v?Math.round(v).toLocaleString("fr-FR"):"–"}</td>`});
+      h+=`<td style="text-align:right;font-family:'JetBrains Mono';font-weight:700;${gras}">${Math.round(an).toLocaleString("fr-FR")}</td>`;
+      h+=`<td style="text-align:right;font-family:'JetBrains Mono';color:#94a3b8">${vote===null?"—":Math.round(vote).toLocaleString("fr-FR")}</td>`;
+      h+=`<td style="text-align:right;font-family:'JetBrains Mono';color:${ecart===null?"#3a4055":Math.abs(ecart)<500?"#94a3b8":ecart>0?"#f87171":"#4ade80"}">${ecart===null?"—":(ecart>0?"+":"")+Math.round(ecart).toLocaleString("fr-FR")}</td></tr>`;
+    });
+    h+=`<tr style="border-top:2px solid #2d3148"><td style="font-weight:700">COÛT EMPLOYEUR TOTAL</td>`;
+    for(let mi=0;mi<12;mi++){
+      const s=ordre.reduce((a,k)=>a+(res.acc[RH_COMPTES[k]]||[])[mi],0);
+      h+=`<td style="text-align:right;font-family:'JetBrains Mono';font-weight:700;color:#fbbf24">${s?Math.round(s).toLocaleString("fr-FR"):"–"}</td>`;
+    }
+    h+=`<td style="text-align:right;font-family:'JetBrains Mono';font-weight:700;color:#fbbf24">${Math.round(totAn).toLocaleString("fr-FR")}</td><td colspan="2"></td></tr>`;
+    h+='</tbody></table></div>';
+
+    h+=`<div class="scard" style="margin-top:12px;font-size:10px;color:var(--text-2);line-height:1.7">
+      <strong style="font-size:11px;color:var(--text-1)">Lecture</strong><br>
+      Brut <strong>${fmt(res.brutAn)}</strong> · cotisations et taxes sur la masse salariale
+      <strong>${fmt(res.chargesSoc)}</strong>, soit <strong>${res.txPatronal.toFixed(2)} %</strong> du brut
+      — c'est le taux du bordereau du cabinet · provision congés payés et charges sur CP
+      <strong>${fmt(res.provCp)}</strong> · <strong style="color:#fbbf24">total ${fmt(res.totalAn)}</strong>.<br>
+      Réduction générale <strong style="color:#4ade80">−${fmt(res.reduc.reduce((a,b)=>a+b,0))}</strong>.<br>
+      Taxe sur les salaires : barème <strong>${fmt(res.tsAn)}</strong>, abattement associations
+      <strong style="color:#4ade80">−${fmt(res.tsAbattu)}</strong>, <strong>reste dû ${fmt(res.tsDu)}</strong>.
+      ${res.tsDu===0?'<span style="color:#4ade80">L\'abattement absorbe toute la taxe cette année.</span>':""}
+    </div>`;
+
+    // Bulletins de salaire
+    h+=`<h4 style="font-size:12px;margin:16px 0 6px">📄 Bulletins de salaire ${rhYear}</h4>`;
+    if(!D.rhDriveFolder){
+      h+=`<p style="font-size:10px;color:#fbbf24;margin-bottom:8px">Dossier Drive non configuré — renseignez-le dans ⚙️ Taux &amp; paramètres.</p>`;
+    }
+    h+='<div style="display:flex;gap:4px;flex-wrap:wrap">';
+    rhMoisList(rhYear).forEach((ym,mi)=>{
+      const b=D.rhBulletins[ym];
+      h+=`<div style="border:1px solid #2d3148;border-radius:6px;padding:5px 7px;font-size:9px;min-width:74px;text-align:center">
+        <div style="color:#64748b">${RH_MOIS_L[mi]}</div>
+        <div id="rhbul_${ym}" style="margin-top:2px">${b&&b.url
+          ?`<a href="${b.url}" target="_blank" style="color:#4ade80;text-decoration:none" title="${b.name}">📄 PDF</a>
+            <button class="ib" style="font-size:8px" onclick="rhDelBulletin('${ym}')" title="Retirer le lien">✕</button>`
+          :`<button class="b bd" style="font-size:8px;padding:2px 5px" onclick="rhPickBulletin('${ym}')">📎</button>`}</div>
+      </div>`;
+    });
+    h+='</div>';
+  }
+
+  // ══ POSTES ══
+  if(rhVue==="postes"){
+    h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <h4 style="font-size:12px;margin:0">Postes</h4>
+      <button class="b bg" style="font-size:9px" onclick="rhAddPoste()">+ Poste</button>
+      <span style="font-size:9px;color:#64748b;margin-left:6px">Brut = <strong>annuel</strong>, à 100 %. La quotité s'applique ensuite.</span>
+    </div>`;
+    D.rhPostes.forEach((p,i)=>{
+      const ba=rhBrutAnnuel(p,rhYear+"-12");
+      const tx=rhReducTaux(ba)*100;
+      h+=`<div class="scard" style="margin-bottom:6px">
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+          <input class="ci" style="flex:1;min-width:160px" placeholder="Intitulé du poste" value="${String(p.lib||"").replace(/"/g,"&quot;")}" onchange="rhSetPoste(${i},'lib',this.value)">
+          <select class="ms" style="width:86px" onchange="rhSetPoste(${i},'statut',this.value)">
+            ${["CDI","CDD","Apprenti","Autre"].map(s=>`<option${s===(p.statut||"CDI")?" selected":""}>${s}</option>`).join("")}
+          </select>
+          <select class="ms" style="width:74px" onchange="rhSetPoste(${i},'terr',this.value)">
+            ${["NAT","SUD","IDF"].map(s=>`<option${s===(p.terr||"NAT")?" selected":""}>${s}</option>`).join("")}
+          </select>
+          <span style="font-size:9px;color:#64748b">du</span>
+          <input class="cj" type="month" style="width:104px" value="${p.debut||""}" onchange="rhSetPoste(${i},'debut',this.value)">
+          <span style="font-size:9px;color:#64748b">au</span>
+          <input class="cj" type="month" style="width:104px" value="${p.fin||""}" onchange="rhSetPoste(${i},'fin',this.value)" title="Vide = pas de fin prévue">
+          <input class="ni" style="width:56px" value="${p.quotite||100}" onchange="rhSetPoste(${i},'quotite',this.value)" title="Quotité en %">
+          <span style="font-size:9px;color:#64748b">%</span>
+          <input class="ni" style="width:84px" value="${p.brut||0}" onchange="rhSetPoste(${i},'brut',this.value)" title="Brut annuel de base, à temps plein">
+          <span style="font-size:9px;color:#64748b">€/an</span>
+          <button class="ib" onclick="rhDelPoste(${i})" title="Supprimer">🗑</button>
+        </div>
+        <div style="font-size:9px;color:#5c6a80;margin-top:4px">
+          Au 12/${rhYear} : brut <strong style="font-family:'JetBrains Mono'">${fmt(ba)}</strong>/an
+          (${fmt(ba/12)}/mois) · réduction générale <strong style="color:${tx>0?"#4ade80":"#64748b"}">${tx.toFixed(2)} %</strong> du brut
+        </div>`;
+      // évolutions
+      h+=`<div style="margin-top:5px;padding-left:8px;border-left:2px solid #2d3148">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">Évolutions de salaire</div>`;
+      (p.evols||[]).forEach((e,j)=>{
+        h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
+          <input class="cj" type="month" style="width:104px" value="${e.date||""}" onchange="rhSetEvol(${i},${j},'date',this.value)">
+          <span style="font-size:9px;color:#64748b">→</span>
+          <input class="ni" style="width:84px" value="${e.brut||0}" onchange="rhSetEvol(${i},${j},'brut',this.value)">
+          <span style="font-size:9px;color:#64748b">€/an</span>
+          <button class="ib" onclick="rhDelEvol(${i},${j})">🗑</button>
+        </div>`;
+      });
+      h+=`<button class="b bd" style="font-size:8px" onclick="rhAddEvol(${i})">+ Évolution</button>`;
+      // primes
+      h+=`<div style="font-size:9px;color:#64748b;margin:5px 0 2px">Primes ponctuelles</div>`;
+      (p.primes||[]).forEach((pr,j)=>{
+        h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
+          <input class="cj" type="month" style="width:104px" value="${pr.mois||""}" onchange="rhSetPrime(${i},${j},'mois',this.value)">
+          <input class="ni" style="width:84px" value="${pr.montant||0}" onchange="rhSetPrime(${i},${j},'montant',this.value)">
+          <span style="font-size:9px;color:#64748b">€ brut</span>
+          <button class="ib" onclick="rhDelPrime(${i},${j})">🗑</button>
+        </div>`;
+      });
+      h+=`<button class="b bd" style="font-size:8px" onclick="rhAddPrime(${i})">+ Prime</button></div></div>`;
+    });
+    h+=`<h4 style="font-size:12px;margin:16px 0 6px">Import / export JSON</h4>
+      <p style="font-size:10px;color:#5c6a80;margin-bottom:6px">Pour saisir la liste d'un coup, ou la transmettre sans passer par le code de l'outil.</p>
+      <textarea id="rhJson" style="width:100%;min-height:110px;background:#12131f;border:1px solid #2d3148;border-radius:6px;color:#cbd5e1;font-family:'JetBrains Mono';font-size:9px;padding:6px" placeholder='[{"lib":"Poste A","statut":"CDI","terr":"SUD","debut":"2026-01","brut":37500,"evols":[{"date":"2026-08","brut":42000}]}]'></textarea>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <button class="b bp" style="font-size:9px" onclick="rhImportPostes()">📥 Importer (remplace la liste)</button>
+        <button class="b bd" style="font-size:9px" onclick="rhExportPostes()">📤 Exporter la liste actuelle</button>
+      </div>`;
+  }
+
+  // ══ TAUX ══
+  if(rhVue==="taux"){
+    const T=D.rhTx;
+    const ligne=(lab,path,unite,titre)=>`<div style="display:flex;gap:5px;align-items:center;margin-bottom:2px">
+      <span style="font-size:9px;flex:1;min-width:190px;color:var(--text-2)"${titre?` title="${titre}"`:""}>${lab}</span>
+      <input class="ni" style="width:78px" value="${path.split(".").reduce((o,k)=>o&&o[k],T)}" onchange="rhSetTx('${path}',this.value)">
+      <span style="font-size:9px;color:#64748b;width:44px">${unite}</span></div>`;
+    h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <h4 style="font-size:12px;margin:0">Taux &amp; paramètres</h4>
+      <button class="b bd" style="font-size:9px" onclick="rhResetTx()">↩️ Rétablir la grille de juillet 2026</button>
+    </div>
+    <p style="font-size:10px;color:#5c6a80;margin-bottom:12px;max-width:760px">
+      Grille calibrée sur le détail des cotisations de <strong>juillet 2026</strong> :
+      total patronal reconstruit à <strong>${fmt(T.ref.patronal)}</strong> sur un brut de
+      <strong>${fmt(T.ref.brut)}</strong>, soit <strong>${(T.ref.patronal/T.ref.brut*100).toFixed(2)} %</strong>.
+      Chaque valeur est modifiable : mettez-la à jour à chaque changement de taux.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px">`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">URSSAF → 64510000</div>`;
+    T.urssaf.forEach((x,i)=>{h+=ligne(x.l,"urssaf."+i+".t","% brut")});
+    h+=`<div style="font-size:9px;color:#7c8cf5;margin-top:4px;border-top:1px solid #2d3148;padding-top:4px">Total : <strong>${T.urssaf.reduce((s,x)=>s+(parseFloat(x.t)||0),0).toFixed(3)} %</strong> du brut, avant réduction</div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Retraite AG2R → 64530000</div>`;
+    T.retraite.forEach((x,i)=>{h+=ligne(x.l,"retraite."+i+".t","% brut")});
+    h+=`<div style="font-size:9px;color:#7c8cf5;margin-top:4px;border-top:1px solid #2d3148;padding-top:4px">Total : <strong>${T.retraite.reduce((s,x)=>s+(parseFloat(x.t)||0),0).toFixed(2)} %</strong></div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Prévoyance &amp; santé → 64520000</div>
+      ${ligne("Prévoyance ALLIANZ","prevoyance.tauxBrut","% brut")}
+      ${ligne("Mutuelle Harmonie (par salarié)","mutuelle.forfaitMois","€/mois","Cotisation forfaitaire : elle ne suit pas le brut mais le nombre de salariés")}
+      <div style="font-size:9px;color:#64748b;margin-top:4px">La mutuelle est un forfait par tête, pas un pourcentage : elle ne bouge pas avec les augmentations.</div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Formation &amp; paritarisme</div>
+      ${ligne("CFP légale (URSSAF) → 63130000","formation.legal","% brut")}
+      ${ligne("CFP conventionnelle (AKTO) → 63130000","formation.conventionnel","% brut","IDCC 1516 — organismes de formation")}
+      ${ligne("CPF-CDD → 63130000","formation.cpfCdd","% brut CDD","Assise sur le brut des seuls CDD")}
+      ${ligne("Paritarisme (AKTO) → 64580000","paritarisme","% brut")}
+      ${ligne("Taxe d'apprentissage → 63110000","apprentissage.principale","% brut")}
+      ${ligne("Taxe d'apprentissage libératoire","apprentissage.liberatoire","% brut")}</div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Taxe sur les salaires → 63180000</div>
+      ${ligne("Base / brut","taxeSalaires.coefBase","coef.","Rapport constaté entre l'assiette de la taxe et le brut")}
+      ${ligne("Taux normal","taxeSalaires.taux","%")}
+      ${ligne("Majoration 1re tranche","taxeSalaires.maj1","%")}
+      ${ligne("Majoration 2e tranche","taxeSalaires.maj2","%")}
+      ${ligne("Seuil 1re tranche","taxeSalaires.seuil1An","€/an")}
+      ${ligne("Seuil 2e tranche","taxeSalaires.seuil2An","€/an")}
+      ${ligne("Abattement associations","taxeSalaires.abattementAn","€/an","Article 1679 A du CGI : s'applique au montant annuel de la taxe")}
+      <div style="font-size:9px;color:#fbbf24;margin-top:4px">Seuils déduits du bordereau de juillet 2026. <strong>À faire confirmer par le cabinet :</strong> l'abattement s'applique-t-il, et sur quel montant ? C'est ce qui décide si la taxe coûte ${fmt(res.tsAn)} ou rien.</div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Réduction générale dégressive unique</div>
+      ${ligne("Taux maximal (au SMIC)","reduc.max","% brut")}
+      ${ligne("Plafond","reduc.plafondSmic","× SMIC","Brut annuel au-delà duquel la réduction est nulle")}
+      ${ligne("SMIC annuel brut","reduc.smicAn","€/an")}
+      ${ligne("Part imputée sur la retraite","reduc.partRetraite","%","Le reste vient en déduction des cotisations URSSAF")}
+      <button class="b bp" style="font-size:9px;margin-top:5px" onclick="rhCalibrerReduc()">🎯 Recaler sur ${T.ref.mois}</button>
+      <div style="font-size:9px;color:#fbbf24;margin-top:4px">Barème linéaire, calibré pour retrouver ${fmt(T.ref.reduc)} en ${T.ref.mois}. <strong>La pente reste à vérifier</strong> : elle décide du coût réel des augmentations. Un bulletin par poste, ligne « réduction », suffirait à la fixer.</div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Congés payés</div>
+      ${ligne("Provision","cp.tauxProvision","% brut","2,5 jours par mois = 10 % du brut")}
+      <div style="font-size:9px;color:#64748b;margin-top:4px">Les charges sur CP (64500000) sont calculées au taux patronal social du mois, hors taxes assises sur la masse salariale.</div></div>`;
+
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Bulletins de salaire</div>
+      <div style="font-size:9px;color:var(--text-2);margin-bottom:4px">Identifiant du dossier Drive où déposer les PDF mensuels</div>
+      <input class="ci" style="width:100%;font-family:'JetBrains Mono';font-size:9px" value="${String(D.rhDriveFolder||"").replace(/"/g,"&quot;")}" placeholder="1AbC…" onchange="rhSetFolder(this.value)">
+      <div style="font-size:9px;color:#fbbf24;margin-top:4px">Ce dossier doit rester à accès restreint : les bulletins sont plus sensibles que les factures. Le lien est enregistré dans le Google Sheet.</div></div>`;
+    h+='</div>';
+  }
+
+  // ══ PAR PROJET ══
+  if(rhVue==="projets"&&D.rhPostes.length){
+    const res2=res;
+    h+=`<h4 style="font-size:12px;margin:0 0 4px">Répartition du coût employeur par code projet</h4>
+      <p style="font-size:10px;color:#5c6a80;margin-bottom:12px">Affectez un % du temps de chaque poste à un ou plusieurs codes projet. Le coût réparti est le coût complet du poste — brut, cotisations et provision congés payés — tel que calculé pour ${rhYear}.</p>`;
+    const libs=new Set(D.rhPostes.map(p=>p.lib));
+    D.rhPostes.forEach(p=>{
+      const allocs=(D.rhAlloc||[]).filter(a=>a.sal===p.lib);
+      const totPct=allocs.reduce((s,a)=>s+(parseFloat(a.pct)||0),0);
+      const col=totPct>100?"#ef4444":totPct===100?"#22c55e":"#fbbf24";
+      const pp=res2.parPoste[D.rhPostes.indexOf(p)]||{cout:0};
+      h+=`<div class="scard" style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+          <div><strong style="font-size:11px">${p.lib||"(sans intitulé)"}</strong>
+            <span style="font-size:10px;color:#5c6a80"> — ${p.statut||"CDI"} · ${p.terr||"NAT"}</span></div>
+          <div style="font-size:10px">Coût employeur ${rhYear} : <strong style="font-family:'JetBrains Mono';color:#fbbf24">${fmt(pp.cout)}</strong> · <span style="color:${col};font-weight:700">${totPct} %</span> affecté</div>
+        </div>`;
+      allocs.forEach(a=>{
+        const idx=D.rhAlloc.indexOf(a);
+        h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
+          <select class="ms" style="width:220px" onchange="D.rhAlloc[${idx}].act=this.value;autoSave();render()">${actOptions(a.act,"— Code projet —")}</select>
+          <input type="number" class="cj" style="width:60px;text-align:center" value="${a.pct||0}" min="0" max="100" onchange="D.rhAlloc[${idx}].pct=parseInt(this.value)||0;autoSave();render()">
+          <span style="font-size:10px;color:#5c6a80">%</span>
+          <span style="font-size:10px;font-family:'JetBrains Mono';color:#7c8cf5;width:90px;text-align:right">${fmt(pp.cout*(parseFloat(a.pct)||0)/100)}</span>
+          <button class="ib" onclick="pushUndo();D.rhAlloc.splice(${idx},1);autoSave();render()">🗑</button>
+        </div>`;
+      });
+      h+=`<button class="b bd" style="margin-top:3px;font-size:9px" onclick="pushUndo();D.rhAlloc.push({sal:${JSON.stringify(p.lib)},act:'',pct:0});autoSave();render()">+ Ajouter projet</button></div>`;
+    });
+    // Affectations orphelines (anciennes lignes nominatives)
+    const orph=(D.rhAlloc||[]).filter(a=>!libs.has(a.sal));
+    if(orph.length){
+      h+=`<div class="scard" style="border-color:rgba(251,191,36,.4)">
+        <div style="font-size:10px;font-weight:700;color:#fbbf24;margin-bottom:4px">⚠️ ${orph.length} affectation(s) sans poste correspondant</div>
+        <div style="font-size:9px;color:#5c6a80;margin-bottom:6px">Ces lignes ont été créées avec l'ancienne liste nominative. Recréez-les sur le bon poste, puis supprimez-les.</div>`;
+      orph.forEach(a=>{const idx=D.rhAlloc.indexOf(a);
+        h+=`<div style="display:flex;gap:6px;align-items:center;font-size:9px;margin-bottom:2px">
+          <span style="flex:1">${a.sal||"?"} → ${a.act||"(aucun code)"} · ${a.pct||0} %</span>
+          <button class="ib" onclick="pushUndo();D.rhAlloc.splice(${idx},1);autoSave();render()">🗑</button></div>`});
+      h+='</div>';
+    }
+    // Synthèse
+    const byP={};
+    (D.rhAlloc||[]).forEach(a=>{
+      if(!a.act||!a.pct)return;
+      const pi=D.rhPostes.findIndex(p=>p.lib===a.sal);if(pi<0)return;
+      const c=(res2.parPoste[pi]||{cout:0}).cout*(parseFloat(a.pct)||0)/100;
+      if(!byP[a.act])byP[a.act]={cout:0,det:[]};
+      byP[a.act].cout+=c;byP[a.act].det.push((D.rhPostes[pi].lib||"?")+" "+a.pct+" %");
+    });
+    if(Object.keys(byP).length){
+      h+=`<h4 style="font-size:12px;margin:16px 0 6px">Synthèse par code projet</h4>
+        <div style="overflow-x:auto"><table><thead><tr><th>Code projet</th>
+        <th style="text-align:right">Coût employeur ${rhYear}</th><th style="text-align:right">Par mois</th><th>Détail</th></tr></thead><tbody>`;
+      Object.entries(byP).sort((a,b)=>a[0].localeCompare(b[0],"fr",{numeric:true})).forEach(([act,d])=>{
+        h+=`<tr><td style="font-weight:600;font-size:10px">${act}</td>
+          <td style="text-align:right;font-family:'JetBrains Mono';font-weight:700;font-size:10px;color:#fbbf24">${fmt(d.cout)}</td>
+          <td style="text-align:right;font-family:'JetBrains Mono';font-size:10px">${fmt(d.cout/12)}</td>
+          <td style="font-size:9px;color:#5c6a80">${d.det.join(", ")}</td></tr>`;
+      });
+      h+='</tbody></table></div>';
+    }
+  }
+
   h+='</div>';el.innerHTML=h;
 }
+
 function switchTab(t){curTab=t;render()}
 function tglF(el){curFilt=curFilt===el.dataset.f?"":el.dataset.f;render()}
 function tglF2(f){curFilt=curFilt===f?"":f;render()}
