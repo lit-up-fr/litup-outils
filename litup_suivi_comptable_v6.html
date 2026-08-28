@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24g <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24h <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -2181,7 +2181,7 @@ const RH_TX_DEFAUT = {
   // Version de la structure : incrémentée dès qu'un bloc change de forme, pour
   // que la grille déjà enregistrée dans un navigateur soit migrée au lieu de
   // rester dans l'ancien format (une grille orpheline donnait une réduction nulle).
-  v: 2,
+  v: 3,
   // Deux références distinctes, chacune tirée d'un document du cabinet :
   //  - le détail des cotisations de juillet 2026, pour le taux patronal global ;
   //  - les bulletins d'août 2026, pour la réduction générale poste par poste.
@@ -2212,8 +2212,25 @@ const RH_TX_DEFAUT = {
   // annuel : à 23 616 €, la taxe due peut être nulle. À confirmer au cabinet.
   taxeSalaires: { actif:true, coefBase:1.01696, taux:4.25, maj1:4.25, maj2:9.35,
                   seuil1An:9229, seuil2An:18423, abattementAn:23616 },
-  // Provision congés payés : 10 % du brut (2,5 j/mois), charges au taux patronal
-  cp: { tauxProvision:10.0 },
+  // Part SALARIALE, relevée sur le bulletin d'août 2026 (contrôle exact : total
+  // 588,74 € calculé contre 588,82 € au bulletin, l'écart venant de l'assiette
+  // CSG légèrement différente du brut). Elle ne coûte rien de plus à
+  // l'association — c'est une retenue sur le salaire — mais elle est nécessaire
+  // pour retrouver ce que montre le relevé bancaire : le net versé aux salariées
+  // et le total encaissé par chaque organisme.
+  salarial: {
+    urssaf: [ { l:"Vieillesse plafonnée", t:6.90 }, { l:"Vieillesse déplafonnée", t:0.40 },
+              { l:"CSG déductible", t:6.80 }, { l:"CSG/CRDS non déductible", t:2.90 } ],
+    retraite: [ { l:"Retraite TU1", t:3.15 }, { l:"Contribution d'Équilibre Général TU1", t:0.86 } ],
+    prevoyance: { tauxBrut:0.625 },
+    mutuelle:   { forfaitMois:29.84 }
+  },
+  // Provision congés payés : à ZÉRO par défaut. Les congés pris sont déjà dans le
+  // brut (le bulletin retire les jours pris et rajoute l'indemnité correspondante,
+  // le brut ne bouge pas), donc provisionner 10 % du brut compterait la même
+  // dépense deux fois — et cette provision ne sort jamais du compte bancaire.
+  // Ne la renseigner que pour estimer, en clôture, le stock de congés non pris.
+  cp: { tauxProvision:0 },
   // Réduction générale dégressive unique (réforme 2026).
   // Points relevés sur les bulletins d'août 2026, ligne « Exonérations de
   // cotisations employeur » : 31 000 € → 401,51 et 400,56 €/mois (15,52 %),
@@ -2247,12 +2264,25 @@ function rhMigrateTx(){
   }
   // Les deux mois de référence ont remplacé le mois unique
   if(!T.ref||T.ref.brutPat===undefined){T.ref=def.ref;refaits.push("mois de référence")}
+  // v3 : ajout de la part salariale et abandon de la provision CP par défaut
+  if(!T.salarial||!Array.isArray(T.salarial.urssaf)){T.salarial=def.salarial;refaits.push("part salariale")}
+  if(vAvant!==undefined&&vAvant<3&&T.cp&&Math.abs((parseFloat(T.cp.tauxProvision)||0)-10)<0.01){
+    T.cp.tauxProvision=0;refaits.push("provision congés payés ramenée à 0");
+  }
   T.v=def.v;
   if(vAvant!==def.v&&refaits.length)rhTxMigre=refaits.join(" · ");
 }
 rhMigrateTx();
 if(!D.rhBulletins) D.rhBulletins={};
 if(D.rhDriveFolder===undefined) D.rhDriveFolder="";
+// Deux présentations du même prévisionnel :
+//  « tresorerie » — 64110000 = net avant impôt, 645x = total versé aux organismes.
+//                   C'est ce que montre le relevé bancaire, donc la seule
+//                   présentation comparable au réalisé de l'outil.
+//  « comptable »  — 64110000 = brut, 645x = part patronale seule.
+//                   Présentation du compte de résultat, attendue par le cabinet.
+// Le total est identique dans les deux cas : net + part salariale = brut.
+if(!D.rhPresentation) D.rhPresentation="tresorerie";
 let rhYear=String(new Date().getFullYear()), rhVue="result";
 
 // ─── CALCUL ───
@@ -2301,13 +2331,19 @@ function rhTsMois(brutMois){
        + tr2*((parseFloat(t.maj2)||0)/100);
 }
 // Prévisionnel complet d'une année : un montant par compte et par mois.
-function rhCompute(y){
+function rhCompute(y,presentation){
   const T=D.rhTx,mois=rhMoisList(y);
+  const tres=(presentation||D.rhPresentation)==="tresorerie";
   const z=()=>new Array(12).fill(0);
   const acc={};Object.values(RH_COMPTES).forEach(c=>acc[c]=z());
   const brut=z(),reduc=z(),nb=z(),tsBrut=z();
-  const txUrssaf=(T.urssaf||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)/100;
-  const txRetr=(T.retraite||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)/100;
+  const somTx=a=>(a||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)/100;
+  const txUrssaf=somTx(T.urssaf),txRetr=somTx(T.retraite);
+  const SA=T.salarial||{};
+  // Part salariale : nulle en présentation comptable, puisqu'elle n'y figure pas.
+  const sUrssaf=tres?somTx(SA.urssaf):0, sRetr=tres?somTx(SA.retraite):0;
+  const sPrev=tres?((parseFloat((SA.prevoyance||{}).tauxBrut)||0)/100):0;
+  const sMut=tres?(parseFloat((SA.mutuelle||{}).forfaitMois)||0):0;
   const parPoste=D.rhPostes.map(p=>({lib:p.lib||"(sans intitulé)",brut:0,cout:0,mois:0}));
 
   mois.forEach((ym,mi)=>{
@@ -2326,16 +2362,19 @@ function rhCompute(y){
     });
     const b=brut[mi],r=reduc[mi];
     const rRet=r*((parseFloat(T.reduc.partRetraite)||0)/100), rUrs=r-rRet;
-    acc[RH_COMPTES.brut][mi]        = b;
-    acc[RH_COMPTES.urssaf][mi]      = b*txUrssaf - rUrs;
-    acc[RH_COMPTES.retraite][mi]    = b*txRetr - rRet;
-    acc[RH_COMPTES.prev][mi]        = b*((parseFloat(T.prevoyance.tauxBrut)||0)/100)
-                                    + nb[mi]*(parseFloat(T.mutuelle.forfaitMois)||0);
+    // En présentation trésorerie, la part salariale quitte le compte 64110000
+    // (elle n'est pas versée à la salariée) pour rejoindre l'organisme qui l'encaisse.
+    const salM=b*(sUrssaf+sRetr+sPrev)+nb[mi]*sMut;
+    acc[RH_COMPTES.brut][mi]        = b - salM;
+    acc[RH_COMPTES.urssaf][mi]      = b*(txUrssaf+sUrssaf) - rUrs;
+    acc[RH_COMPTES.retraite][mi]    = b*(txRetr+sRetr) - rRet;
+    acc[RH_COMPTES.prev][mi]        = b*((parseFloat(T.prevoyance.tauxBrut)||0)/100+sPrev)
+                                    + nb[mi]*((parseFloat(T.mutuelle.forfaitMois)||0)+sMut);
     acc[RH_COMPTES.paritarisme][mi] = b*((parseFloat(T.paritarisme)||0)/100);
     acc[RH_COMPTES.formation][mi]   = b*(((parseFloat(T.formation.legal)||0)+(parseFloat(T.formation.conventionnel)||0))/100)
                                     + brutCdd*((parseFloat(T.formation.cpfCdd)||0)/100);
     acc[RH_COMPTES.apprentissage][mi]= b*(((parseFloat(T.apprentissage.principale)||0)+(parseFloat(T.apprentissage.liberatoire)||0))/100);
-    const cp=b*((parseFloat(T.cp.tauxProvision)||0)/100);
+    const cp=tres?0:b*((parseFloat(T.cp.tauxProvision)||0)/100);
     acc[RH_COMPTES.cp][mi]          = cp;
     // Charges sur CP : au taux patronal social du mois (hors taxes assises
     // sur la masse salariale, qui frapperont les CP au moment de leur paiement)
@@ -2353,7 +2392,8 @@ function rhCompute(y){
   tsBrut.forEach((v,mi)=>{acc[RH_COMPTES.taxeSalaires][mi]=v*k});
 
   const som=a=>a.reduce((x,y2)=>x+y2,0);
-  const brutAn=som(brut);
+  const brutAn=som(brut);          // toujours le brut, pas le montant affiché
+  const salAn=brutAn>0?brutAn-som(acc[RH_COMPTES.brut]):0;
   // Trois agrégats distincts, pour que chaque chiffre affiché soit comparable à
   // quelque chose : les cotisations et taxes assises sur la masse salariale
   // (comparables au bordereau du cabinet), la provision congés payés et ses
@@ -2362,11 +2402,13 @@ function rhCompute(y){
   const chargesSoc=Object.entries(acc)
     .filter(([c])=>c!==RH_COMPTES.brut&&c!==RH_COMPTES.cp&&c!==RH_COMPTES.chargesCp)
     .reduce((s,[,a])=>s+som(a),0);
-  const totalAn=brutAn+provCp+chargesSoc;
+  const totalAn=som(acc[RH_COMPTES.brut])+provCp+chargesSoc;
   parPoste.forEach(p=>{p.cout=brutAn>0?p.brut*(totalAn/brutAn):0});
   return { mois, acc, brut, reduc, nb, tsAn, tsDu, tsAbattu:tsAn-tsDu,
-           brutAn, chargesSoc, provCp, totalAn, parPoste,
-           txPatronal:brutAn>0?chargesSoc/brutAn*100:0 };
+           brutAn, chargesSoc, provCp, totalAn, parPoste, tres, salAn,
+           // Le taux patronal ne compte pas la part salariale, qui n'est pas un
+           // coût supplémentaire pour l'association : elle sort du brut.
+           txPatronal:brutAn>0?(chargesSoc-salAn)/brutAn*100:0 };
 }
 
 // ─── ACTIONS : POSTES ───
@@ -2488,6 +2530,12 @@ function rhToBudget(){
   if(String(rhYear)!==String(compYear))
     alerte+="\n⚠️ Vous injectez l'exercice "+rhYear+" alors que l'outil compare l'exercice "+compYear+".\n";
   if(!confirm("Injecter le prévisionnel RH "+rhYear+" dans la version « "+ver+" » ?\n"+alerte+"\n"+
+    "Présentation : "+(res.tres
+      ?"TRÉSORERIE — 64110000 en net, 645x en total versé aux organismes.\n"+
+       "Comparable au réalisé de l'outil, qui vient du relevé bancaire."
+      :"COMPTABLE — 64110000 en brut, 645x en part patronale seule.\n"+
+       "⚠️ Non comparable au réalisé : les salaires paraîtront sous-consommés\n"+
+       "   et les cotisations sur-consommées dans Prévi. vs Réalisé.")+"\n\n"+
     Object.keys(RH_COMPTES).length+" comptes seront écrasés par les montants calculés.\n"+
     "Total : "+fmt(res.totalAn)+"."))return;
   pushUndo();
@@ -2543,6 +2591,7 @@ function rhDelBulletin(ym){
 
 // ─── RENDU ───
 function rhSwitchVue(v){rhVue=v;render()}
+function rhSetPresentation(v){pushUndo();D.rhPresentation=v;autoSave();render()}
 function rhSetYear(v){rhYear=String(v);render()}
 const RH_MOIS_L=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 
@@ -2556,6 +2605,12 @@ function rRH(el){
     <span style="font-size:9px;color:var(--text-3);margin-left:8px">Exercice</span>
     <select class="ms" style="max-width:90px" onchange="rhSetYear(this.value)">
       ${annees.map(y=>`<option${y===rhYear?" selected":""}>${y}</option>`).join("")}
+    </select>
+    <span style="font-size:9px;color:var(--text-3);margin-left:6px">Présentation</span>
+    <select class="ms" style="max-width:250px" onchange="rhSetPresentation(this.value)"
+      title="Trésorerie : ce que montre le relevé bancaire, donc comparable au réalisé de l'outil. Comptable : présentation du compte de résultat.">
+      <option value="tresorerie"${res.tres?" selected":""}>Trésorerie — net + cotisations totales</option>
+      <option value="comptable"${res.tres?"":" selected"}>Comptable — brut + part patronale</option>
     </select>
     <span style="font-size:9px;color:var(--text-3);margin-left:auto">${D.rhPostes.length} poste(s) · brut ${fmt(res.brutAn)} · charges ${res.txPatronal.toFixed(2)} % · <strong style="color:var(--amber)">total ${fmt(res.totalAn)}</strong></span>
   </div><div style="padding:14px 16px">`;
@@ -2617,11 +2672,19 @@ function rRH(el){
 
     h+=`<div class="scard" style="margin-top:12px;font-size:10px;color:var(--text-2);line-height:1.7">
       <strong style="font-size:11px;color:var(--text-1)">Lecture</strong><br>
-      Brut <strong>${fmt(res.brutAn)}</strong> · cotisations et taxes sur la masse salariale
-      <strong>${fmt(res.chargesSoc)}</strong>, soit <strong>${res.txPatronal.toFixed(2)} %</strong> du brut
-      — c'est le taux du bordereau du cabinet · provision congés payés et charges sur CP
-      <strong>${fmt(res.provCp)}</strong> · <strong style="color:var(--amber)">total ${fmt(res.totalAn)}</strong>.<br>
-      Réduction générale <strong style="color:var(--green)">−${fmt(res.reduc.reduce((a,b)=>a+b,0))}</strong>.<br>
+      Brut <strong>${fmt(res.brutAn)}</strong> · charges patronales
+      <strong>${res.txPatronal.toFixed(2)} %</strong> du brut · réduction générale
+      <strong style="color:var(--green)">−${fmt(res.reduc.reduce((a,b)=>a+b,0))}</strong> ·
+      <strong style="color:var(--amber)">coût total ${fmt(res.totalAn)}</strong>${res.provCp?" dont "+fmt(res.provCp)+" de provision congés payés":""}.<br>
+      ${res.tres
+        ? `<strong style="color:var(--text-1)">Présentation trésorerie</strong> : le compte 64110000 porte le
+           <strong>net avant impôt</strong> (${fmt(res.brutAn-res.salAn)}) et les comptes 645x le
+           <strong>total versé aux organismes</strong>, part salariale de ${fmt(res.salAn)} incluse.
+           C'est ce que montre le relevé bancaire, donc les pourcentages de ⚖️ Prévi. vs Réalisé sont justes.`
+        : `<strong style="color:var(--amber)">Présentation comptable</strong> : 64110000 porte le brut et les
+           645x la seule part patronale. C'est la présentation du compte de résultat, mais elle
+           <strong>n'est pas comparable au réalisé</strong> de l'outil, qui vient du relevé bancaire :
+           les salaires y apparaîtront sous-consommés et les cotisations sur-consommées.`}<br>
       Taxe sur les salaires : barème <strong>${fmt(res.tsAn)}</strong>, abattement associations
       <strong style="color:var(--green)">−${fmt(res.tsAbattu)}</strong>, <strong>reste dû ${fmt(res.tsDu)}</strong>.
       ${(()=>{const ab=parseFloat((D.rhTx.taxeSalaires||{}).abattementAn)||0;
@@ -2786,9 +2849,19 @@ function rRH(el){
       <button class="b bp" style="font-size:9px;margin-top:5px" onclick="rhCalibrerReduc()">🎯 Recaler sur ${T.ref.moisRed}</button>
       <div style="font-size:9px;color:var(--green);margin-top:4px">Points relevés sur les bulletins d'${T.ref.moisRed} : 31 000 € → 15,52 %, 35 000 € → 10,82 %, 42 000 € → 5,87 %. Les valeurs à 21 744 € et 65 232 € sont extrapolées (aucun poste concerné aujourd'hui).</div></div>`;
 
+    h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Part salariale (retenue sur le salaire)</div>`;
+    (T.salarial.urssaf||[]).forEach((x,i)=>{h+=ligne(x.l+" (URSSAF)","salarial.urssaf."+i+".t","% brut")});
+    (T.salarial.retraite||[]).forEach((x,i)=>{h+=ligne(x.l+" (AG2R)","salarial.retraite."+i+".t","% brut")});
+    h+=`${ligne("Prévoyance ALLIANZ","salarial.prevoyance.tauxBrut","% brut")}
+      ${ligne("Mutuelle Harmonie (par salarié)","salarial.mutuelle.forfaitMois","€/mois")}
+      <div style="font-size:9px;color:var(--accent-l);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">
+        Total : <strong>${((T.salarial.urssaf||[]).concat(T.salarial.retraite||[]).reduce((s,x)=>s+(parseFloat(x.t)||0),0)+(parseFloat(T.salarial.prevoyance.tauxBrut)||0)).toFixed(3)} %</strong> du brut + ${fmt(T.salarial.mutuelle.forfaitMois)} par salarié</div>
+      <div style="font-size:9px;color:var(--text-3);margin-top:4px">Relevé sur le bulletin d'août 2026. Ne coûte rien de plus à l'association : c'est une retenue sur le salaire. Sert à retrouver le net versé et le total encaissé par chaque organisme, donc à rendre le réalisé comparable.</div></div>`;
+
     h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Congés payés</div>
-      ${ligne("Provision","cp.tauxProvision","% brut","2,5 jours par mois = 10 % du brut")}
-      <div style="font-size:9px;color:var(--text-3);margin-top:4px">Les charges sur CP (64500000) sont calculées au taux patronal social du mois, hors taxes assises sur la masse salariale.</div></div>`;
+      ${ligne("Provision","cp.tauxProvision","% brut","Laisser à 0 : les congés pris sont déjà dans le brut")}
+      <div style="font-size:9px;color:var(--amber);margin-top:4px"><strong>À laisser à 0 dans la plupart des cas.</strong> Le bulletin retire les jours de congés pris et rajoute l'indemnité correspondante : le brut ne bouge pas. Provisionner un pourcentage du brut compterait donc la même dépense deux fois, et cette provision ne sort jamais du compte bancaire.</div>
+      <div style="font-size:9px;color:var(--text-3);margin-top:3px">À ne renseigner que pour estimer, en clôture, le stock de congés acquis et non pris. Ignorée en présentation trésorerie.</div></div>`;
 
     h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Bulletins de salaire</div>
       <div style="font-size:9px;color:var(--text-2);margin-bottom:4px">Identifiant du dossier Drive où déposer les PDF mensuels</div>
@@ -3281,6 +3354,23 @@ function openVersions(){
 
 function toggleBudgetMonth(i,mi){if(!D.budget[i].months)D.budget[i].months=[];const idx=D.budget[i].months.indexOf(mi);if(idx>=0)D.budget[i].months.splice(idx,1);else D.budget[i].months.push(mi);autoSave();render()}
 
+// Les comptes de personnel se lisent différemment selon la présentation retenue
+// dans l'onglet RH. Le réalisé vient du relevé bancaire : le compte 64110000
+// reçoit le net versé (plus le prélèvement à la source), et les comptes 645x le
+// total encaissé par chaque organisme, part salariale comprise. Un budget en
+// présentation comptable (brut + patronal) donne donc des pourcentages faux :
+// on le signale, au lieu de laisser lire un « 89 % consommé » qui n'existe pas.
+const RH_COMPTES_SENSIBLES=["64110000","64510000","64520000","64530000"];
+function rhCompteNote(cat){
+  if(D.rhPresentation!=="comptable")return"";
+  const code=String(cat||"").substring(0,8);
+  if(RH_COMPTES_SENSIBLES.indexOf(code)<0)return"";
+  const quoi=code==="64110000"
+    ?"Le budget est en brut, le réalisé est le net versé : ce compte paraîtra toujours sous-consommé."
+    :"Le budget ne porte que la part patronale, le réalisé porte le total versé à l'organisme : ce compte paraîtra toujours sur-consommé.";
+  return ` <span style="cursor:help;color:var(--amber)" title="${quoi} Pour des pourcentages justes, passez l'onglet RH en présentation « Trésorerie » puis réinjectez le budget.">ⓘ</span>`;
+}
+
 // ─── COMPARATIF PRÉVISIONNEL vs RÉALISÉ ───
 function rComp(el){
   const now=new Date();const curMonth=now.getMonth();// 0-indexed
@@ -3352,7 +3442,7 @@ function rComp(el){
       <td style="text-align:right;font-weight:600;color:${b.type==="charge"?"#f87171":"#4ade80"}">${fmt(realVal)}</td>
       <td style="text-align:right;font-weight:600">${fmtP(pct)}</td>
       <td><div class="pbar"><div class="pbar-f" style="width:${Math.min(pct,100)}%;background:${barColor}"></div><div class="pbar-t">${fmtP(pct)}</div></div></td>
-      <td style="font-size:9px" class="${alertClass}">${alert}</td></tr>`;
+      <td style="font-size:9px" class="${alertClass}">${alert}${rhCompteNote(b.cat)}</td></tr>`;
   });
   // Réalisé rattaché à aucune ligne affichée : compte absent du budget, ou ligne budgétée à 0
   // sur la version active (elle n'est alors pas listée). Sans ce bloc, le montant disparaît sans trace.
