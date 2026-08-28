@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25b <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25c <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1777,12 +1777,24 @@ function openFinPicker(i,mode){
 // financements, la ligne est alors scindée en une ligne par financement (indispensable
 // pour imputer chaque part sur son propre compte comptable).
 function finList(){return [...(D.airtableSubs||[]).map(s=>({...s,type:"Subvention"})),...(D.airtablePrestas||[]).map(p=>({...p,type:"Presta"}))]}
-// Financements déjà tracés dans le commentaire ("Airtable: X · Airtable: Y")
-function finTrace(r){return [...String(r.comment||"").matchAll(/Airtable:\s*([^·]+)/g)].map(m=>m[1].trim()).filter(Boolean)}
+// ─── TRACE DU RAPPROCHEMENT BANQUE ↔ FINANCEMENT ───
+// Écrite dans le commentaire de la ligne de banque : « Airtable: <nom> #<rid> ».
+// Le nom sert à la lecture humaine, l'identifiant Airtable (rid) au rattachement :
+// renommer un financement dans Airtable ne casse plus le lien. Les traces
+// écrites avant l'introduction du rid n'ont pas de « #rec… » et restent
+// rattachées par le nom (finBackfillRids les complète après une synchro).
+function finRef(f){const rid=String(f&&f.rid||"").trim();return "Airtable: "+String(f&&f.n||"")+(rid?" #"+rid:"")}
+function finTrace(r){
+  return [...String(r.comment||"").matchAll(/Airtable:\s*([^·]+)/g)].map(m=>{
+    const raw=m[1].trim();
+    const mm=raw.match(/^(.*?)\s*#(rec[A-Za-z0-9]+)$/);
+    return mm?{nom:mm[1].trim(),rid:mm[2],raw}:{nom:raw,rid:"",raw};
+  }).filter(x=>x.nom||x.rid);
+}
 function finCellBtn(r){
   if(!((r.cre||0)>0)||isVirInterne(r))return `<td style="text-align:center;color:var(--text-3);font-size:9px">—</td>`;
   const tr=finTrace(r);
-  if(tr.length)return `<td style="min-width:110px"><button class="b" style="font-size:8px;padding:2px 5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(34,197,94,.12);border-color:#22c55e;color:#4ade80" onclick="openRowFin('${r.id}')" title="Rapproché : ${tr.join(" · ").replace(/"/g,"&quot;")}&#10;Cliquer pour modifier ou annuler">✅ ${tr[0].substring(0,18)}${tr.length>1?" +"+(tr.length-1):""}</button></td>`;
+  if(tr.length)return `<td style="min-width:110px"><button class="b" style="font-size:8px;padding:2px 5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(34,197,94,.12);border-color:#22c55e;color:#4ade80" onclick="openRowFin('${r.id}')" title="Rapproché : ${tr.map(x=>x.nom+(x.rid?" ("+x.rid+")":" (lien par nom, non figé)")).join(" · ").replace(/"/g,"&quot;")}&#10;Cliquer pour modifier ou annuler">✅ ${tr[0].nom.substring(0,18)}${tr.length>1?" +"+(tr.length-1):""}</button></td>`;
   return `<td style="min-width:110px"><button class="b" style="font-size:8px;padding:2px 5px;background:rgba(251,146,60,.12);border-color:#fb923c;color:#fb923c" onclick="openRowFin('${r.id}')" title="Associer ce crédit à un ou plusieurs financements Airtable">🔗 Rapprocher</button></td>`;
 }
 function rfRow(){return D.rows.find(r=>r.id===window._rfRow)}
@@ -1833,7 +1845,7 @@ function renderRowFin(){
     <h3>🔗 Rapprochement Airtable</h3>
     <p style="font-size:10px;color:var(--text-2);margin-bottom:8px">Crédit du <strong>${String(row.dt||"").split("T")[0]}</strong> · ${(row.lib||"").substring(0,70)} · <strong class="cre">${fmt(row.cre)}</strong> · exercice <strong>${row.yr||"?"}</strong></p>`;
   if(tr.length)h+=`<div style="background:rgba(34,197,94,.08);border:1px solid #22c55e;border-radius:4px;padding:6px 8px;margin-bottom:8px;font-size:10px;display:flex;gap:8px;align-items:center">
-    <span style="flex:1">Déjà rapproché à : <strong>${tr.join(" · ")}</strong></span>
+    <span style="flex:1">Déjà rapproché à : <strong>${tr.map(x=>x.nom).join(" · ")}</strong>${tr.some(x=>!x.rid)?' <span style="color:var(--amber)" title="Rapprochement fait avant l\'introduction de l\'identifiant Airtable : il tient par le nom du financement et se perdrait si vous le renommez dans Airtable. Une synchro Airtable le consolide automatiquement.">· lien par nom</span>':""}</span>
     <button class="b br" style="font-size:9px" onclick="rfClear()" title="Retirer la trace du rapprochement dans le commentaire (la catégorie et le statut sont conservés)">✖ Annuler ce rapprochement</button></div>`;
   h+=`<p style="font-size:9px;color:var(--text-3);margin-bottom:6px">Sélectionnez un financement, ou plusieurs si le virement en regroupe plusieurs : la ligne sera alors <strong>scindée en une ligne par financement</strong>, chacune imputée sur le compte comptable Airtable du financeur.</p>
     <div style="max-height:280px;overflow:auto"><table><thead><tr><th>Financement</th><th>Statut</th><th style="text-align:right">Montant Airtable</th><th style="text-align:right">Part imputée</th><th>Exercice</th><th>Compte</th><th></th></tr></thead><tbody>`;
@@ -1900,7 +1912,7 @@ function applyRowFin(){
     if(!t.stat||String(t.stat).includes("manquant"))t.stat=f.type==="Subvention"?"Classé - Convention":"Classé - Facture";
     // Une seule trace par ligne : on remplace l'éventuelle trace précédente
     const others=String(t.comment||"").split("·").map(s=>s.trim()).filter(s=>s&&!/^Airtable:/.test(s));
-    t.comment=[...others,"Airtable: "+f.n].join(" · ");
+    t.comment=[...others,finRef(f)].join(" · ");
     const cc=finCompte(f).code;
     if(cc){
       const lbl=catForCode(cc);
@@ -1936,7 +1948,7 @@ function applyFinMatches(){
     const yr2=String($("finYr_"+i)?.value||"").trim();
     if(!row.four)row.four=f.n.replace(/^[\d._]+/,"").trim()||f.n;
     if(!row.stat||row.stat.includes("manquant"))row.stat=f.type==="Subvention"?"Classé - Convention":"Classé - Facture";
-    row.comment=(row.comment?row.comment+" · ":"")+"Airtable: "+f.n;
+    row.comment=(row.comment?row.comment+" · ":"")+finRef(f);
     // Le compte comptable d'Airtable fait référence : la recette est classée dessus (jamais écrasé si déjà saisi)
     const fc=finCompte(f).code;
     if(fc&&!row.cat){
@@ -1952,7 +1964,7 @@ function applyFinMatches(){
       const idx=D.rows.findIndex(r=>r.id===id);
       D.rows.splice(idx+1,0,{...row,id:"fin"+Date.now()+"_"+i,cre:reste,yr:yr2||row.yr,
         stat:"En attente",numj:"",driveUrl:"",driveFileId:"",
-        comment:"Airtable: "+f.n+" · part exercice "+(yr2||"suivant")});
+        comment:finRef(f)+" · part exercice "+(yr2||"suivant")});
       split++;
     }
     done++;
@@ -3934,32 +3946,65 @@ function budgetMensuel(vi,net){
 // entre une ligne de relevé et un financement : le compte comptable ne suffit
 // pas, plusieurs financements partagent le même compte.
 function finBanqueIndex(){
-  const idx={};
+  const parRid={},parNom={};
+  const pousse=(bac,k,mt,dt,via)=>{
+    if(!k)return;
+    if(!bac[k])bac[k]={mt:0,n:0,dates:[],via};
+    bac[k].mt+=mt;bac[k].n++;
+    if(dt&&bac[k].dates.indexOf(dt)<0)bac[k].dates.push(dt);
+  };
   (D.rows||[]).forEach(r=>{
     if(!((r.cre||0)>0)||isVirInterne(r))return;
-    const noms=finTrace(r);if(!noms.length)return;
-    // Le rapprochement scinde la ligne par financement : normalement un seul nom.
-    const part=(r.cre||0)/noms.length;
-    noms.forEach(nm=>{const k=String(nm).trim();if(!k)return;
-      if(!idx[k])idx[k]={mt:0,n:0,dates:[]};
-      idx[k].mt+=part;idx[k].n++;
-      const d=String(r.dt||"").substring(0,10);if(d&&idx[k].dates.indexOf(d)<0)idx[k].dates.push(d)});
+    const tr=finTrace(r);if(!tr.length)return;
+    // Le rapprochement scinde la ligne par financement : normalement une seule trace.
+    const part=(r.cre||0)/tr.length;
+    const dt=String(r.dt||"").substring(0,10);
+    tr.forEach(x=>{
+      if(x.rid)pousse(parRid,x.rid,part,dt,"id");
+      pousse(parNom,x.nom,part,dt,"nom");
+    });
   });
-  return idx;
+  // Un nom porté par plusieurs financements ne peut pas servir de repli :
+  // l'attribuer aux deux compterait le même crédit deux fois.
+  const homonymes=new Set(),vus={};
+  finList().forEach(f=>{const k=String(f.n||"").trim();if(!k)return;
+    if(vus[k])homonymes.add(k);vus[k]=1});
+  return {parRid,parNom,homonymes};
+}
+// Crédits rapprochés d'un financement : l'identifiant Airtable d'abord, le nom
+// seulement en repli pour les rapprochements faits avant son introduction.
+function finBanqueDe(f,idx){
+  if(!idx)return null;
+  const rid=String(f&&f.rid||"").trim();
+  if(rid&&idx.parRid[rid])return idx.parRid[rid];
+  const nom=String(f&&f.n||"").trim();
+  const b=idx.parNom[nom];
+  if(!b)return null;
+  if(idx.homonymes&&idx.homonymes.has(nom))return {mt:0,n:b.n,dates:b.dates,via:"nom",ambigu:true};
+  return {...b,via:"nom"};
 }
 // Confrontation d'un financement avec la banque : ce qu'Airtable annonce contre
 // ce qui est réellement arrivé sur le compte.
 function finVsBanque(f,bq){
   const att=finAmt(f)||0,recu=bq?bq.mt:0;
   const versee=f.s==="versée"||f.s==="payé";
+  if(bq&&bq.ambigu)return {ic:"❓",col:"var(--amber)",recu:0,ec:0,fragile:true,
+    txt:"Un crédit bancaire est rapproché de ce nom, mais plusieurs financements le portent : impossible de savoir lequel. "
+       +"Rouvrez le rapprochement de la ligne de banque (📋 Classement, colonne 🔗 Airtable) et resélectionnez le bon financement — "
+       +"il sera alors rattaché par son identifiant Airtable."};
   if(bq){
     const ec=Math.round((recu-att)*100)/100;
-    if(!versee)return {ic:"🔵",col:"var(--blue)",recu,ec,
-      txt:"Encaissé en banque le "+bq.dates.join(", ")+" alors qu'Airtable indique « "+f.s+" » : à passer en versée dans Airtable."};
-    if(Math.abs(ec)<0.01)return {ic:"✅",col:"var(--green)",recu,ec:0,
-      txt:"Reçu en banque le "+bq.dates.join(", ")+" pour le montant annoncé."};
-    return {ic:"⚠️",col:"var(--amber)",recu,ec,
-      txt:"Reçu "+fmt(recu)+" en banque le "+bq.dates.join(", ")+" contre "+fmt(att)+" annoncé dans Airtable : écart de "+fmt(ec)+"."};
+    // Un lien qui tient encore par le nom se romprait si le financement était
+    // renommé dans Airtable : autant le dire tant qu'il n'est pas consolidé.
+    const fragile=bq.via==="nom"
+      ?" ⚠️ Lien établi par le nom du financement, pas par son identifiant Airtable : il se perdrait si vous le renommez. Une actualisation Airtable le consolide."
+      :"";
+    if(!versee)return {ic:"🔵",col:"var(--blue)",recu,ec,fragile:!!fragile,
+      txt:"Encaissé en banque le "+bq.dates.join(", ")+" alors qu'Airtable indique « "+f.s+" » : à passer en versée dans Airtable."+fragile};
+    if(Math.abs(ec)<0.01)return {ic:"✅",col:"var(--green)",recu,ec:0,fragile:!!fragile,
+      txt:"Reçu en banque le "+bq.dates.join(", ")+" pour le montant annoncé."+fragile};
+    return {ic:"⚠️",col:"var(--amber)",recu,ec,fragile:!!fragile,
+      txt:"Reçu "+fmt(recu)+" en banque le "+bq.dates.join(", ")+" contre "+fmt(att)+" annoncé dans Airtable : écart de "+fmt(ec)+"."+fragile};
   }
   if(versee)return {ic:"🔴",col:"var(--red)",recu:0,ec:-att,
     txt:"Airtable indique « "+f.s+" » mais aucun crédit bancaire n'est rapproché de ce financement. Soit le virement n'est pas arrivé, soit il n'est pas encore rapproché (🔗 Rapprochement → 🔗 NDF/Dépenses, colonne Financement)."};
@@ -4286,9 +4331,9 @@ function rTreasury(el){
       const si=subs.indexOf(s);const yr=finAnnee(s)||win[0].y;
       const sansMois=rang(s)>=99;
       const cells=finCellsMt(s);
-      const vb=finVsBanque(s,bqIdx[String(s.n||"").trim()]);
+      const vb=finVsBanque(s,finBanqueDe(s,bqIdx));
       h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td>${cells[0]}${cells[1]}`;
-      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
+      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
       h+=`<td style="font-size:9px${s.dpv&&!s.dev?";color:var(--blue);font-weight:600":""}">${s.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${s.dev?"var(--green)":"var(--text-3)"}">${s.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtableSubs",si,s)}</td>`;
@@ -4299,10 +4344,10 @@ function rTreasury(el){
     const totDem=subsAff.filter(s=>!finAcquis(s)).reduce((a,s)=>a+finAmt(s),0);
     const totObt=subsAff.filter(s=>finAcquis(s)).reduce((a,s)=>a+finAmt(s),0);
     const totRet=subsAff.filter(s=>rang(s)<99).reduce((a,s)=>a+finAmt(s),0);
-    const totBq=subsAff.reduce((a,s)=>{const b=bqIdx[String(s.n||"").trim()];return a+(b?b.mt:0)},0);
+    const totBq=subsAff.reduce((a,s)=>{const b=finBanqueDe(s,bqIdx);return a+(b?b.mt:0)},0);
     // Ce qu'Airtable dit versé mais que la banque ne confirme pas : l'écart à traiter
-    const nonRetrouvees=subsAff.filter(s=>(s.s==="versée"||s.s==="payé")&&!bqIdx[String(s.n||"").trim()]);
-    const nonAJour=subsAff.filter(s=>!(s.s==="versée"||s.s==="payé")&&bqIdx[String(s.n||"").trim()]);
+    const nonRetrouvees=subsAff.filter(s=>(s.s==="versée"||s.s==="payé")&&!finBanqueDe(s,bqIdx));
+    const nonAJour=subsAff.filter(s=>!(s.s==="versée"||s.s==="payé")&&finBanqueDe(s,bqIdx));
     h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td></td>
       <td style="text-align:right" title="Somme des montants demandés encore non acquis">${fmt(totDem)}</td>
       <td style="text-align:right" title="Somme des montants obtenus (validés ou versés)">${fmt(totObt)}</td>
@@ -4356,9 +4401,9 @@ function rTreasury(el){
       const yr=finAnnee(p)||win[0].y;
       const sansMois=rang(p)>=99;
       const cells=finCellsMt(p);
-      const vb=finVsBanque(p,bqIdx[String(p.n||"").trim()]);
+      const vb=finVsBanque(p,finBanqueDe(p,bqIdx));
       h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:var(--text-2)">${p.tp||""}</td>${cells[0]}${cells[1]}`;
-      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
+      h+=`<td style="text-align:right;font-size:9px;white-space:nowrap;color:${vb.col}" title="${vb.txt.replace(/"/g,"&quot;")}">${vb.ic}${vb.fragile?"°":""}${vb.recu?" "+fmt(vb.recu):""}${vb.ec&&vb.recu?`<br><span style="font-size:8px">écart ${fmt(vb.ec)}</span>`:""}</td>`;
       h+=`<td style="font-size:9px${p.dpv&&!p.dev?";color:var(--blue);font-weight:600":""}">${p.dpv||"—"}</td>`;
       h+=`<td style="font-size:9px;color:${p.dev?"var(--green)":"var(--text-3)"}">${p.dev||"—"}</td>`;
       h+=`<td>${moisSel("airtablePrestas",pi,p)}</td>`;
@@ -4369,7 +4414,7 @@ function rTreasury(el){
     const totPDem=presAff.filter(p=>!finAcquis(p)).reduce((a,p)=>a+finAmt(p),0);
     const totPObt=presAff.filter(p=>finAcquis(p)).reduce((a,p)=>a+finAmt(p),0);
     const totPresRet=presAff.filter(p=>rang(p)<99).reduce((a,p)=>a+finAmt(p),0);
-    const totPresBq=presAff.reduce((a,p)=>{const b=bqIdx[String(p.n||"").trim()];return a+(b?b.mt:0)},0);
+    const totPresBq=presAff.reduce((a,p)=>{const b=finBanqueDe(p,bqIdx);return a+(b?b.mt:0)},0);
     h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td colspan="2"></td>
       <td style="text-align:right" title="Somme des montants demandés encore non acquis">${fmt(totPDem)}</td>
       <td style="text-align:right" title="Somme des montants obtenus">${fmt(totPObt)}</td>
@@ -4393,16 +4438,54 @@ function rTreasury(el){
 // trésorerie (mtr). Une synchro remplaçait la liste entière et les effaçait.
 // On les reporte sur les enregistrements rafraîchis, appariés par nom.
 const FIN_CHAMPS_MANUELS=["cc","yrM","mtr"];
+// L'appariement se fait sur l'identifiant Airtable (rid) quand il est connu des
+// deux côtés — un financement renommé conserve alors ses saisies — et sur le nom
+// à défaut, pour les données synchronisées avant l'introduction du rid.
 function fusionneManuels(anciens,nouveaux){
-  const memo={};
+  const parRid={},parNom={};
   (anciens||[]).forEach(x=>{
-    const k=String(x.n||"").trim();if(!k)return;
     const m={};FIN_CHAMPS_MANUELS.forEach(f=>{if(x[f]!==undefined&&x[f]!=="")m[f]=x[f]});
-    if(Object.keys(m).length)memo[k]=m;
+    if(!Object.keys(m).length)return;
+    const rid=String(x.rid||"").trim();
+    if(rid)parRid[rid]=m;
+    const nom=String(x.n||"").trim();
+    if(nom&&!parNom[nom])parNom[nom]=m;
   });
   let n=0;
-  (nouveaux||[]).forEach(x=>{const m=memo[String(x.n||"").trim()];if(m){Object.assign(x,m);n++}});
+  (nouveaux||[]).forEach(x=>{
+    const rid=String(x.rid||"").trim();
+    const m=(rid&&parRid[rid])||parNom[String(x.n||"").trim()];
+    if(m){Object.assign(x,m);n++}
+  });
   return n;
+}
+// Complète les rapprochements bancaires écrits avant l'introduction du rid :
+// « Airtable: Fondation X » devient « Airtable: Fondation X #recXXX ». Ne touche
+// qu'aux noms qui désignent un seul financement — un homonyme reste en attente
+// plutôt que d'être rattaché au hasard.
+function finBackfillRids(){
+  const parNom={};
+  finList().forEach(f=>{
+    const k=String(f.n||"").trim(),rid=String(f.rid||"").trim();
+    if(!k||!rid)return;
+    if(parNom[k]===undefined)parNom[k]=rid; else if(parNom[k]!==rid)parNom[k]=null;  // homonyme
+  });
+  let maj=0,ambigus=0;
+  (D.rows||[]).forEach(r=>{
+    const c=String(r.comment||"");
+    if(!c.includes("Airtable:"))return;
+    const tr=finTrace(r);
+    let neuf=c;
+    tr.forEach(x=>{
+      if(x.rid)return;
+      const rid=parNom[x.nom];
+      if(rid===null){ambigus++;return}
+      if(!rid)return;
+      neuf=neuf.replace("Airtable: "+x.raw,"Airtable: "+x.nom+" #"+rid);
+    });
+    if(neuf!==c){r.comment=neuf;maj++}
+  });
+  return {maj,ambigus};
 }
 
 // ─── ACTUALISATION AIRTABLE AU DÉMARRAGE (silencieuse) ───
@@ -4447,6 +4530,7 @@ async function autoSyncAirtable(){
     let gardes=0;
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
     if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
+    const bf=finBackfillRids();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
     atStatSet("✅ Airtable","#16a34a",
@@ -4479,9 +4563,14 @@ async function syncAirtable(){
     let gardes=0;
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
     if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
+    const bf=finBackfillRids();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
-    if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable(false)}
+    if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)"
+      +(gardes?"\n"+gardes+" saisie(s) manuelle(s) conservée(s) : compte, année, mois de trésorerie":"")
+      +(bf.maj?"\n🔗 "+bf.maj+" rapprochement(s) bancaire(s) consolidé(s) sur l'identifiant Airtable (ils ne dépendent plus du nom)":"")
+      +(bf.ambigus?"\n⚠️ "+bf.ambigus+" rapprochement(s) sur un nom porté par plusieurs financements : à revoir à la main":"")
+      +"\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable(false)}
   }catch(e){closeM();alert("❌ Erreur : "+e.message)}
 }
 

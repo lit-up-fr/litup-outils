@@ -813,7 +813,11 @@ function getAirtableData() {
       if (/refus/i.test(st) || !f[F_SUB.nom]) return null;
       var s = mapSub[st] || st || "attente";
       var nom = String(f[F_SUB.nom]);
-      var o = { n: airtableCleanName(nom), s: s, mt: f[F_SUB.attendu] || 0 };
+      // rid : identifiant Airtable de l'enregistrement. Stable même si le nom
+      // du financement change — c'est lui qui relie durablement une ligne de
+      // banque rapprochée à son financement, et qui apparie les champs saisis
+      // dans l'outil (compte, mois de trésorerie) d'une synchro à l'autre.
+      var o = { rid: r.id, n: airtableCleanName(nom), s: s, mt: f[F_SUB.attendu] || 0 };
       if (f[F_SUB.obtenu] !== undefined) o.ob = f[F_SUB.obtenu];
       // Type de financeur : champ Airtable dédié, sinon suffixe du nom
       var tf = airtableFirst(f[F_SUB.typeFin]);
@@ -859,7 +863,7 @@ function getAirtableData() {
         : st.indexOf("6.") === 0 ? "payé"
         : "négo";
       var nomP = String(f[F_PRE.nom]);
-      var o = { n: airtableCleanName(nomP), s: s, mt: f[F_PRE.attendu] || 0 };
+      var o = { rid: r.id, n: airtableCleanName(nomP), s: s, mt: f[F_PRE.attendu] || 0 };
       if (f[F_PRE.obtenu] !== undefined) o.ob = f[F_PRE.obtenu];
       if (f[F_PRE.datePrev]) o.dpv = f[F_PRE.datePrev];
       if (f[F_PRE.dateEff]) o.dev = f[F_PRE.dateEff];
