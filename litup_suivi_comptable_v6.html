@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25o <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25q <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -611,6 +611,11 @@ const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
 // Compte porteur d'une écriture. L'import écrit "cc"/"livret" en minuscules ;
 // une écriture sans compte est du compte courant (format de relevé mono-compte).
 const estLivret=r=>String(r.compte||"").toLowerCase()==="livret";
+// Écriture de régularisation : un montant global qui remplace des écritures non
+// importées, pour que le solde et le chemin mensuel de trésorerie soient justes
+// sans avoir à saisir cent lignes. Volontairement sans compte comptable : elle
+// doit rester visible comme une approximation, jamais se fondre dans le budget.
+const estRegul=r=>String(r&&r.modal||"")==="Régularisation";
 const estCC=r=>!estLivret(r);
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
@@ -3170,8 +3175,8 @@ function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._c
   const yScoped=["all","cl","uncl","noatt","chg","prd"].includes(curFilt);
   return D.rows.filter(r=>{
   if(yScoped&&statsYear!=="all"&&String(r.yr||"")!==statsYear)return false;
-  if(curFilt==="all"){}else if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
-  if(curFilt==="cl"&&!((r.stat||"").startsWith("Classé")&&r.cat&&r.act))return false;
+  if(curFilt==="all"){}else if(curFilt==="uncl"&&((r.stat||"").startsWith("Classé")&&(r.cat&&r.act||estRegul(r))))return false;
+  if(curFilt==="cl"&&!((r.stat||"").startsWith("Classé")&&(r.cat&&r.act||estRegul(r))))return false;
   if(curFilt==="bank"&&r.src!=="banque")return false;
   if(curFilt==="ndf"&&!r.src?.startsWith("ndf"))return false;
   if(curFilt==="noatt"&&((r.stat||"").startsWith("Classé")||(!r.deb&&!r.cre)))return false;
@@ -4740,6 +4745,57 @@ function tagVirInternes(){
   autoSave();render();
   alert("✅ "+suspects.length+" écriture(s) étiquetée(s).\n\nPensez à ☁️ Sauvegarder.");
 }
+// Crée l'écriture de régularisation qui comble l'écart entre deux points de
+// contrôle. Alternative assumée à la réimportation : le solde et le chemin
+// mensuel redeviennent justes, le détail par compte et par financement reste
+// absent — ce que la ligne dit d'elle-même dans son libellé.
+function srRegul(i){
+  srNorm();
+  const a=D.soldesRef[i-1],b=D.soldesRef[i];
+  if(!a||!b)return;
+  const manque=Math.round(((b.mt-a.mt)-(soldeReconstitue(b.d).s-soldeReconstitue(a.d).s))*100)/100;
+  if(Math.abs(manque)<0.5){alert("Aucun écart à régulariser sur cette période.");return}
+  const deb=manque<0;   // écart négatif : il manque des débits
+  // La date décide du mois où le montant tombe dans la trésorerie. Un relevé est
+  // souvent arrêté les tout premiers jours du mois suivant : proposer sa date
+  // ferait basculer les mouvements du mois écoulé sur le mois d'après, et le
+  // chemin mensuel — ce que la trésorerie regarde — serait faux d'un mois.
+  const finMoisPrec=iso=>{const d=new Date(iso+"T12:00:00");d.setDate(0);
+    return d.getFullYear()+"-"+MOS[d.getMonth()]+"-"+String(d.getDate()).padStart(2,"0")};
+  const jourB=parseInt(String(b.d).substring(8,10),10);
+  const parDefaut=jourB<=5?finMoisPrec(b.d):b.d;
+  const dt=prompt("Date de l'écriture de régularisation :\n\n"
+    +"Elle décide du mois où le montant tombe dans la trésorerie.\n"
+    +(jourB<=5?"Le relevé est arrêté au "+b.d+", en début de mois : les mouvements\n"
+              +"concernent surtout le mois précédent, d'où la date proposée.\n":"")
+    +"\nPour répartir sur plusieurs mois, créez plutôt un point de contrôle par mois.",parDefaut);
+  if(!dt||!/^\d{4}-\d{2}-\d{2}$/.test(dt.trim())){if(dt!==null)alert("Date invalide.");return}
+  if(!confirm("Créer une écriture de "+(deb?"CHARGE":"PRODUIT")+" de "+fmt(Math.abs(manque))+" au "+dt.trim()+" ?\n\n"
+    +"Elle remplace en bloc les écritures non importées du "+a.d+" au "+b.d+".\n\n"
+    +"Ce que cela répare : le solde bancaire, le chemin mensuel de trésorerie,\n"
+    +"les totaux de charges et de produits de l'exercice.\n\n"
+    +"Ce que cela ne donne pas : le détail par compte comptable, par code projet,\n"
+    +"ni le rapprochement des subventions avec Airtable.\n\n"
+    +"⚠️ Si vous réimportez un jour les relevés de cette période, SUPPRIMEZ cette\n"
+    +"ligne : sinon les montants seraient comptés deux fois.\n\nAnnulable avec ↩️."))return;
+  pushUndo();
+  const m=Math.abs(manque);
+  D.rows.push({id:"reg"+Date.now(),dt:dt.trim(),yr:yrOf(dt.trim()),
+    lib:"RÉGULARISATION — écritures non importées du "+a.d+" au "+b.d,
+    four:"",cat:"",act:"",deb:deb?m:null,cre:deb?null:m,
+    modal:"Régularisation",stat:"Classé - Régularisation",resp:"",numj:"",ndf:"",src:"regul",compte:"cc",
+    comment:"Montant global calculé sur les points de contrôle bancaires ("+fmt(a.mt)+" au "+a.d
+      +" → "+fmt(b.mt)+" au "+b.d+"). À supprimer si les relevés de la période sont réimportés."});
+  autoSave();render();
+  alert("✅ Écriture de régularisation créée : "+(deb?"charge":"produit")+" de "+fmt(m)+" au "+dt.trim()
+    +"\n\nLe point de contrôle du "+b.d+" doit maintenant afficher ✓ 0,00 €.\n\nPensez à ☁️ Sauvegarder.");
+}
+function srDelRegul(id){
+  const r=(D.rows||[]).find(x=>x.id===id);if(!r)return;
+  if(!confirm("Supprimer cette écriture de régularisation ?\n\n   "+r.lib+"\n   "+fmt(r.deb||r.cre)
+    +"\n\nÀ faire si vous avez réimporté les relevés de la période.\nAnnulable avec ↩️."))return;
+  pushUndo();D.rows=D.rows.filter(x=>x.id!==id);autoSave();render();
+}
 function srBloc(){
   srNorm();
   const pts=D.soldesRef;
@@ -4786,8 +4842,14 @@ function srBloc(){
         l'outil de <strong>${fmt(varOutil)}</strong> sur ${rb.n-ra.n} écriture(s).
         ${ok?"Les écritures de cette période sont complètes."
             :`<strong style="color:var(--amber)">Il manque ${fmt(manque)} d'écritures sur cette période</strong>
-              ${manque>0?"(des crédits absents, ou des débits en trop)":"(des débits absents, ou des crédits en trop)"} :
-              réimportez les relevés de la période — le dédoublonnage ne réajoutera que ce qui manque.`}
+              ${manque>0?"(des crédits absents, ou des débits en trop)":"(des débits absents, ou des crédits en trop)"}.
+              <br>Deux réparations : <strong>réimporter les relevés</strong> de la période — le dédoublonnage ne réajoutera que ce qui manque,
+              et vous gardez le détail par compte, par projet et le rapprochement Airtable —
+              ou <strong>une écriture de régularisation</strong> qui comble l'écart en bloc, sans ce détail.
+              <br><button class="b bd" style="font-size:8px;margin-top:4px" onclick="srRegul(${i})">➕ Écriture de régularisation de ${fmt(Math.abs(manque))}</button>`}
+        ${(()=>{const rg=(D.rows||[]).filter(x=>estRegul(x)&&String(x.dt||"")>a.d&&String(x.dt||"")<=b.d);
+          return rg.length?"<br>"+rg.map(x=>`<span style="color:var(--text-2)">↳ régularisation en place : ${fmt(x.deb||x.cre)} ${x.deb?"(charge)":"(produit)"} au ${String(x.dt).substring(0,10)}</span>
+            <button class="b bd" style="font-size:8px;padding:1px 4px;color:var(--red)" onclick="srDelRegul('${x.id}')" title="À supprimer si vous réimportez les relevés de la période">🗑</button>`).join("<br>"):""})()}
       </td></tr>`;
     }
     h+=`</tbody></table></div>`;
@@ -5971,8 +6033,8 @@ function render(){
   // Cartes de gauche : périmètre = année sélectionnée (statsYear). Les soldes bancaires restent toutes années.
   const inStatsYear=r=>statsYear==="all"||String(r.yr||"")===statsYear;
   const yRows=D.rows.filter(inStatsYear);
-  const classees=yRows.filter(r=>(r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r))).length;
-  const aClasser=yRows.filter(r=>!((r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)))&&(r.deb||r.cre)).length;
+  const classees=yRows.filter(r=>(r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)||estRegul(r))).length;
+  const aClasser=yRows.filter(r=>!((r.stat||"").startsWith("Classé")&&((r.cat&&r.act)||isVirInterne(r)||estRegul(r)))&&(r.deb||r.cre)).length;
   const justifManq=yRows.filter(r=>!(r.stat||"").startsWith("Classé")&&(r.deb||r.cre)).length;
   // Charges/Produits : hors virements internes (déplacements entre comptes, pas des flux réels)
   const ch=yRows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.deb||0)),0);const pr=yRows.reduce((s,r)=>s+(isVirInterne(r)?0:(r.cre||0)),0);
