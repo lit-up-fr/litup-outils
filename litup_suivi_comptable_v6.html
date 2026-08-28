@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-23d <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-23e <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -617,14 +617,42 @@ let openDD=null;
 // Codes projets triés dans l'ordre alphanumérique attendu par l'œil : BU9 avant BU85,
 // et non l'ordre de saisie. Le tri numérique de localeCompare s'en charge.
 // Résultat mis en cache : sans lui, la liste serait retriée deux fois par ligne du tableau.
-let _actCache=null;
-function invalidateActCache(){_actCache=null}
+let _actCache=null,_actPart=null;
+function invalidateActCache(){_actCache=null;_actPart=null}
 function actLabels(){
   if(_actCache)return _actCache;
   _actCache=D.acts.map(a=>typeof a==="string"?a:a.l)
     .filter(x=>x!==undefined&&x!==null)
     .sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true,sensitivity:"base"}));
   return _actCache;
+}
+// Codes transversaux (fonctionnement National / Sud / IDF, RH, laboratoire) :
+// proposés en tête de liste, avant les parcours. Reconnus sur le début du code,
+// avant le " - " : FG2026, FV2026, FP2026, RH2026, LAB2026. Aucun préfixe de
+// parcours ne commence par ces deux lettres (BU, LU, ME, F2F, EXP, UTY).
+const ACT_PFX_TRANSV=["FG","FV","FP","RH","LAB"];
+function actEstTransv(l){
+  const c=String(l||"").split(" - ")[0].trim().toUpperCase();
+  return ACT_PFX_TRANSV.some(p=>c.startsWith(p));
+}
+// Partition mise en cache : sans elle, elle serait recalculée à chaque ligne du tableau.
+function actPartition(){
+  if(_actPart)return _actPart;
+  const labels=actLabels();
+  _actPart={tr:labels.filter(actEstTransv),pa:labels.filter(l=>!actEstTransv(l))};
+  return _actPart;
+}
+// Options d'une liste déroulante Projet : « Transversal » puis « Parcours ».
+// Une valeur absente de la liste (ancien code, code saisi à la main) est conservée
+// telle quelle en première position, pour ne jamais l'effacer silencieusement.
+function actOptions(current,placeholder){
+  const P=actPartition(),cur=current||"";
+  const opt=l=>`<option${l===cur?" selected":""}>${l}</option>`;
+  const inconnu=cur&&!P.tr.includes(cur)&&!P.pa.includes(cur);
+  return(placeholder===null?"":`<option value="">${placeholder||"— Projet —"}</option>`)+
+    (inconnu?`<option selected>${cur}</option>`:"")+
+    (P.tr.length?'<optgroup label="Transversal">'+P.tr.map(opt).join("")+'</optgroup>':"")+
+    '<optgroup label="Parcours">'+P.pa.map(opt).join("")+'</optgroup>';
 }
 // Match NDF code to compta list by prefix (e.g. "BU85 - MIEJ MIEJ-9" → find "BU85" in actLabels)
 function matchAct(ndfCode){
@@ -657,8 +685,28 @@ function actEstValide(a){
   const l=String((typeof a==="string"?a:(a&&a.l))||"").trim();
   return !!l&&l.charAt(0)!=="-";
 }
+// Les codes de fonctionnement et RH n'existent pas dans Airtable : ce sont des
+// codes internes Lit uP, pas des parcours. Ils sont donc garantis ici, sinon ils
+// pourraient manquer selon l'historique de l'outil. LAB2026 vient d'Airtable
+// (« LAB2026 - Lit uP »), pour que son libellé reste celui de la base.
+const ACTS_TRANSV_FIXES=[
+  {l:"FG2026 - Fonctionnement National",t:"NAT"},
+  {l:"FV2026 - Fonctionnement Sud",t:"SUD"},
+  {l:"FP2026 - Fonctionnement IDF",t:"IDF"},
+  {l:"RH2026 - Ressources humaines",t:"NAT"}
+];
+// Comparaison sur le code seul : un libellé déjà personnalisé n'est pas dupliqué.
+function actCode(a){return String((typeof a==="string"?a:(a&&a.l))||"").split(" - ")[0].trim().toUpperCase()}
+function ensureActsTransv(){
+  const codes=new Set(D.acts.map(actCode));
+  let n=0;
+  ACTS_TRANSV_FIXES.forEach(a=>{if(!codes.has(actCode(a))){D.acts.push({l:a.l,t:a.t});n++}});
+  if(n)invalidateActCache();
+  return n;
+}
 function normActs(){
   D.acts=D.acts.map(a=>typeof a==="string"?{l:a,t:""}:a).filter(actEstValide);
+  ensureActsTransv();
   invalidateActCache();
 }
 
@@ -956,7 +1004,6 @@ $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const r
 
 // ─── NDF CODE PROJET RESOLUTION MODAL ───
 function showNdfCodeModal(unmatchedList,counts,imported,ndfCount,bankMatches){
-  const acts=actLabels();
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:700px">
     <h3>⚠️ Codes projets non reconnus dans les NDF</h3>
     <p style="font-size:11px;color:var(--text-2);margin-bottom:12px">${imported} sous-ligne(s) importées pour ${ndfCount} NDF. Les codes projets ci-dessous n'existent pas dans la configuration de l'outil. Pour chaque code, vous pouvez :</p>
@@ -974,7 +1021,7 @@ function showNdfCodeModal(unmatchedList,counts,imported,ndfCount,bankMatches){
       <td style="min-width:280px"><div style="display:flex;gap:4px;align-items:center">
         <select class="ms" id="ndfcode_${i}" style="flex:1">
           <option value="">— Ignorer (garder tel quel) —</option>
-          ${acts.map(a=>`<option value="${a}">${a}</option>`).join("")}
+          ${actOptions("",null)}
         </select>
         <button class="b bg" style="font-size:10px;padding:4px 6px" onclick="createActFromNdf(${i},'${code.replace(/'/g,"\\'")}')">+</button>
       </div></td></tr>`;
@@ -2082,7 +2129,7 @@ function rRH(el){
       const idx=D.rhAlloc.indexOf(a);
       h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
         <select class="ms" style="width:220px" onchange="D.rhAlloc[${idx}].act=this.value;autoSave();render()">
-          <option value="">— Code projet —</option>${actLabels().map(l=>`<option${l===a.act?" selected":""}>${l}</option>`).join("")}
+          ${actOptions(a.act,"— Code projet —")}
         </select>
         <input type="number" class="cj" style="width:60px;text-align:center" value="${a.pct||0}" min="0" max="100" onchange="D.rhAlloc[${idx}].pct=parseInt(this.value)||0;autoSave();render()">
         <span style="font-size:10px;color:#5c6a80">%</span>
@@ -2299,7 +2346,7 @@ function showCfgTab(tab){
       <input value="${r.match}" placeholder="Mot-clé" onchange="D.rules[${i}].match=this.value;autoSave()" style="flex:0 0 100px">
       <input value="${r.four}" placeholder="Fournisseur" onchange="D.rules[${i}].four=this.value;autoSave()" style="flex:0 0 90px">
       <select onchange="D.rules[${i}].cat=this.value;autoSave()" style="flex:1;min-width:150px"><option value="">— Comptable —</option>${D.cats.map(c=>`<option${c===r.cat?' selected':''}>${c}</option>`).join('')}</select>
-      <select onchange="D.rules[${i}].act=this.value;autoSave()" style="flex:1;min-width:140px"><option value="">— Projet —</option>${actLabels().map(a=>`<option${a===r.act?' selected':''}>${a}</option>`).join('')}</select>
+      <select onchange="D.rules[${i}].act=this.value;autoSave()" style="flex:1;min-width:140px">${actOptions(r.act)}</select>
       <button class="b br" onclick="D.rules.splice(${i},1);autoSave();showCfgTab('rules')">×</button></div>`});
     h+='</div><button class="b bg" style="margin-top:4px" onclick="D.rules.push({match:\'\',four:\'\',cat:\'\',act:\'\'});showCfgTab(\'rules\')">+ Règle</button>';
     ct.innerHTML=h;
@@ -3146,7 +3193,7 @@ function render(){
     h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")} — double-clic pour modifier" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'" ondblclick="editCell('${r.id}','lib')">${r.lib}</td>`;
     h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" list="dl_four" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
     h+=`<td style="min-width:150px"><select class="ms" id="cat_${r.id}" style="max-width:160px${!r.cat?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${r.cat&&!D.cats.includes(r.cat)?`<option selected>${r.cat}</option>`:""}${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" id="act_${r.id}" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)"><option value="">— Projet —</option>${r.act&&!actLabels().includes(r.act)?`<option selected>${r.act}</option>`:""}${actLabels().map(a=>`<option${a===r.act?" selected":""}>${a}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:150px"><select class="ms" id="act_${r.id}" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)">${actOptions(r.act)}</select></td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=finCellBtn(r);
