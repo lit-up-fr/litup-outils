@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25c <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25d <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -4045,12 +4045,34 @@ function tresConfirmerMois(coll){
   aConf.forEach(x=>{x.mtr=finMoisKey(x)});
   autoSave();render();
 }
+// ─── JUSQU'OÙ LE RÉALISÉ EST-IL CONNU ? ───
+// Le calendrier ne dit pas jusqu'où le relevé bancaire est importé. S'y fier
+// fait passer pour « mois sans dépense » un mois simplement pas encore chargé,
+// et la projection ampute alors un mois entier d'activité sans le dire.
+// La frontière du réalisé, c'est la dernière écriture importée.
+function derniereEcriture(){
+  let d="";
+  (D.rows||[]).forEach(r=>{
+    const x=String(r.dt||"").substring(0,10);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(x)&&x>d)d=x;
+  });
+  return d;
+}
 function rTreasury(el){
   const subs=D.airtableSubs||[],prestas=D.airtablePrestas||[];
   const win=tresFenetre(),N=win.length;
   const idxDe={};win.forEach((w,i)=>{idxDe[w.k]=i});
   const kNow=moisKeyDuJour();
   const roll=tresVue==="roll";
+  // Trois états pour un mois : entièrement couvert par la banque (réalisé
+  // fiable), mois du dernier relevé (réalisé partiel), non couvert (rien).
+  const dernBq=derniereEcriture(),kBq=dernBq?dernBq.substring(0,7):"";
+  const moisCouvert=w=>!!kBq&&w.k<=kBq;
+  // Le mois de la dernière écriture n'est incomplet que s'il est encore en cours :
+  // un relevé qui s'arrête sur un mois déjà écoulé le couvre en entier, et son
+  // réalisé vaut mieux que le prévisionnel dans la projection.
+  const moisPartiel=w=>!!kBq&&w.k===kBq&&kBq>=kNow;
+  const moisPlein=w=>moisCouvert(w)&&!moisPartiel(w);
 
   // Budget applicable à chaque année de la fenêtre
   const annees=[...new Set(win.map(w=>w.y))];
@@ -4186,8 +4208,34 @@ function rTreasury(el){
       = solde initial ${fmt(D.soldeInitial)} + ${nbAvant} écriture(s) réalisée(s) avant la fenêtre.</div>`;
   }
 
+  // ── État du réalisé : jusqu'où la banque est chargée, et ce qui en découle ──
+  {
+    const moisRetard=kBq?(parseInt(kNow.substring(0,4))*12+parseInt(kNow.substring(5,7)))
+                        -(parseInt(kBq.substring(0,4))*12+parseInt(kBq.substring(5,7))):0;
+    const partielAff=win.filter(moisPartiel).length>0;
+    if(!kBq){
+      h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:6px 8px;margin-bottom:8px">
+        ⚠️ Aucune écriture bancaire importée : les lignes de réalisé sont vides et « Solde projeté » n'apparaît pas.
+        Importez le relevé (📥 Import → 📥 Banque) ou chargez la dernière sauvegarde (🔄 Actualisation → ☁️ Dernière sauvegarde).</div>`;
+    }else{
+      const grave=moisRetard>=1;
+      h+=`<div style="font-size:9px;color:${grave?"var(--amber)":"var(--text-2)"};${grave?"background:var(--amber-bg);":"background:var(--bg-2);"}border:1px solid var(--border);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.7">
+        ${grave?"⚠️ ":""}<strong>Réalisé connu jusqu'au ${dernBq}</strong>`;
+      if(grave){
+        h+=` — soit ${moisRetard} mois de retard sur aujourd'hui. Les mois postérieurs affichent « — » et non 0 :
+          le réalisé n'est pas nul, il est absent. Réimportez le relevé pour que « Solde projeté » reste juste.`;
+      }else if(partielAff){
+        h+=` — le mois de ${MONAMES[parseInt(kBq.substring(5,7))-1]} est donc <strong>incomplet</strong> (marqué ◔).`;
+      }
+      h+=`<br>Dans « Solde projeté », un mois n'est remplacé par son réalisé que s'il est <strong>entièrement</strong> couvert par le relevé.
+        Le mois en cours garde son prévisionnel complet : un demi-mois de dépenses sous-estimerait le mois entier.
+        Les « Charges prévues » ne déduisent jamais les « Charges réelles » — ce sont deux lignes indépendantes, le plan et le fait.`;
+      h+='</div>';
+    }
+  }
+
   h+='<div style="overflow-x:auto"><table><thead><tr><th></th>';
-  win.forEach(w=>h+=`<th style="text-align:right;min-width:70px${w.k===kNow?";color:var(--accent);border-bottom:2px solid var(--accent)":""}" title="${w.k}${w.k===kNow?" · mois en cours":""}">${w.nom}</th>`);
+  win.forEach(w=>h+=`<th style="text-align:right;min-width:70px${w.k===kNow?";color:var(--accent);border-bottom:2px solid var(--accent)":""}" title="${w.k}${w.k===kNow?" · mois en cours":""}${moisPartiel(w)?" · réalisé partiel : banque chargée jusqu'au "+dernBq:""}">${w.nom}${moisPartiel(w)?'<span style="color:var(--amber)" title="Réalisé partiel">◔</span>':""}</th>`);
   h+='<th style="text-align:right;font-weight:700">TOTAL</th></tr></thead><tbody>';
 
   // Forecast charges
@@ -4198,8 +4246,9 @@ function rTreasury(el){
   // Real charges — uniquement les mois écoulés, un 0 sur un mois à venir n'est pas une information
   h+='<tr><td style="font-weight:600;color:var(--red)" title="Débits des écritures bancaires importées, hors virements internes">Charges réelles</td>';
   let totRC=0;win.forEach((w,i)=>{
-    if(w.k>kNow&&!realCh[i]){h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>';return}
-    totRC+=realCh[i];h+=`<td style="text-align:right;font-size:9px;color:var(--red)">${fmt(realCh[i])}</td>`});
+    if(!moisCouvert(w)&&!realCh[i]){h+=`<td style="text-align:right;font-size:8px;color:var(--text-3)" title="Aucune écriture importée pour ce mois${kBq?" (banque chargée jusqu'au "+dernBq+")":""}">—</td>`;return}
+    totRC+=realCh[i];
+    h+=`<td style="text-align:right;font-size:9px;color:var(--red)${moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""}"${moisPartiel(w)?` title="Mois incomplet : relevé importé jusqu'au ${dernBq}"`:""}>${fmt(realCh[i])}</td>`});
   h+=`<td style="text-align:right;font-weight:600;color:var(--red)">${fmt(totRC)}</td></tr>`;
 
   // Airtable subventions row
@@ -4219,8 +4268,9 @@ function rTreasury(el){
   // Real produits
   h+='<tr><td style="font-weight:600;color:var(--green)" title="Crédits des écritures bancaires importées, hors virements internes">Produits réels</td>';
   let totRP=0;win.forEach((w,i)=>{
-    if(w.k>kNow&&!realPr[i]){h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>';return}
-    totRP+=realPr[i];h+=`<td style="text-align:right;font-size:9px;color:var(--green)">${fmt(realPr[i])}</td>`});
+    if(!moisCouvert(w)&&!realPr[i]){h+=`<td style="text-align:right;font-size:8px;color:var(--text-3)" title="Aucune écriture importée pour ce mois${kBq?" (banque chargée jusqu'au "+dernBq+")":""}">—</td>`;return}
+    totRP+=realPr[i];
+    h+=`<td style="text-align:right;font-size:9px;color:var(--green)${moisPartiel(w)?";border-bottom:1px dotted var(--amber)":""}"${moisPartiel(w)?` title="Mois incomplet : relevé importé jusqu'au ${dernBq}"`:""}>${fmt(realPr[i])}</td>`});
   h+=`<td style="text-align:right;font-weight:600;color:var(--green)">${fmt(totRP)}</td></tr>`;
 
   // Solde prévisionnel cumulé
@@ -4232,21 +4282,23 @@ function rTreasury(el){
   // Solde réel cumulé
   h+='<tr><td style="font-weight:700">Solde réel cumulé</td>';
   let soldeR=soldeDebut;
-  win.forEach((w,i)=>{if(w.k<=kNow){soldeR+=realPr[i]-realCh[i];
-    h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"var(--green)":"var(--red)"}">${fmt(soldeR)}</td>`}
+  win.forEach((w,i)=>{if(moisCouvert(w)){soldeR+=realPr[i]-realCh[i];
+    h+=`<td style="text-align:right;font-weight:600;color:${soldeR>=0?"var(--green)":"var(--red)"}"${moisPartiel(w)?` title="Solde au ${dernBq}, dernière écriture importée"`:""}>${fmt(soldeR)}${moisPartiel(w)?"*":""}</td>`}
     else h+='<td style="text-align:right;font-size:8px;color:var(--text-3)">—</td>'});
   h+=`<td></td></tr>`;
 
   // Solde projeté : le réalisé sur les mois clos, le prévisionnel ensuite.
   // C'est la ligne sur laquelle piloter : le solde prévu ignore ce qui s'est
   // réellement passé, le solde réel s'arrête au mois courant.
-  const moisClos=w=>w.k<kNow;
-  if(win.some(moisClos)){
-    h+='<tr style="background:var(--accent-bg)"><td style="font-weight:700" title="Réalisé sur les mois déjà clos, prévisionnel à partir du mois en cours">Solde projeté</td>';
+  // Un mois n'est remplacé par son réalisé que s'il est entièrement couvert par
+  // le relevé. Le mois du dernier relevé garde son prévisionnel : un demi-mois
+  // de dépenses réelles sous-estimerait le mois entier.
+  if(win.some(moisPlein)){
+    h+=`<tr style="background:var(--accent-bg)"><td style="font-weight:700" title="Réalisé sur les mois entièrement couverts par le relevé bancaire (jusqu'au ${dernBq}), prévisionnel ensuite">Solde projeté</td>`;
     let sp=soldeDebut;
     win.forEach((w,i)=>{
-      sp+=moisClos(w)?(realPr[i]-realCh[i]):(totForecastPr[i]-forecastCh[i]);
-      h+=`<td style="text-align:right;font-weight:600;color:${sp>=0?"var(--green)":"var(--red)"}">${fmt(sp)}</td>`});
+      sp+=moisPlein(w)?(realPr[i]-realCh[i]):(totForecastPr[i]-forecastCh[i]);
+      h+=`<td style="text-align:right;font-weight:600;color:${sp>=0?"var(--green)":"var(--red)"}"${moisPlein(w)?"":' title="Prévisionnel"'}>${fmt(sp)}</td>`});
     h+=`<td style="text-align:right;font-weight:700;color:${sp>=0?"var(--green)":"var(--red)"}">${fmt(sp)}</td></tr>`;
   }
 
@@ -4254,11 +4306,23 @@ function rTreasury(el){
   h+='<tr><td style="font-weight:600">Écart</td>';
   let sF2=soldeDebut,sR2=soldeDebut;
   win.forEach((w,i)=>{sF2+=totForecastPr[i]-forecastCh[i];
-    if(w.k<=kNow){sR2+=realPr[i]-realCh[i];const diff=sR2-sF2;
+    if(moisCouvert(w)){sR2+=realPr[i]-realCh[i];const diff=sR2-sF2;
       h+=`<td style="text-align:right;font-size:9px;font-weight:600;color:${diff>=0?"var(--green)":"var(--red)"}">${diff>=0?"+":""}${fmt(diff)}</td>`}
     else h+='<td></td>'});
   h+='<td></td></tr>';
   h+='</tbody></table></div>';
+  // Le mois en cours garde son prévisionnel : si le réalisé partiel le dépasse
+  // déjà, le prévisionnel de ce mois est acquis d'avance et la projection est
+  // optimiste. C'est le signal utile, autant le dire.
+  {
+    const ip=win.findIndex(moisPartiel);
+    if(ip>=0&&realCh[ip]>forecastCh[ip]+0.5){
+      h+=`<div style="font-size:9px;color:var(--amber);margin-top:6px">
+        ⚠️ ${win[ip].nom} : ${fmt(realCh[ip])} de charges déjà décaissées au ${dernBq}, pour ${fmt(forecastCh[ip])} prévues sur le mois entier
+        (dépassement de ${fmt(realCh[ip]-forecastCh[ip])}, et le mois n'est pas fini).
+        « Solde projeté » retient le prévisionnel pour ce mois : il est donc optimiste d'au moins autant.</div>`;
+    }
+  }
   if(!nbReal){
     h+=`<div style="font-size:9px;color:var(--amber);margin-top:6px">
       ⚠️ Aucune écriture bancaire ne tombe dans cette fenêtre : les lignes de réalisé sont donc vides.
