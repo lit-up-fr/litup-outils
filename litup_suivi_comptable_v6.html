@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25n <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25o <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -4716,6 +4716,30 @@ function srAncrer(i){
   autoSave();render();
   alert("✅ Point de départ fixé au "+x.d+" : "+fmt(x.mt)+"\n\nPensez à ☁️ Sauvegarder.");
 }
+// Étiquette en bloc les virements entre comptes propres repérés en trésorerie.
+// La colonne « Mod. » reste modifiable ligne par ligne dans le Classement.
+function tagVirInternes(){
+  const suspects=(D.rows||[]).filter(r=>!isVirInterne(r)&&estCC(r)
+    &&/LIVRET|EUROCOMPTE|ASSOCIATION LIT ?UP|COMPTE A TERME|CPTE A TERME/i.test(String(r.lib||"")));
+  if(!suspects.length)return;
+  if(!confirm("Étiqueter "+suspects.length+" écriture(s) comme « Virement interne » ?\n\n"
+    +suspects.slice(0,10).map(r=>"  "+String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,52)).join("\n")
+    +(suspects.length>10?"\n  … et "+(suspects.length-10)+" autre(s)":"")
+    +"\n\nElles sortiront des charges et des produits — de la trésorerie comme du compte de\n"
+    +"résultat — mais resteront comptées dans le solde bancaire, ce qui est correct :\n"
+    +"l'argent bouge vraiment, il ne devient simplement ni une recette ni une dépense.\n\n"
+    +"⚠️ Vérifiez la liste : une vraie subvention étiquetée par erreur disparaîtrait de vos recettes.\n"
+    +"Annulable avec ↩️."))return;
+  pushUndo();
+  suspects.forEach(r=>{
+    const versLivret=(r.deb||0)>0;
+    r.modal=/COMPTE A TERME|CPTE A TERME/i.test(String(r.lib||""))?"Virement interne Cpte à terme"
+           :("Virement interne C/C"+(versLivret?"→":"←")+"Livret");
+    if(!r.stat||String(r.stat).includes("manquant"))r.stat="Classé - Virement interne";
+  });
+  autoSave();render();
+  alert("✅ "+suspects.length+" écriture(s) étiquetée(s).\n\nPensez à ☁️ Sauvegarder.");
+}
 function srBloc(){
   srNorm();
   const pts=D.soldesRef;
@@ -5073,6 +5097,29 @@ function rTreasury(el){
     pour ne pas compter deux fois le même euro. Prévi. vs Réalisé affiche le budget entier.
     Les produits prévus d'une même version diffèrent donc entre les deux onglets, et c'est normal.
     </div></details>`;
+
+  // ── Virements entre comptes propres non étiquetés ──
+  // detMod range tout libellé commençant par « VIR » en « Virement émis ».
+  // Un virement du livret vers le compte courant (« VIR DE ASSOCIATION LIT UP »,
+  // « VIR C/C EUROCOMPTE ») est donc compté comme un vrai produit : il gonfle
+  // les recettes de l'exercice alors qu'il ne fait que déplacer de l'argent.
+  {
+    const suspects=(D.rows||[]).filter(r=>!isVirInterne(r)&&estCC(r)
+      &&/LIVRET|EUROCOMPTE|ASSOCIATION LIT ?UP|COMPTE A TERME|CPTE A TERME/i.test(String(r.lib||"")));
+    if(suspects.length){
+      const net=suspects.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+      h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:7px 9px;margin-bottom:8px;line-height:1.7">
+        ⚠️ <strong>${suspects.length} écriture(s) ressemblent à des virements entre vos propres comptes</strong>
+        sans être étiquetées « Virement interne » (${fmt(net)} net).
+        Elles sont donc comptées comme de vraies charges ou de vrais produits, ici comme dans ⚖️ Prévi. vs Réalisé,
+        alors qu'elles ne font que déplacer de l'argent.
+        <br>${suspects.slice(0,6).map(r=>String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,52)+" · "+fmt((r.cre||0)-(r.deb||0))).join("<br>")}
+        ${suspects.length>6?"<br>… et "+(suspects.length-6)+" autre(s)":""}
+        <br><button class="b bd" style="font-size:8px;margin-top:5px" onclick="tagVirInternes()">🏷️ Étiqueter comme virements internes</button>
+        <span style="color:var(--text-3)"> — à ne faire que si ce sont bien des mouvements entre vos comptes. Annulable avec ↩️.</span>
+      </div>`;
+    }
+  }
 
   h+=srBloc();
 
