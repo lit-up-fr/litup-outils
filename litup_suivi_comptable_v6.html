@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24l <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24m <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1673,9 +1673,12 @@ function finYearList(f){
     const out=[];for(let y=a;y<=b&&y-a<8;y++)out.push(String(y));
     return out;
   }
-  const y=String(f.yr||"").trim();if(/^\d{4}$/.test(y))return [y];
+  const y=String(finAnnee(f)).trim();if(/^\d{4}$/.test(y))return [y];
   const d=String(f.dp||"");return /^\d{4}/.test(d)?[d.substring(0,4)]:[];
 }
+// Année d'affectation : la saisie manuelle (yrM) prime sur celle qu'Airtable
+// déduit des dates de financement (yr), et lui survit à chaque synchro.
+function finAnnee(f){return String((f&&(f.yrM||f.yr))||"")}
 function finYear(f){const l=finYearList(f);return l.length?(l.length>1?l[0]+"→"+l[l.length-1]:l[0]):""}
 function finBtnLabel(f){const y=finYear(f);return (f.type==="Presta"?"🏢":"📋")+" "+(f.fr||f.n)+" · "+fmt(finAmt(f))+(f.s?" · "+f.s:"")+(y?" · "+y:"")}
 function finPickC(){let c=$("pickC");if(!c){c=document.createElement("div");c.id="pickC";document.body.appendChild(c)}return c}
@@ -3777,6 +3780,21 @@ function rTreasury(el){
   h+=`<label><input type="checkbox" ${tresFilt.sollicitee?"checked":""} onchange="tresFilt.sollicitee=this.checked;render()"> 🟠 Sollicitées</label>`;
   h+=`</div>`;
 
+  // Mois retenu pour la trésorerie. Le choix manuel prime, sinon la date de
+  // versement effective, sinon la date prévue d'Airtable. Rend -1 quand rien ne
+  // rattache le versement à l'exercice affiché.
+  // Avant, seule s.dp (effective ou prévue, confondues) était lue et tout
+  // financement sans date disparaissait du prévisionnel de trésorerie sans trace.
+  const finMoisTres=(x,annee)=>{
+    const o=String(x.mtr||"");
+    if(o==="hors")return -1;
+    if(/^\d{4}-\d{2}$/.test(o))return o.substring(0,4)===String(annee)?parseInt(o.substring(5,7))-1:-1;
+    const d=String(x.dev||x.dpv||x.dp||"");
+    if(d.substring(0,4)===String(annee)){const m=parseInt(d.substring(5,7));if(m>=1&&m<=12)return m-1}
+    return -1;
+  };
+  const finSansDate=x=>!String(x.dev||x.dpv||x.dp||"").trim();
+
   // Filters from state
   const fV=tresFilt.versee,fA2=tresFilt.validee;
   const fAt=tresFilt.attente,fS=tresFilt.sollicitee;
@@ -3795,23 +3813,26 @@ function rTreasury(el){
   });
 
   // Subventions from Airtable (with filters)
+  const subsSansMois=[];
   subs.forEach(s=>{
-    const dp=s.dp||"";if(!dp.startsWith(compYear))return;
     const show=(s.s==="versée"&&fV)||(s.s==="validée"&&fA2)||(s.s==="attente"&&fAt)||(s.s==="sollicitée"&&fS);
     if(!show)return;
-    const mi=parseInt(dp.substring(5,7))-1;
-    if(mi>=0&&mi<12)airtableSub[mi]+=finAmt(s);
+    const mi=finMoisTres(s,compYear);
+    if(mi>=0&&mi<12){airtableSub[mi]+=finAmt(s);return}
+    // Sans date et sans mois choisi : à signaler, pas à faire disparaître
+    if(finSansDate(s)&&String(s.mtr||"")!=="hors")subsSansMois.push(s);
   });
 
   // Prestations from Airtable (with filters: signé/payé=validée, facturé=validée, négo=sollicitée)
+  const prestasSansMois=[];
   prestas.forEach(p=>{
-    const dp=p.dp||"";if(!dp.startsWith(compYear))return;
     const isConfirmed=p.s==="signé"||p.s==="payé"||p.s==="facturé";
     const isNego=p.s==="négo";
     const show=(isConfirmed&&(fA2||fV))||(isNego&&fS);
     if(!show)return;
-    const mi=parseInt(dp.substring(5,7))-1;
-    if(mi>=0&&mi<12)airtablePrest[mi]+=finAmt(p);
+    const mi=finMoisTres(p,compYear);
+    if(mi>=0&&mi<12){airtablePrest[mi]+=finAmt(p);return}
+    if(finSansDate(p)&&String(p.mtr||"")!=="hors")prestasSansMois.push(p);
   });
 
   // Non-subvention/presta produits from budget (dons, cotisations, etc.)
@@ -3887,37 +3908,94 @@ function rTreasury(el){
     else h+='<td></td>'});
   h+='<td></td></tr>';
 
+  // Sélecteur du mois de trésorerie d'un financement.
+  const moisSel=(coll,i,x)=>{
+    const cur=String(x.mtr||"");
+    const auto=finSansDate(x)?"":(String(x.dev||x.dpv||x.dp||"").substring(0,7));
+    const o=[`<option value=""${cur?"":" selected"}>${auto?"auto · "+auto:"— à affecter —"}</option>`];
+    MONAMES.forEach((nm,mi)=>{const v=compYear+"-"+MOS[mi];
+      o.push(`<option value="${v}"${cur===v?" selected":""}>${nm} ${compYear}</option>`)});
+    o.push(`<option value="hors"${cur==="hors"?" selected":""}>hors exercice</option>`);
+    return `<select class="ms" style="min-width:104px${cur?";border-color:var(--accent)":(auto?"":";border-color:var(--amber)")}"
+      title="Mois où ce versement est attendu en trésorerie. « auto » suit la date Airtable."
+      onchange="D.${coll}[${i}].mtr=this.value;autoSave();render()">${o.join("")}</select>`;
+  };
+
   // Détail subventions Airtable
   h+='</tbody></table></div>';
   if(subs.length){
     h+='<h4 style="font-size:11px;margin:16px 0 6px">📋 Détail subventions Airtable (versements '+compYear+')</h4>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Financeur</th><th>Statut</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th>Date prévue</th><th>Territoire</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Financeur</th><th>Statut</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th><th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Territoire</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
     const statColors={versée:"#22c55e",validée:"#60a5fa",attente:"#facc15",sollicitée:"#fb923c"};
-    subs.filter(s=>(s.dp||"").startsWith(compYear)).sort((a,b)=>(a.dp||"").localeCompare(b.dp||"")).forEach((s,idx)=>{
+    // On liste les versements rattachés à l'exercice, et ceux sans aucune date :
+    // ces derniers n'apparaissaient nulle part alors qu'ils sont attendus.
+    const subsAff=subs.filter(s=>finMoisTres(s,compYear)>=0||(finSansDate(s)&&String(s.mtr||"")!=="hors"))
+      .sort((a,b)=>{const ma=finMoisTres(a,compYear),mb=finMoisTres(b,compYear);
+        if(ma!==mb)return (ma<0?99:ma)-(mb<0?99:mb);
+        return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
+    subsAff.forEach(s=>{
       const col=statColors[s.s]||"#94a3b8";
-      const si=subs.indexOf(s);const yr=s.yr||compYear;const cc=s.cc||"";
-      h+=`<tr><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td><td style="text-align:right;font-size:9px">${fmt(s.mt)}</td><td style="text-align:right;font-size:9px">${s.ob?fmt(s.ob):""}</td><td style="font-size:9px">${s.dp||""}</td><td style="font-size:9px">${s.t||""}</td>`;
-      h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtableSubs[${si}].yr=this.value;autoSave()"></td>`;
+      const si=subs.indexOf(s);const yr=finAnnee(s)||compYear;const cc=s.cc||"";
+      const sansMois=finMoisTres(s,compYear)<0;
+      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${s.n}</td><td style="font-size:9px;color:${col};font-weight:600">${s.s}</td><td style="text-align:right;font-size:9px">${fmt(s.mt)}</td><td style="text-align:right;font-size:9px">${s.ob?fmt(s.ob):""}</td>`;
+      h+=`<td style="font-size:9px${s.dpv&&!s.dev?";color:var(--blue);font-weight:600":""}">${s.dpv||"—"}</td>`;
+      h+=`<td style="font-size:9px;color:${s.dev?"var(--green)":"var(--text-3)"}">${s.dev||"—"}</td>`;
+      h+=`<td>${moisSel("airtableSubs",si,s)}</td>`;
+      h+=`<td style="font-size:9px">${s.t||""}</td>`;
+      h+=`<td><input class="cj" style="width:50px${s.yrM?";border-color:var(--accent)":""}" value="${yr}" title="${s.yrM?"Saisie manuelle : conservée aux prochaines synchros":"Déduit des dates de financement Airtable"}" onchange="D.airtableSubs[${si}].yrM=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtableSubs[${si}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totSub=subs.filter(s=>(s.dp||"").startsWith(compYear)).reduce((a,s)=>a+finAmt(s),0);
-    h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td style="text-align:right">${fmt(totSub)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    const totSub=subsAff.reduce((a,s)=>a+finAmt(s),0);
+    const totRet=subsAff.filter(s=>finMoisTres(s,compYear)>=0).reduce((a,s)=>a+finAmt(s),0);
+    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td></td><td style="text-align:right">${fmt(totSub)}</td><td colspan="2"></td>
+      <td style="font-size:9px;color:var(--text-3)">retenu en trésorerie</td>
+      <td style="text-align:right;font-size:9px;font-weight:700">${fmt(totRet)}</td><td colspan="3"></td></tr>`;
+    if(subsSansMois.length){
+      const t=subsSansMois.reduce((a,x)=>a+finAmt(x),0);
+      h+=`<tr><td colspan="10" style="font-size:9px;color:var(--amber);padding:5px 6px">
+        ⚠️ ${subsSansMois.length} subvention(s) sans date de versement dans Airtable, pour ${fmt(t)} :
+        elles ne sont pas comptées dans le prévisionnel tant qu'un mois n'est pas choisi ci-dessus
+        (ou « hors exercice » pour les écarter).</td></tr>`;
+    }
+    const horsEx=subs.filter(s=>finMoisTres(s,compYear)<0&&!finSansDate(s)&&String(s.mtr||"")!=="hors");
+    if(horsEx.length){
+      h+=`<tr><td colspan="10" style="font-size:9px;color:var(--text-3);padding:4px 6px">
+        ${horsEx.length} versement(s) daté(s) d'un autre exercice, non listé(s) ici (${fmt(horsEx.reduce((a,x)=>a+finAmt(x),0))}).
+        Pour en rattacher un à ${compYear}, changez l'exercice affiché puis choisissez son mois.</td></tr>`;
+    }
     h+='</tbody></table></div>';
   }
   // Détail prestations Airtable
   if(prestas.length){
     h+='<h4 style="font-size:11px;margin:16px 0 6px">🏢 Détail prestations Airtable ('+compYear+')</h4>';
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Commanditaire</th><th>Statut</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th>Date prévue</th><th>Parcours</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Commanditaire</th><th>Statut</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:right">Obtenu</th><th title="Date de versement prévue dans Airtable">Prévue</th><th title="Date de versement effective dans Airtable">Versée le</th><th title="Mois retenu dans le prévisionnel de trésorerie">Mois trésorerie</th><th>Parcours</th><th>Année affect.</th><th>Code comptable</th></tr></thead><tbody>';
     const pColors={payé:"#22c55e",signé:"#60a5fa",facturé:"#818cf8",négo:"#fb923c"};
-    prestas.filter(p=>(p.dp||"").startsWith(compYear)).sort((a,b)=>(a.dp||"").localeCompare(b.dp||"")).forEach(p=>{
+    const presAff=prestas.filter(p=>finMoisTres(p,compYear)>=0||(finSansDate(p)&&String(p.mtr||"")!=="hors"))
+      .sort((a,b)=>{const ma=finMoisTres(a,compYear),mb=finMoisTres(b,compYear);
+        if(ma!==mb)return (ma<0?99:ma)-(mb<0?99:mb);
+        return String(a.dpv||a.dev||"").localeCompare(String(b.dpv||b.dev||""))});
+    presAff.forEach(p=>{
       const col=pColors[p.s]||"#94a3b8";const pi=prestas.indexOf(p);
-      const yr=p.yr||compYear;const cc=p.cc||"";
-      h+=`<tr><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:#94a3b8">${p.tp||""}</td><td style="text-align:right;font-size:9px">${fmt(p.mt)}</td><td style="text-align:right;font-size:9px">${p.ob?fmt(p.ob):""}</td><td style="font-size:9px">${p.dp||""}</td><td style="font-size:8px;color:#94a3b8">${p.parc||""}</td>`;
-      h+=`<td><input class="cj" style="width:50px" value="${yr}" onchange="D.airtablePrestas[${pi}].yr=this.value;autoSave()"></td>`;
+      const yr=finAnnee(p)||compYear;const cc=p.cc||"";
+      const sansMois=finMoisTres(p,compYear)<0;
+      h+=`<tr${sansMois?' style="background:var(--amber-bg)"':""}><td style="font-size:9px">${p.n}</td><td style="font-size:9px;color:${col};font-weight:600">${p.s}</td><td style="font-size:8px;color:var(--text-2)">${p.tp||""}</td><td style="text-align:right;font-size:9px">${fmt(p.mt)}</td><td style="text-align:right;font-size:9px">${p.ob?fmt(p.ob):""}</td>`;
+      h+=`<td style="font-size:9px${p.dpv&&!p.dev?";color:var(--blue);font-weight:600":""}">${p.dpv||"—"}</td>`;
+      h+=`<td style="font-size:9px;color:${p.dev?"var(--green)":"var(--text-3)"}">${p.dev||"—"}</td>`;
+      h+=`<td>${moisSel("airtablePrestas",pi,p)}</td>`;
+      h+=`<td style="font-size:8px;color:var(--text-2)">${p.parc||""}</td>`;
+      h+=`<td><input class="cj" style="width:50px${p.yrM?";border-color:var(--accent)":""}" value="${yr}" title="${p.yrM?"Saisie manuelle : conservée aux prochaines synchros":"Déduit des dates Airtable"}" onchange="D.airtablePrestas[${pi}].yrM=this.value;autoSave()"></td>`;
       h+=`<td><select class="ms" style="min-width:100px" onchange="D.airtablePrestas[${pi}].cc=this.value;autoSave()"><option value="">—</option>${D.cats.filter(c=>c.startsWith("7")).map(c=>`<option${c===cc?" selected":""}>${c}</option>`).join("")}</select></td></tr>`;
     });
-    const totPres=prestas.filter(p=>(p.dp||"").startsWith(compYear)).reduce((a,p)=>a+finAmt(p),0);
-    h+=`<tr style="border-top:1px solid #2d3148;font-weight:600"><td>TOTAL</td><td></td><td></td><td style="text-align:right">${fmt(totPres)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    const totPres=presAff.reduce((a,p)=>a+finAmt(p),0);
+    const totPresRet=presAff.filter(p=>finMoisTres(p,compYear)>=0).reduce((a,p)=>a+finAmt(p),0);
+    h+=`<tr style="border-top:1px solid var(--border);font-weight:600"><td>TOTAL</td><td colspan="2"></td><td style="text-align:right">${fmt(totPres)}</td><td colspan="2"></td>
+      <td style="font-size:9px;color:var(--text-3)">retenu</td>
+      <td style="text-align:right;font-size:9px;font-weight:700">${fmt(totPresRet)}</td><td colspan="3"></td></tr>`;
+    if(prestasSansMois.length){
+      const t=prestasSansMois.reduce((a,x)=>a+finAmt(x),0);
+      h+=`<tr><td colspan="11" style="font-size:9px;color:var(--amber);padding:5px 6px">
+        ⚠️ ${prestasSansMois.length} prestation(s) sans date de versement, pour ${fmt(t)} : à affecter à un mois pour entrer dans le prévisionnel.</td></tr>`;
+    }
     h+='</tbody></table></div>';
   }
   h+='</div>';el.innerHTML=h;
@@ -3925,6 +4003,23 @@ function rTreasury(el){
 
 // ─── AIRTABLE SYNC ───
 // Actualisation directe via le backend Apps Script (jeton AIRTABLE_TOKEN côté serveur)
+// Les champs saisis dans l'outil n'existent pas dans Airtable : le compte
+// comptable mémorisé (cc), l'année d'affectation forcée (yrM) et le mois de
+// trésorerie (mtr). Une synchro remplaçait la liste entière et les effaçait.
+// On les reporte sur les enregistrements rafraîchis, appariés par nom.
+const FIN_CHAMPS_MANUELS=["cc","yrM","mtr"];
+function fusionneManuels(anciens,nouveaux){
+  const memo={};
+  (anciens||[]).forEach(x=>{
+    const k=String(x.n||"").trim();if(!k)return;
+    const m={};FIN_CHAMPS_MANUELS.forEach(f=>{if(x[f]!==undefined&&x[f]!=="")m[f]=x[f]});
+    if(Object.keys(m).length)memo[k]=m;
+  });
+  let n=0;
+  (nouveaux||[]).forEach(x=>{const m=memo[String(x.n||"").trim()];if(m){Object.assign(x,m);n++}});
+  return n;
+}
+
 // ─── ACTUALISATION AIRTABLE AU DÉMARRAGE (silencieuse) ───
 // Codes projets et financements (subventions / prestas) sont relus à chaque ouverture
 // de l'outil, sans bloquer l'affichage. Le bouton « ☁️ Airtable (codes + financements) »
@@ -3964,8 +4059,9 @@ async function autoSyncAirtable(){
       res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);added++}});
       if(added)invalidateActCache();
     }
-    if(res.subs)D.airtableSubs=res.subs;
-    if(res.prestas)D.airtablePrestas=res.prestas;
+    let gardes=0;
+    if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
+    if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
     atStatSet("✅ Airtable","#16a34a",
@@ -3995,8 +4091,9 @@ async function syncAirtable(){
       const existing=new Set(D.acts.map(a=>a.l.split(" - ")[0].trim()));
       res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);actsAdded++}});
     }
-    if(res.subs)D.airtableSubs=res.subs;
-    if(res.prestas)D.airtablePrestas=res.prestas;
+    let gardes=0;
+    if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
+    if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
     if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable(false)}
