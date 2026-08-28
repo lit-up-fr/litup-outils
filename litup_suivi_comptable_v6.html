@@ -148,7 +148,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24a <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-24c <span id="atStat" style="font-weight:600"></span></div></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -2136,7 +2136,11 @@ const RH_COMPTES = {
 const RH_COMPTES_NOUVEAUX = [RH_COMPTES.apprentissage, RH_COMPTES.taxeSalaires];
 
 const RH_TX_DEFAUT = {
-  ref: { mois:"2026-07", brut:13935.94, patronal:5801.77, reduc:1801.69, nb:5 },
+  // Deux références distinctes, chacune tirée d'un document du cabinet :
+  //  - le détail des cotisations de juillet 2026, pour le taux patronal global ;
+  //  - les bulletins d'août 2026, pour la réduction générale poste par poste.
+  ref: { moisPat:"2026-07", brutPat:13935.94, patronal:5801.77,
+         moisRed:"2026-08", brutRed:15083.33, reduc:1528.71, nb:5 },
   // Cotisations sociales patronales collectées par l'URSSAF → 64510000
   urssaf: [
     { l:"Maladie", t:7.00 }, { l:"Maladie (complément)", t:6.00 },
@@ -2164,11 +2168,19 @@ const RH_TX_DEFAUT = {
                   seuil1An:9229, seuil2An:18423, abattementAn:23616 },
   // Provision congés payés : 10 % du brut (2,5 j/mois), charges au taux patronal
   cp: { tauxProvision:10.0 },
-  // Réduction générale dégressive unique (réforme 2026). Barème linéaire :
-  // taux maximal au SMIC, nul au plafond. Calibré pour reproduire le
-  // bordereau de juillet 2026 — à affiner avec la ligne « réduction » des
-  // bulletins individuels, qui seule donne la vraie pente.
-  reduc: { max:17.93, plafondSmic:3.0, smicAn:21744, partRetraite:15.10 }
+  // Réduction générale dégressive unique (réforme 2026).
+  // Points relevés sur les bulletins d'août 2026, ligne « Exonérations de
+  // cotisations employeur » : 31 000 € → 401,51 et 400,56 €/mois (15,52 %),
+  // 35 000 € → 315,52 (10,82 %), 42 000 € → 205,51 et 205,61 (5,87 %).
+  // La courbe n'est ni linéaire ni hyperbolique : plutôt que de deviner la
+  // formule légale, on interpole entre les points constatés. Exact là où on a
+  // mesuré, raisonnable entre les mesures, et éditable.
+  //   21 744 € : extrapolé (aucun poste concerné aujourd'hui)
+  //   65 232 € : plafond légal 3 × SMIC, réduction nulle
+  reduc: { bareme:[ {brut:21744, taux:26.40}, {brut:31000, taux:15.52},
+                    {brut:35000, taux:10.82}, {brut:42000, taux:5.87},
+                    {brut:65232, taux:0} ],
+           partRetraite:15.10 }
 };
 
 if(!D.rhPostes) D.rhPostes=[];
@@ -2192,13 +2204,23 @@ function rhActif(p,ym){
   if(p.fin&&ym>String(p.fin))return false;
   return true;
 }
-// Taux de réduction générale applicable à un brut annuel (barème linéaire).
+// Taux de réduction générale applicable à un brut annuel : interpolation
+// linéaire entre les points du barème. En dessous du premier point on garde son
+// taux, au-dessus du dernier la réduction est nulle.
 function rhReducTaux(brutAn){
-  const r=D.rhTx.reduc||{},smic=parseFloat(r.smicAn)||0;
-  const P=smic*(parseFloat(r.plafondSmic)||1.6);
-  if(!smic||P<=smic||brutAn<=0)return 0;
-  const k=(P-brutAn)/(P-smic);
-  return Math.max(0,Math.min(1,k))*((parseFloat(r.max)||0)/100);
+  const pts=((D.rhTx.reduc||{}).bareme||[])
+    .map(x=>({b:parseFloat(x.brut)||0,t:parseFloat(x.taux)||0}))
+    .filter(x=>x.b>0).sort((a,b)=>a.b-b.b);
+  if(!pts.length||brutAn<=0)return 0;
+  if(brutAn<=pts[0].b)return pts[0].t/100;
+  for(let i=1;i<pts.length;i++){
+    if(brutAn<=pts[i].b){
+      const a=pts[i-1],c=pts[i];
+      if(c.b===a.b)return c.t/100;
+      return (a.t+(c.t-a.t)*(brutAn-a.b)/(c.b-a.b))/100;
+    }
+  }
+  return 0;
 }
 // Taxe sur les salaires théorique d'un poste sur un mois, avant abattement.
 function rhTsMois(brutMois){
@@ -2344,28 +2366,33 @@ function rhSetTx(path,v){
   autoSave();render();
 }
 function rhResetTx(){
-  if(!confirm("Rétablir la grille de taux calibrée sur juillet 2026 ?\n\nVos modifications de taux seront perdues (les postes ne sont pas touchés)."))return;
+  if(!confirm("Rétablir la grille de taux d'origine (bordereau juillet 2026 + bulletins août 2026) ?\n\nVos modifications de taux seront perdues (les postes ne sont pas touchés)."))return;
   pushUndo();D.rhTx=JSON.parse(JSON.stringify(RH_TX_DEFAUT));autoSave();render();
 }
-// Recale le taux maximal de réduction pour reproduire le mois de référence.
+// Recale le barème pour reproduire la réduction du mois de référence : tous les
+// points sont multipliés par le même facteur, la forme de la courbe est conservée.
 function rhCalibrerReduc(){
   const r=D.rhTx.reduc,ref=D.rhTx.ref;
   if(!ref||!ref.reduc){alert("Pas de mois de référence renseigné.");return}
-  // Somme des (part dégressive x brut mensuel) sur les postes actifs au mois de référence
-  let assiette=0;
+  let calc=0;
   D.rhPostes.forEach(p=>{
-    if(!rhActif(p,ref.mois))return;
-    const ba=rhBrutAnnuel(p,ref.mois);
-    const smic=parseFloat(r.smicAn)||0,P=smic*(parseFloat(r.plafondSmic)||1.6);
-    if(!smic||P<=smic)return;
-    assiette+=Math.max(0,Math.min(1,(P-ba)/(P-smic)))*(ba/12);
+    if(!rhActif(p,ref.moisRed))return;
+    const ba=rhBrutAnnuel(p,ref.moisRed);
+    calc+=rhReducTaux(ba)*(ba/12);
   });
-  if(assiette<=0){alert("Aucun poste actif en "+ref.mois+" : saisissez d'abord les postes.");return}
+  if(calc<=0){alert("Aucun poste actif en "+ref.moisRed+" avec une réduction : saisissez d'abord les postes.");return}
+  const k=ref.reduc/calc;
+  if(Math.abs(k-1)<0.001){alert("Le barème reproduit déjà "+fmt(ref.reduc)+" en "+ref.moisRed+" (écart "+((k-1)*100).toFixed(2)+" %).");return}
   pushUndo();
-  r.max=Math.round(ref.reduc/assiette*10000)/100;
+  (r.bareme||[]).forEach(x=>{x.taux=Math.round((parseFloat(x.taux)||0)*k*100)/100});
   autoSave();render();
-  alert("✅ Taux maximal recalé à "+r.max+" % pour retrouver "+fmt(ref.reduc)+" en "+ref.mois+".");
+  alert("✅ Barème recalé (× "+k.toFixed(4)+") pour retrouver "+fmt(ref.reduc)+" en "+ref.moisRed+".");
 }
+function rhAddBareme(){pushUndo();const b=D.rhTx.reduc.bareme;
+  b.push({brut:0,taux:0});autoSave();render()}
+function rhDelBareme(i){pushUndo();D.rhTx.reduc.bareme.splice(i,1);autoSave();render()}
+function rhSetBareme(i,f,v){const x=D.rhTx.reduc.bareme[i];if(!x)return;
+  x[f]=parseFloat(String(v).replace(",","."))||0;autoSave();render()}
 
 // ─── COMPTES MANQUANTS ───
 function rhComptesManquants(){
@@ -2628,12 +2655,13 @@ function rRH(el){
       <span style="font-size:9px;color:#64748b;width:44px">${unite}</span></div>`;
     h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <h4 style="font-size:12px;margin:0">Taux &amp; paramètres</h4>
-      <button class="b bd" style="font-size:9px" onclick="rhResetTx()">↩️ Rétablir la grille de juillet 2026</button>
+      <button class="b bd" style="font-size:9px" onclick="rhResetTx()">↩️ Rétablir la grille d'origine</button>
     </div>
     <p style="font-size:10px;color:#5c6a80;margin-bottom:12px;max-width:760px">
       Grille calibrée sur le détail des cotisations de <strong>juillet 2026</strong> :
       total patronal reconstruit à <strong>${fmt(T.ref.patronal)}</strong> sur un brut de
-      <strong>${fmt(T.ref.brut)}</strong>, soit <strong>${(T.ref.patronal/T.ref.brut*100).toFixed(2)} %</strong>.
+      <strong>${fmt(T.ref.brutPat)}</strong>, soit <strong>${(T.ref.patronal/T.ref.brutPat*100).toFixed(2)} %</strong>.
+      Réduction générale relevée sur les <strong>bulletins d'août 2026</strong>.
       Chaque valeur est modifiable : mettez-la à jour à chaque changement de taux.
     </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px">`;
@@ -2670,12 +2698,19 @@ function rRH(el){
       <div style="font-size:9px;color:#fbbf24;margin-top:4px">Seuils déduits du bordereau de juillet 2026. <strong>À faire confirmer par le cabinet :</strong> l'abattement s'applique-t-il, et sur quel montant ? C'est ce qui décide si la taxe coûte ${fmt(res.tsAn)} ou rien.</div></div>`;
 
     h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Réduction générale dégressive unique</div>
-      ${ligne("Taux maximal (au SMIC)","reduc.max","% brut")}
-      ${ligne("Plafond","reduc.plafondSmic","× SMIC","Brut annuel au-delà duquel la réduction est nulle")}
-      ${ligne("SMIC annuel brut","reduc.smicAn","€/an")}
-      ${ligne("Part imputée sur la retraite","reduc.partRetraite","%","Le reste vient en déduction des cotisations URSSAF")}
-      <button class="b bp" style="font-size:9px;margin-top:5px" onclick="rhCalibrerReduc()">🎯 Recaler sur ${T.ref.mois}</button>
-      <div style="font-size:9px;color:#fbbf24;margin-top:4px">Barème linéaire, calibré pour retrouver ${fmt(T.ref.reduc)} en ${T.ref.mois}. <strong>La pente reste à vérifier</strong> : elle décide du coût réel des augmentations. Un bulletin par poste, ligne « réduction », suffirait à la fixer.</div></div>`;
+      <div style="font-size:9px;color:#64748b;margin-bottom:4px">Barème dégressif : taux de réduction selon le brut annuel du poste, interpolé entre ces points.</div>
+      <div style="display:flex;gap:5px;font-size:8px;color:#64748b;margin-bottom:2px"><span style="width:86px">Brut annuel</span><span style="width:78px">Réduction</span></div>`;
+    (T.reduc.bareme||[]).forEach((x,i)=>{
+      h+=`<div style="display:flex;gap:5px;align-items:center;margin-bottom:2px">
+        <input class="ni" style="width:86px" value="${x.brut}" onchange="rhSetBareme(${i},'brut',this.value)">
+        <input class="ni" style="width:78px" value="${x.taux}" onchange="rhSetBareme(${i},'taux',this.value)">
+        <span style="font-size:9px;color:#64748b">% du brut</span>
+        <button class="ib" onclick="rhDelBareme(${i})">🗑</button></div>`;
+    });
+    h+=`<button class="b bd" style="font-size:8px" onclick="rhAddBareme()">+ Point</button>
+      <div style="margin-top:6px">${ligne("Part imputée sur la retraite","reduc.partRetraite","%","Le reste vient en déduction des cotisations URSSAF")}</div>
+      <button class="b bp" style="font-size:9px;margin-top:5px" onclick="rhCalibrerReduc()">🎯 Recaler sur ${T.ref.moisRed}</button>
+      <div style="font-size:9px;color:#4ade80;margin-top:4px">Points relevés sur les bulletins d'${T.ref.moisRed} : 31 000 € → 15,52 %, 35 000 € → 10,82 %, 42 000 € → 5,87 %. Les valeurs à 21 744 € et 65 232 € sont extrapolées (aucun poste concerné aujourd'hui).</div></div>`;
 
     h+=`<div class="scard"><div style="font-size:10px;font-weight:700;margin-bottom:5px">Congés payés</div>
       ${ligne("Provision","cp.tauxProvision","% brut","2,5 jours par mois = 10 % du brut")}
@@ -2868,7 +2903,14 @@ function mkSS(el,val,opts,ph,cb){el.innerHTML="";el.className="ss";
     const dd=document.createElement("div");dd.className="ss-dd";const s=document.createElement("input");s.className="ss-s";s.placeholder="Rechercher...";s.onclick=e=>e.stopPropagation();dd.appendChild(s);
     const ls=document.createElement("div");ls.style.cssText="overflow-y:auto;flex:1";dd.appendChild(ls);
     function rl(q){ls.innerHTML="";const no=document.createElement("div");no.className="ss-i";no.style.color="#64748b";no.textContent="— Aucun —";no.onclick=()=>{cb("");dd.remove();openDD=null};ls.appendChild(no);
-      opts.filter(o=>!q||o.toLowerCase().includes(q.toLowerCase())).slice(0,40).forEach(o=>{const it=document.createElement("div");it.className="ss-i"+(o===val?" sel":"");it.textContent=o;it.onclick=()=>{cb(o);dd.remove();openDD=null};ls.appendChild(it)})}
+      // La liste était tronquée à 40 entrées sans le dire : les comptes de
+      // produits (7xxxxxxx), classés après les charges, restaient invisibles.
+      // On monte la limite et, si elle mord, on l'affiche au lieu de la taire.
+      const LIM=250;
+      const f=opts.filter(o=>!q||o.toLowerCase().includes(q.toLowerCase()));
+      f.slice(0,LIM).forEach(o=>{const it=document.createElement("div");it.className="ss-i"+(o===val?" sel":"");it.textContent=o;it.onclick=()=>{cb(o);dd.remove();openDD=null};ls.appendChild(it)});
+      if(f.length>LIM){const w=document.createElement("div");w.className="ss-i";w.style.cssText="color:#fbbf24;cursor:default";
+        w.textContent="… "+(f.length-LIM)+" autre(s) : affinez la recherche";ls.appendChild(w)}}
     s.oninput=()=>rl(s.value);rl("");el.appendChild(dd);s.focus()};el.appendChild(d)}
 
 // ─── MISSING JUSTIFICATIFS ───
@@ -3030,10 +3072,32 @@ function rBudget(el){
   h+='</tbody></table></div>';el.innerHTML=h;
 
   // Init search selects for budget cats
-  D.budget.forEach((b,i)=>{const e=$("bc_"+i);if(e)mkSS(e,b.cat,D.cats,"Code comptable",v=>{D.budget[i].cat=v;sortBudget();autoSave();render()})});
+  D.budget.forEach((b,i)=>{const e=$("bc_"+i);if(!e)return;
+    // Une ligne de charge propose les comptes 6x, une ligne de produit les 7x.
+    const pfx=b.type==="charge"?"6":b.type==="produit"?"7":"";
+    const opts=pfx?D.cats.filter(c=>String(c).trim().charAt(0)===pfx):D.cats;
+    mkSS(e,b.cat,opts,b.type==="produit"?"Compte de produit":"Compte de charge",
+      v=>{D.budget[i].cat=v;sortBudget();autoSave();render()})});
 }
 
-function addBudgetLine(){D.budget.push({cat:"",type:"charge",versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]});sortBudget();autoSave();render()}
+// Le type conditionne les comptes proposés : on le demande à la création plutôt
+// que de forcer « charge » et laisser l'utilisatrice chercher les produits.
+function addBudgetLine(type){
+  if(!type){
+    $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:320px">
+      <h3>+ Nouvelle ligne de budget</h3>
+      <p style="font-size:11px;color:var(--text-2);margin:6px 0 12px">De quel type est cette ligne ? Le choix détermine les comptes proposés.</p>
+      <div style="display:flex;gap:6px">
+        <button class="b br" style="flex:1" onclick="closeM();addBudgetLine('charge')">Charge (comptes 6x)</button>
+        <button class="b bg" style="flex:1" onclick="closeM();addBudgetLine('produit')">Produit (comptes 7x)</button>
+      </div>
+      <button class="b bd" style="margin-top:8px;width:100%" onclick="closeM()">Annuler</button></div></div>`;
+    return;
+  }
+  pushUndo();
+  D.budget.push({cat:"",type,versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]});
+  sortBudget();autoSave();render();
+}
 function sortBudget(){D.budget.sort((a,b)=>{if(a.type!==b.type)return a.type==="charge"?-1:1;return(a.cat||"zzz").localeCompare(b.cat||"zzz")})}
 function budgetVerLabel(name){const d=new Date();const dt=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   return (name||"Budget révisé")+" · "+dt}
@@ -3146,7 +3210,15 @@ function rComp(el){
     h+=`<tr style="border-top:2px solid #6366f1;background:#151724"><td colspan="8" style="padding:5px 6px;font-size:9px;color:#fb923c">
       ⚠️ ${orphans.length} compte(s) avec du réalisé ${compYear} hors du tableau ci-dessus (net ${fmt(tot)}) :
       compte absent du budget, ou ligne budgétée à 0 sur la version « ${D.budgetVersions[vIdx]} » (les lignes à 0 ne sont pas listées).</td></tr>`;
-    orphans.forEach(({k,o,inBudget})=>{
+    // Mémorisé pour que le bouton « Budgéter » retrouve la ligne sans réencoder
+    // le libellé dans un attribut HTML (les codes comptables contiennent des
+    // apostrophes et des accents).
+    window._orph=orphans.map(({k,o,inBudget})=>{
+      const derniers=Object.keys(o.byMonth||{}).map(Number);
+      return { k, lbl:[...o.labels][0]||k, deb:o.deb, cre:o.cre, inBudget,
+               mois:derniers.sort((a,b)=>a-b), byMonth:o.byMonth||{} };
+    });
+    orphans.forEach(({k,o,inBudget},oi)=>{
       const lbl=[...o.labels][0]||k;
       h+=`<tr style="background:rgba(251,146,60,.06)"><td style="font-size:9px;font-weight:600">${lbl}</td>
         <td style="font-size:8px;color:#fb923c">${inBudget?"budgété à 0":"hors budget"}</td>
@@ -3155,7 +3227,12 @@ function rComp(el){
         <td style="text-align:right;font-weight:600;color:${o.cre>=o.deb?"#4ade80":"#f87171"}">${fmt(o.cre>=o.deb?o.cre:o.deb)}</td>
         <td style="text-align:right;font-size:9px;color:#64748b">—</td>
         <td style="font-size:8px;color:var(--text-3)">${o.labels.size>1?"⚠️ "+o.labels.size+" libellés différents pour ce code":""}</td>
-        <td style="font-size:9px" class="alert-warn">${inBudget?"🟠 à budgéter":"🟡 à rattacher"}</td></tr>`;
+        <td style="font-size:9px" class="alert-warn">${inBudget?"🟠 à budgéter":"🟡 à rattacher"}
+          ${/^\d{6,8}/.test(k)
+            ?`<button class="b bg" style="font-size:8px;padding:2px 6px;margin-left:4px" onclick="openBudgetFromReal(${oi})"
+                title="${inBudget?"Renseigner le montant de cette ligne dans le budget":"Créer la ligne dans le budget prévisionnel"}">${inBudget?"€ Budgéter":"+ Budgéter"}</button>`
+            :`<span style="font-size:8px;color:var(--text-3);margin-left:4px" title="Ce n'est pas un compte comptable : affectez d'abord ces écritures à un compte dans l'onglet Classement">pas un compte</span>`}
+        </td></tr>`;
     });
   }
   h+='</tbody></table></div>';el.innerHTML=h;
@@ -3405,6 +3482,86 @@ async function syncAirtable(){
     autoSave();render();
     if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)\n\nProposer une mise à jour du budget prévisionnel (produits) à partir de ces données ?\n(Pensez aussi à ☁️ Sauvegarder.)")){budgetFromAirtable(false)}
   }catch(e){closeM();alert("❌ Erreur : "+e.message)}
+}
+
+// ─── BUDGÉTER UN COMPTE DEPUIS LE RÉALISÉ ───
+// Depuis « Prévi. vs Réalisé », créer (ou compléter) la ligne de budget d'un
+// compte qui porte du réalisé sans budget. Le montant réalisé est proposé par
+// défaut, avec une extrapolation à l'année comme second choix.
+function openBudgetFromReal(oi){
+  const o=(window._orph||[])[oi];
+  if(!o){alert("Ligne introuvable — rafraîchissez l'onglet.");return}
+  const estProduit=o.cre>=o.deb;
+  const reel=estProduit?o.cre:o.deb;
+  // Extrapolation : réalisé rapporté au nombre de mois effectivement écoulés
+  const dernier=o.mois.length?o.mois[o.mois.length-1]+1:new Date().getMonth()+1;
+  const annualise=dernier>0?reel*12/dernier:reel;
+  const vIdx=curVerIdx();
+  const existe=D.budget.find(b=>catKey(b.cat)===o.k);
+  window._bfr={oi,estProduit,reel,annualise,dernier};
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:440px">
+    <h3>${existe?"€ Compléter la ligne de budget":"+ Créer la ligne de budget"}</h3>
+    <p style="font-size:11px;color:var(--text-2);margin:6px 0 10px">
+      <strong style="color:var(--text-1)">${o.lbl}</strong><br>
+      Réalisé ${compYear} : <strong>${fmt(reel)}</strong> sur ${dernier} mois${o.mois.length?"":" (aucun mois daté)"}.<br>
+      ${existe?"La ligne existe déjà dans le budget : son montant sera remplacé sur la version « "+D.budgetVersions[vIdx]+" »."
+              :"Elle sera ajoutée à la version « "+D.budgetVersions[vIdx]+" »."}
+    </p>
+    <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">
+      <span style="font-size:10px;width:70px;color:var(--text-2)">Type</span>
+      <select class="ms" id="bfr_type" style="flex:1">
+        <option value="charge"${estProduit?"":" selected"}>Charge</option>
+        <option value="produit"${estProduit?" selected":""}>Produit</option></select>
+    </div>
+    <div style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
+      <span style="font-size:10px;width:70px;color:var(--text-2)">Montant</span>
+      <input class="ni" id="bfr_amt" style="flex:1" value="${Math.round(reel)}">
+      <span style="font-size:10px;color:#64748b">€ / an</span>
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:10px;padding-left:75px">
+      <button class="b bd" style="font-size:9px" onclick="$('bfr_amt').value=${Math.round(reel)}">Réalisé ${fmt(reel)}</button>
+      ${dernier<12?`<button class="b bd" style="font-size:9px" onclick="$('bfr_amt').value=${Math.round(annualise)}" title="Réalisé rapporté à douze mois">Extrapolé ${fmt(annualise)}</button>`:""}
+    </div>
+    <div style="display:flex;gap:5px;align-items:center;margin-bottom:12px">
+      <span style="font-size:10px;width:70px;color:var(--text-2)">Étalement</span>
+      <select class="ms" id="bfr_season" style="flex:1">
+        <option value="lisse">Lissé sur douze mois</option>
+        <option value="reel"${o.mois.length&&o.mois.length<12?" selected":""}>Sur les mois où il y a du réalisé${o.mois.length?" ("+o.mois.length+")":""}</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="b bp" style="flex:1" onclick="applyBudgetFromReal()">${existe?"Mettre à jour":"Créer la ligne"}</button>
+      <button class="b bd" onclick="closeM()">Annuler</button>
+    </div>
+  </div></div>`;
+}
+function applyBudgetFromReal(){
+  const c=window._bfr;if(!c)return;
+  const o=(window._orph||[])[c.oi];if(!o)return;
+  const montant=parseFloat(String(($("bfr_amt")||{}).value||"").replace(",","."))||0;
+  const type=($("bfr_type")||{}).value||"charge";
+  const season=($("bfr_season")||{}).value||"lisse";
+  if(!montant){alert("Renseignez un montant.");return}
+  pushUndo();
+  const vIdx=curVerIdx();
+  let b=D.budget.find(x=>catKey(x.cat)===o.k);
+  const cree=!b;
+  if(!b){
+    // Libellé complet du compte s'il existe dans le plan, sinon celui du réalisé
+    const cat=D.cats.find(x=>catKey(x)===o.k)||o.lbl;
+    b={cat,type,versions:D.budgetVersions.map(()=>0),seasonMode:"lisse",months:[]};
+    D.budget.push(b);
+    if(!D.cats.some(x=>catKey(x)===o.k)){
+      D.cats.push(cat);
+      D.cats.sort((x,y)=>String(x).localeCompare(String(y),"fr",{numeric:true}));
+    }
+  }
+  b.type=type;
+  while(b.versions.length<=vIdx)b.versions.push(0);
+  b.versions[vIdx]=Math.round(montant);
+  if(season==="reel"&&o.mois.length&&o.mois.length<12){b.seasonMode="mois";b.months=o.mois.slice()}
+  else{b.seasonMode="lisse";b.months=[]}
+  sortBudget();autoSave();closeM();render();
 }
 
 // ─── BUDGET PRÉVISIONNEL : RECETTES DEPUIS AIRTABLE (ligne à ligne, à confirmer) ───
