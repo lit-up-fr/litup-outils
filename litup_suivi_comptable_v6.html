@@ -152,7 +152,8 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25i <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25j <span id="atStat" style="font-weight:600"></span></div></div>
+    <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -5094,6 +5095,41 @@ function finBackfillRids(){
 // de l'outil, sans bloquer l'affichage. Le bouton « ☁️ Airtable (codes + financements) »
 // fait la même chose à la demande, avec compte rendu et proposition de mise à jour
 // du budget prévisionnel.
+// ─── VERSION DU BACKEND APPS SCRIPT ───
+// L'outil et le backend évoluent séparément : le backend doit être recollé dans
+// l'éditeur Apps Script puis redéployé à la main. Plusieurs fonctionnalités
+// dépendaient d'un backend à jour sans qu'aucun écran ne le dise — le doute
+// pouvait durer des semaines. On compare donc les versions au démarrage.
+const BACKEND_ATTENDU="2026-08-28a";
+// Ce qu'apporte la version attendue, pour que l'avertissement soit actionnable.
+const BACKEND_APPORTS=[
+  "identifiant Airtable stable (rid) : un financement renommé ne casse plus son rapprochement bancaire",
+  "refus d'écraser une sauvegarde plus récente que celle que vous avez chargée",
+  "statut Airtable « clôturée » compté comme versée, et prestation « 5. paiement effectué » comptée comme versée",
+  "codes projets filtrés côté serveur (getCodesProjets) pour les outils NDF et dépenses"
+];
+let _backendVer=null;
+async function checkBackendVersion(){
+  try{
+    const r=await sheetAPI("version");
+    _backendVer=(r&&r.version)||"inconnue";
+  }catch(e){_backendVer="injoignable";return}
+  if(_backendVer===BACKEND_ATTENDU)return;
+  const el=$("backendWarn");if(!el)return;
+  el.style.display="";
+  el.innerHTML=`⚠️ Apps Script à redéployer <span style="font-weight:400;opacity:.85">(déployé : ${_backendVer} · attendu : ${BACKEND_ATTENDU})</span>`;
+  el.title="Le backend déployé n'est pas celui qu'attend cet outil.\n\nCe qui ne fonctionne pas tant qu'il n'est pas redéployé :\n• "
+    +BACKEND_APPORTS.join("\n• ")
+    +"\n\nMarche à suivre : ouvrir le Google Sheet → Extensions → Apps Script,\nremplacer tout le contenu de backend.gs par le fichier du dépôt,\npuis Déployer → Gérer les déploiements → ✏️ → Nouvelle version → Déployer.\n\nCliquer pour revoir ce message.";
+  el.onclick=()=>alert("⚠️ Apps Script à redéployer\n\nVersion déployée : "+_backendVer+"\nVersion attendue : "+BACKEND_ATTENDU
+    +"\n\nCe qui ne fonctionne pas en attendant :\n• "+BACKEND_APPORTS.join("\n• ")
+    +"\n\nMarche à suivre :\n1. Google Sheet → Extensions → Apps Script\n"
+    +"2. Ouvrir backend.gs, tout sélectionner (Ctrl+A) et remplacer par le fichier du dépôt\n"
+    +"   (github.com/lit-up-fr/litup-outils → apps-script/backend.gs → bouton Copy raw file)\n"
+    +"3. Enregistrer (Ctrl+S)\n"
+    +"4. Déployer → Gérer les déploiements → ✏️ (modifier) → Version : Nouvelle version → Déployer\n\n"
+    +"Le jeton AIRTABLE_TOKEN dans les propriétés du script n'est pas touché.");
+}
 let _atTimer=null;
 function atStatSet(txt,color,title){
   const el=$("atStat");if(!el)return;
@@ -6354,6 +6390,8 @@ appDemarree=true;majCloudBadge();
 // complète d'Airtable prend 15 à 40 s, inutile de la relancer à chaque
 // rechargement de page. Le menu 🔄 Actualisation → ☁️ Airtable la force.
 if(D.airtableSync!==new Date().toISOString().split("T")[0])autoSyncAirtable();
+// Contrôle de version du backend, en tâche de fond : ne bloque pas l'affichage.
+checkBackendVersion();
 </script>
 <div style="max-width:1200px;margin:20px auto;padding:16px 20px;border-radius:12px;border:1px solid var(--bd);background:var(--bg2);font-family:var(--sans);font-size:11px;line-height:2;color:var(--t2)">
   <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende</div>

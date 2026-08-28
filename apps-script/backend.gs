@@ -1,8 +1,15 @@
 // ============================================
 // Lit uP — Backend Google Apps Script
-// Version : 21 août 2026 (meta en tranches 45k + sync Airtable getAirtableData)
+// Version : 28 août 2026
 // Fichier versionné dans le repo : apps-script/backend.gs
+//
+// BACKEND_VERSION est renvoyée à l'outil, qui prévient en haut de l'écran quand
+// la version déployée ici ne correspond pas à celle qu'il attend. Sans ce
+// numéro, rien ne distinguait « fonctionnalité absente » de « backend pas
+// redéployé », et le doute pouvait durer des semaines.
+// ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
+var BACKEND_VERSION = "2026-08-28a";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -74,6 +81,7 @@ function handleRequest(e) {
       case "getAirtableData": result = getAirtableData(); break;
       case "listJustifFiles": result = listJustifFiles(); break;
       case "getCodesProjets": result = getCodesProjets(params); break;
+      case "version": result = { version: BACKEND_VERSION }; break;
       default: result = { error: "Action inconnue: " + action };
     }
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -365,7 +373,7 @@ function saveCompta(data) {
       metaChunks = setConfigChunked("compta_meta", JSON.stringify(data.meta));
     } catch(e) { metaError = e.message; }
   }
-  var result = { ok: true, saved: (data.rows||[]).length, metaChunks: metaChunks, timestamp: new Date().toISOString() };
+  var result = { ok: true, saved: (data.rows||[]).length, metaChunks: metaChunks, backendVersion: BACKEND_VERSION, timestamp: new Date().toISOString() };
   if (metaError) result.metaError = "Lignes sauvées mais métadonnées en échec : " + metaError;
   return result;
 }
