@@ -84,7 +84,12 @@ const CODES_COMPTA=[
 "65800000 - Charges diverses gestion courante","68112000 - Dot. amort. immobilisations corporelles"
 ];
 
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+// Groupe « Transversal » du menu : les codes fixes ci-dessus + les parcours
+// Airtable que le backend signale comme transversaux (ex. LAB2026).
+let CODES_TRANSV=CODES_FIXES.slice();
+try{const t=JSON.parse(localStorage.getItem("litup_codes_tr")||"null");
+  if(t&&t.length)CODES_TRANSV=[...new Set([...CODES_FIXES,...t])]}catch(e){}
 let CODES_PROJETS=JSON.parse(localStorage.getItem("litup_codes")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 
@@ -162,9 +167,9 @@ function comptaOptions(current){
 }
 
 function projetOptions(current){
-  const autres=[...CODES_PROJETS].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const autres=[...CODES_PROJETS].filter(c=>!CODES_TRANSV.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   let found=false;
-  const fixOpts=CODES_FIXES.map(c=>{const s=c===current;if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const fixOpts=CODES_TRANSV.map(c=>{const s=c===current;if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
   const autreOpts=autres.map(c=>{const s=c===current;if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
   const extra=current&&!found?`<option selected>${current}</option>`:"";
   return'<option value="">— Code projet —</option>'+
@@ -388,6 +393,10 @@ async function loadCodesFromSheet(refresh){
     if(nc&&nc.length){
       CODES_PROJETS=mergeCodes(nc);
       localStorage.setItem("litup_codes",JSON.stringify(CODES_PROJETS));
+      if(res&&res.transversaux&&res.transversaux.length){
+        CODES_TRANSV=[...new Set([...CODES_FIXES,...res.transversaux])];
+        localStorage.setItem("litup_codes_tr",JSON.stringify(res.transversaux));
+      }
       render();
       if(st){st.textContent="✅ "+CODES_PROJETS.length;st.style.color="#16a34a";
         st.title=CODES_PROJETS.length+" codes projets · source "+((res&&res.source)||"?");

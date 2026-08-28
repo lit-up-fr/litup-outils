@@ -624,9 +624,20 @@ var CODES_TRANSVERSAUX = [
   { l: "FG2026 - Fonctionnement National",  t: "NAT" },
   { l: "FV2026 - Fonctionnement Sud",       t: "SUD" },
   { l: "FP2026 - Fonctionnement IDF",       t: "IDF" },
-  { l: "RH2026 - Ressources humaines",      t: "NAT" },
-  { l: "LAB2026 - Laboratoire P\u00e9dagogique", t: "NAT" }
+  { l: "RH2026 - Ressources humaines",      t: "NAT" }
 ];
+
+// Parcours Airtable a classer dans le groupe "Transversal" plutot que "Parcours",
+// reperes par le debut de leur code (avant le " - " du libelle).
+// Ex. "LAB2026 - Lit uP" : le laboratoire pedagogique est transversal.
+var PARCOURS_PREFIXES_TRANSVERSAUX = ["LAB"];
+
+function parcoursEstTransversal_(libelle) {
+  var code = String(libelle || "").split(" - ")[0].trim().toUpperCase();
+  return PARCOURS_PREFIXES_TRANSVERSAUX.some(function(pfx) {
+    return code.indexOf(pfx) === 0;
+  });
+}
 
 // Filtre des parcours proposes dans les outils de saisie (depenses, notes de frais) :
 //   statut actif                    -> toujours propose
@@ -651,7 +662,7 @@ function parcoursActifs() {
   limite.setMonth(limite.getMonth() - PARCOURS_MOIS);
   var recs = airtableFetchAll(AIRTABLE_TBL_PARCOURS,
     [F_PAR.label, F_PAR.terr, F_PAR.statut, F_PAR.debut, F_PAR.fin], true);
-  var out = [], vus = {}, exclus = 0;
+  var out = [], transv = [], vus = {}, exclus = 0;
   recs.forEach(function(r) {
     var f = r.fields || {};
     var l = String(f[F_PAR.label] || "").replace(/\s+/g, " ").trim();
@@ -669,11 +680,16 @@ function parcoursActifs() {
     var k = l.toLowerCase();
     if (vus[k]) return;              // doublons de libelle : une seule entree
     vus[k] = 1;
-    out.push({ l: l, t: String(f[F_PAR.terr] || "NAT").trim() || "NAT" });
+    var o = { l: l, t: String(f[F_PAR.terr] || "NAT").trim() || "NAT" };
+    (parcoursEstTransversal_(l) ? transv : out).push(o);
   });
-  out.sort(function(a, b) { return a.l.localeCompare(b.l, "fr", { numeric: true }); });
-  return { acts: CODES_TRANSVERSAUX.concat(out),
-           lus: recs.length, retenus: out.length, exclus: exclus };
+  var parLibelle = function(a, b) { return a.l.localeCompare(b.l, "fr", { numeric: true }); };
+  transv.sort(parLibelle);
+  out.sort(parLibelle);
+  var tousTransv = CODES_TRANSVERSAUX.concat(transv);
+  return { acts: tousTransv.concat(out),
+           transversaux: tousTransv.map(function(a) { return a.l; }),
+           lus: recs.length, retenus: transv.length + out.length, exclus: exclus };
 }
 
 // Liste courte pour les outils de saisie (depenses, notes de frais).
@@ -687,15 +703,22 @@ function getCodesProjets(params) {
     if (c.value) {
       try {
         var arr = JSON.parse(c.value);
-        if (arr && arr.length) return { ok: true, codes: arr, source: "cache" };
+        if (arr && arr.length) {
+          var t = getConfig("codes_transversaux");
+          var tv = [];
+          if (t.value) { try { tv = JSON.parse(t.value) || []; } catch (e2) {} }
+          return { ok: true, codes: arr, transversaux: tv, source: "cache" };
+        }
       } catch (e) {}
     }
   }
   var res = parcoursActifs();
   var codes = res.acts.map(function(a) { return a.l; });
   setConfig("codes_projets", JSON.stringify(codes));
-  return { ok: true, codes: codes, source: "airtable", lus: res.lus,
-           retenus: res.retenus, syncedAt: new Date().toISOString() };
+  setConfig("codes_transversaux", JSON.stringify(res.transversaux));
+  return { ok: true, codes: codes, transversaux: res.transversaux,
+           source: "airtable", lus: res.lus, retenus: res.retenus,
+           syncedAt: new Date().toISOString() };
 }
 
 function airtableFetchAll(tableId, fields, byId) {

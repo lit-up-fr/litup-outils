@@ -139,7 +139,12 @@ async function sheetAPI(action,body,params){
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
 
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+// Groupe « Transversal » du menu : les codes fixes ci-dessus + les parcours
+// Airtable que le backend signale comme transversaux (ex. LAB2026).
+let CODES_TRANSV=CODES_FIXES.slice();
+try{const t=JSON.parse(localStorage.getItem("litup_codes_presta_tr")||"null");
+  if(t&&t.length)CODES_TRANSV=[...new Set([...CODES_FIXES,...t])]}catch(e){}
 let CODES=JSON.parse(localStorage.getItem("litup_codes_presta")||"null")||CODES_FIXES;
 function mergeCodes(nc){return[...new Set([...CODES_FIXES,...nc])]}
 // ─── CODES PROJETS ───
@@ -159,12 +164,16 @@ async function loadCodesFromSheet(refresh){
     if(nc&&nc.length){
       CODES=mergeCodes(nc);
       localStorage.setItem("litup_codes_presta",JSON.stringify(CODES));
+      if(res&&res.transversaux&&res.transversaux.length){
+        CODES_TRANSV=[...new Set([...CODES_FIXES,...res.transversaux])];
+        localStorage.setItem("litup_codes_presta_tr",JSON.stringify(res.transversaux));
+      }
       // Met à jour les listes déroulantes déjà rendues
       document.querySelectorAll("select[id^='code_']").forEach(sel=>{
         const val=sel.value;
-        const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+        const autres=[...CODES].filter(c=>!CODES_TRANSV.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
         sel.innerHTML='<option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>'+
-          '<optgroup label="Transversal">'+CODES_FIXES.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'+
+          '<optgroup label="Transversal">'+CODES_TRANSV.map(c=>`<option>${c}</option>`).join("")+'</optgroup>'+
           '<optgroup label="Parcours">'+autres.map(c=>`<option>${c}</option>`).join("")+'</optgroup>';
         if(val)sel.value=val;
       });
@@ -249,10 +258,10 @@ function handleDrop(e,idx){
 }
 
 function codeSelect(idx){
-  const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const autres=[...CODES].filter(c=>!CODES_TRANSV.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   return `<select class="inp" id="code_${idx}">
     <option value="">— Je ne sais pas —</option><option value="_inconnu">Code projet inconnu</option><option value="_absent">Pas de code projet</option>
-    <optgroup label="Transversal">${CODES_FIXES.map(c=>`<option>${c}</option>`).join("")}</optgroup>
+    <optgroup label="Transversal">${CODES_TRANSV.map(c=>`<option>${c}</option>`).join("")}</optgroup>
     <optgroup label="Parcours">${autres.map(c=>`<option>${c}</option>`).join("")}</optgroup>
   </select>`;
 }

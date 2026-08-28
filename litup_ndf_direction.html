@@ -69,7 +69,12 @@ const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 const STATUTS=["à traiter","validée","réglée","refusée"];
 const STY={"brouillon":{e:"📝",c:"#94a3b8"},"à envoyer":{e:"📨",c:"#d97706"},"envoyée":{e:"✉️",c:"#2563eb"},"à traiter":{e:"📋",c:"#2563eb"},"validée":{e:"✅",c:"#16a34a"},"réglée":{e:"💸",c:"#7c3aed"},"refusée":{e:"❌",c:"#dc2626"}};
-const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines","LAB2026 - Laboratoire Pédagogique"];
+const CODES_FIXES=["FG2026 - Fonctionnement National","FV2026 - Fonctionnement Sud","FP2026 - Fonctionnement IDF","RH2026 - Ressources humaines"];
+// Groupe « Transversal » du menu : les codes fixes ci-dessus + les parcours
+// Airtable que le backend signale comme transversaux (ex. LAB2026).
+let CODES_TRANSV=CODES_FIXES.slice();
+try{const t=JSON.parse(localStorage.getItem("litup_codes_dir_tr")||"null");
+  if(t&&t.length)CODES_TRANSV=[...new Set([...CODES_FIXES,...t])]}catch(e){}
 let CODES=JSON.parse(localStorage.getItem("litup_codes_dir")||"null")||CODES_FIXES;
 const EXPENSE_TYPES=[
   {l:"Fournitures pédagogiques",c:"60630000 - Fournitures entretien et petit outillage"},
@@ -104,6 +109,10 @@ async function loadCodesFromSheet(refresh){
     if(nc&&nc.length){
       CODES=mergeCodes(nc);
       localStorage.setItem("litup_codes_dir",JSON.stringify(CODES));
+      if(res&&res.transversaux&&res.transversaux.length){
+        CODES_TRANSV=[...new Set([...CODES_FIXES,...res.transversaux])];
+        localStorage.setItem("litup_codes_dir_tr",JSON.stringify(res.transversaux));
+      }
       
       if(st){st.textContent="✅ "+CODES.length;st.style.color="#16a34a";
         st.title=CODES.length+" codes projets · source "+((res&&res.source)||"?");
@@ -123,10 +132,10 @@ async function majCodes(){
 }
 
 function codeOptions(current){
-  const autres=[...CODES].filter(c=>!CODES_FIXES.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const autres=[...CODES].filter(c=>!CODES_TRANSV.includes(c)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   const isSel=(c,cur)=>c===cur||(cur&&c&&c.trim()===cur.trim());
   let found=false;
-  const fixOpts=CODES_FIXES.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
+  const fixOpts=CODES_TRANSV.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
   const autreOpts=autres.map(c=>{const s=isSel(c,current);if(s)found=true;return`<option${s?" selected":""}>${c}</option>`}).join("");
   // If current value not found in list, add it as-is
   const extra=current&&!found&&current!=="_inconnu"&&current!=="_absent"?`<option selected>${current}</option>`:"";
