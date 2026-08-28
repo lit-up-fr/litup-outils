@@ -795,8 +795,12 @@ function getAirtableData() {
     }
     return "";
   }
+  // Les 7 choix du champ statut de 3.2, rangés dans les 4 catégories de l'outil.
+  // « Refus » est écarté plus bas. Un statut absent de cette table remonte tel
+  // quel et l'outil le range dans « ❔ Autres statuts », hors prévisionnel.
   var mapSub = {
     "validée et versée": "versée",
+    "clôturée": "versée",                       // dossier soldé : l'argent est encaissé
     "validée et non versée": "validée",
     "attente retour dépôt dossier": "sollicitée",
     "prévue mais non validée": "attente",
@@ -854,13 +858,17 @@ function getAirtableData() {
       var f = r.fields || {};
       if (!f[F_PRE.nom]) return null;
       var st = String(airtableFirst(f[F_PRE.statut]) || "");
-      var s = f[F_PRE.virement] ? "payé"
-        : st.indexOf("1.") === 0 ? "négo"
-        : st.indexOf("2.") === 0 ? "signé"
-        : st.indexOf("3.") === 0 ? "signé"
-        : st.indexOf("4.") === 0 ? "facturé"
-        : st.indexOf("5.") === 0 ? "facturé"
-        : st.indexOf("6.") === 0 ? "payé"
+      // Les 5 choix du champ statut de 3.4. Le statut 5 est « Facture envoyée et
+      // paiement effectué » : c'est un encaissement, pas une simple facturation.
+      // Il était rangé en « facturé », donc en 🔵 Validées et non en ✅ Versées,
+      // et la confrontation bancaire ne signalait pas son absence du relevé.
+      var s = f[F_PRE.virement] ? "payé"                  // case virement : primauté
+        : st.indexOf("1.") === 0 ? "négo"                 // 1. Négociation en cours
+        : st.indexOf("2.") === 0 ? "signé"                // 2. Contrat signé
+        : st.indexOf("3.") === 0 ? "signé"                // 3. Action en cours
+        : st.indexOf("4.") === 0 ? "facturé"              // 4. Action terminée, facture à envoyer
+        : st.indexOf("5.") === 0 ? "payé"                 // 5. Facture envoyée et paiement effectué
+        : st.indexOf("6.") === 0 ? "payé"                 // réserve si un statut 6 est ajouté
         : "négo";
       var nomP = String(f[F_PRE.nom]);
       var o = { rid: r.id, n: airtableCleanName(nomP), s: s, mt: f[F_PRE.attendu] || 0 };
