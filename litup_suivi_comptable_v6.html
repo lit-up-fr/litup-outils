@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25s <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25t <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -604,7 +604,7 @@ let D={
     {n:"ML Coudon Gapeau 9",s:"négo",mt:1755,dp:"2026-12-31",tp:"Jeunes"},
   ],
 };
-const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis","Virement interne","Virement interne Cpte à terme"];
+const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis","Virement interne","Virement interne Cpte à terme","Écriture comptable (hors banque)"];
 const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Classé - Virement interne","Justificatif manquant","En attente","À créer","À demander","Absence"];
 // Virement interne (CC↔Livret, CC↔Cpte à terme) : ni charge ni produit
 const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
@@ -620,6 +620,16 @@ const estRegul=r=>String(r&&r.modal||"")==="Régularisation";
 // Sert à traiter les remboursements. Un remboursement de formation reçu de
 // l'OPCO, ou le remboursement d'un achat payé par erreur, arrive en CRÉDIT sur
 // un compte de CHARGE : ce n'est pas une recette, c'est une charge en moins.
+// Écriture comptable sans contrepartie bancaire dans la période : reprise d'un
+// produit constaté d'avance, subvention encaissée un exercice antérieur et
+// rattachée à celui-ci, dotation, écriture d'inventaire. Elle compte dans le
+// résultat, jamais dans la trésorerie ni dans les soldes bancaires.
+// C'est le miroir du virement interne, qui bouge la banque sans toucher au
+// résultat. Sans ce concept, rattacher une subvention à un exercice obligeait à
+// lui inventer une date bancaire — et l'outil croyait l'argent arrivé ce jour-là.
+const estEcritureCompta=r=>String(r&&r.modal||"")==="Écriture comptable (hors banque)";
+// Écriture qui a réellement bougé un compte bancaire
+const toucheBanque=r=>!estEcritureCompta(r);
 const sensCompte=c=>{const k=catKey(c);return k.charAt(0)==="7"?"produit":(k.charAt(0)==="6"?"charge":"")};
 // Réalisé d'une écriture dans le sens de son compte. Un crédit sur un compte de
 // charge vient donc en déduction de la charge, au lieu d'être ignoré.
@@ -3198,6 +3208,7 @@ function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._c
   if(curFilt==="cc"&&!((r.compte||"").toLowerCase()==="cc"||!r.compte))return false;
   if(curFilt==="livret"&&(r.compte||"").toLowerCase()!=="livret")return false;
   if(curFilt==="cat"&&r.modal!=="Virement interne Cpte à terme")return false;
+  if(curFilt==="horsb"&&toucheBanque(r))return false;
   if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q)&&!r.numj?.toLowerCase().includes(q)&&!r.comment?.toLowerCase().includes(q))return false;
   for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(String(v).toLowerCase()))return false}
   // Multi-select filters
@@ -4327,7 +4338,7 @@ function openTresDepart(){
   // y sont pourtant déjà : le point de départ était surévalué d'autant.
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,10);
   const jour=r=>String(r.dt||"").substring(0,10);
-  const ccRows=(D.rows||[]).filter(r=>!estLivret(r)&&/^\d{4}-\d{2}$/.test(moKey(r.dt)));
+  const ccRows=(D.rows||[]).filter(r=>!estLivret(r)&&toucheBanque(r)&&/^\d{4}-\d{2}$/.test(moKey(r.dt)));
   const dedans=ccRows.filter(r=>(!soldeRef||jour(r)>=soldeRef)&&moKey(r.dt)<debutWin)
     .sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
   // Écritures antérieures au solde initial : volontairement ignorées, puisque
@@ -4684,7 +4695,7 @@ function soldeReconstitue(dISO){
   const ref=String(D.soldeDate||"").substring(0,10);
   let s=D.soldeInitial||0,n=0;
   (D.rows||[]).forEach(r=>{
-    if(estLivret(r))return;
+    if(estLivret(r)||!toucheBanque(r))return;
     const j=String(r.dt||"").substring(0,10);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(j))return;
     if(ref&&j<ref)return;
@@ -5038,6 +5049,7 @@ function rTreasury(el){
   let nbLivret=0;
   const mvtInt=win.map(()=>0);
   (D.rows||[]).forEach(r=>{
+    if(!toucheBanque(r))return;          // écriture comptable : aucun flux bancaire
     if(estLivret(r)){nbLivret++;return}
     const i=idxDe[moKey(r.dt)];
     if(i===undefined)return;
@@ -5053,7 +5065,7 @@ function rTreasury(el){
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,10);
   let soldeDebut=D.soldeInitial||0,nbAvant=0;
   (D.rows||[]).forEach(r=>{
-    if(estLivret(r))return;               // virements internes compris : ils bougent le C/C
+    if(estLivret(r)||!toucheBanque(r))return;   // virements internes compris : ils bougent le C/C
     const k=moKey(r.dt),j=String(r.dt||"").substring(0,10);
     if(!/^\d{4}-\d{2}$/.test(k))return;
     if(soldeRef&&j<soldeRef)return;          // déjà contenue dans le solde initial
@@ -5130,7 +5142,7 @@ function rTreasury(el){
     // Les deux chemins additionnent maintenant exactement les mêmes écritures
     // (compte courant, virements internes compris) : il ne reste qu'une seule
     // cause possible d'écart, le solde initial de départ.
-    const ccRows=(D.rows||[]).filter(estCC);
+    const ccRows=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r));
     const fluxTotal=ccRows.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
     const soldeRef=String(D.soldeDate||"").substring(0,7);
     const fluxDepuis=ccRows.filter(r=>!soldeRef||moKey(r.dt)>=soldeRef).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
@@ -5207,7 +5219,7 @@ function rTreasury(el){
   // datée de la convention d'un côté et du virement de l'autre — passe entre
   // les mailles : deux lignes, un seul encaissement, et la recette double.
   {
-    const cr=(D.rows||[]).filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!estRegul(r)
+    const cr=(D.rows||[]).filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!estRegul(r)&&toucheBanque(r)
       &&/^\d{4}-\d{2}-\d{2}/.test(String(r.dt||"")));
     const jours=x=>Math.round(new Date(String(x.dt).substring(0,10)+"T12:00:00").getTime()/86400000);
     const paires=[];
@@ -5231,6 +5243,21 @@ function rTreasury(el){
         ${paires.length>6?"<br>… et "+(paires.length-6)+" autre(s)":""}
         <br>Vérifiez sur votre relevé : si l'encaissement est unique, supprimez la ligne en trop dans 📋 Classement.
         Si ce sont bien deux versements distincts du même montant, ignorez ce message.
+      </div>`;
+    }
+  }
+
+  // ── Écritures comptables sans contrepartie bancaire ──
+  {
+    const hb=(D.rows||[]).filter(r=>!toucheBanque(r)&&String(r.yr||"")===String(compYear));
+    if(hb.length){
+      const net=hb.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+      h+=`<div style="font-size:9px;color:var(--text-2);background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.7">
+        📘 <strong>${hb.length} écriture(s) comptable(s) hors banque sur l'exercice ${compYear}</strong> (net ${fmt(net)}).
+        Elles comptent dans ⚖️ Prévi. vs Réalisé et dans le compte de résultat, jamais ici :
+        aucun euro n'est entré ou sorti du compte à cette date.
+        C'est le traitement d'une subvention encaissée un exercice antérieur et rattachée à celui-ci
+        (produit constaté d'avance repris), d'une dotation ou d'une écriture d'inventaire.
       </div>`;
     }
   }
@@ -6056,7 +6083,8 @@ function exportAirtableReq(){
 // des DEUX comptes au seul solde initial du compte courant : le total annoncé
 // était faux dès qu'un livret était importé, donc inutilisable comme contrôle.
 function checkSolde(){
-  const cc=(D.rows||[]).filter(estCC),liv=(D.rows||[]).filter(estLivret);
+  const cc=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r)),liv=(D.rows||[]).filter(r=>estLivret(r)&&toucheBanque(r));
+  const horsB=(D.rows||[]).filter(r=>!toucheBanque(r));
   const som=(a,f)=>a.reduce((s,r)=>s+(f(r)||0),0);
   const bloc=(nom,arr,init,dt)=>{
     const cre=som(arr,r=>r.cre),deb=som(arr,r=>r.deb);
@@ -6073,6 +6101,8 @@ function checkSolde(){
     +(liv.length?"\n"+bloc("LIVRET",liv,(D.soldeInitialLivret||0),""):"\n(aucune écriture de livret importée)\n")
     +"\nTOTAL BANQUE : "+fmt(sCC+sLiv+(D.soldeInitialCAT||0))
     +(D.soldeInitialCAT?"  (dont compte à terme "+fmt(D.soldeInitialCAT)+")":"")
+    +(horsB.length?"\n\n"+horsB.length+" écriture(s) comptable(s) hors banque exclue(s) de ce calcul\n"
+      +"(net "+fmt(horsB.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0))+") : elles comptent dans le résultat, pas en trésorerie.":"")
     +"\n\nComparez chaque ligne au solde de votre banque. Un écart signale des écritures"
     +"\nmanquantes, en doublon, ou un solde initial erroné — pas les deux à la fois :"
     +"\ntraitez un compte après l'autre.");
@@ -6093,10 +6123,11 @@ function render(){
   const yLbl=statsYear==="all"?"(tout)":statsYear;
   const statsYrs=[...new Set(D.rows.map(r=>String(r.yr||"")).filter(Boolean))].sort();
   // Comparaison de compte insensible à la casse : l'import écrit "cc"/"livret" en minuscules
-  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="cc"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
-  const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>toucheBanque(r)&&((r.compte||"").toLowerCase()==="cc"||!r.compte)).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>toucheBanque(r)&&(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
   // Cpte à terme : alimenté par les lignes C/C marquées "Virement interne Cpte à terme" (débit = placement, crédit = retrait)
   const soldeCAT=(D.soldeInitialCAT||0)+D.rows.filter(r=>r.modal==="Virement interne Cpte à terme").reduce((s,r)=>s+(r.deb||0)-(r.cre||0),0);
+  const nbHorsBanque=D.rows.filter(r=>!toucheBanque(r)).length;
   $("statsBar").innerHTML=`<div class="sc"><div class="sl">Année</div>
     <select class="ms" style="margin-top:3px;width:70px" onchange="setStatsYear(this.value)">
       ${statsYrs.map(y=>`<option value="${y}"${y===statsYear?" selected":""}>${y}</option>`).join("")}
@@ -6115,7 +6146,7 @@ function render(){
     {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:"cc"},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:"livret"},
     {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:"cat"},
     {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
-  ]);
+  ].concat(nbHorsBanque?[{l:"Hors banque",v:String(nbHorsBanque),c:"#a78bfa",f:"horsb"}]:[]));
 
   // No alerts banner — stats cards are sufficient
 
