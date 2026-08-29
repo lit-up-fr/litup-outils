@@ -152,7 +152,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25t <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25u <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -2202,14 +2202,41 @@ function upd(id,f,v){
   render();   // montants, dates, année, compte : les totaux changent
 }
 // Édition par double-clic des cellules texte (date, libellé)
+// Message bref, non bloquant, en bas de l'écran.
+let _toastT=null;
+function toast(msg,couleur){
+  let el=$("toastC");
+  if(!el){el=document.createElement("div");el.id="toastC";document.body.appendChild(el)}
+  el.textContent=msg;
+  el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:9999;"
+    +"background:var(--bg-2);color:"+(couleur||"var(--text-1)")+";border:1px solid var(--border);"
+    +"border-radius:8px;padding:9px 15px;font-size:11px;line-height:1.5;box-shadow:0 6px 24px rgba(0,0,0,.35);"
+    +"max-width:76vw;text-align:center";
+  clearTimeout(_toastT);_toastT=setTimeout(()=>{const x=$("toastC");if(x)x.remove()},6000);
+}
 function editCell(id,f){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
   const label=f==="dt"?"la date (format AAAA-MM-JJ)":"le libellé";
+  const avant=String(r[f]||"");
   const v=prompt("Modifier "+label+" :",r[f]||"");
   if(v===null)return;
   pushUndo();r[f]=v.trim();
-  if(f==="dt"){const y=yrOf(r.dt);if(y)r.yr=y}
+  if(f==="dt"){
+    // L'année d'affectation ne suit la date que si elle la suivait déjà.
+    // Elle était réécrite sans condition : une écriture de 2026 rattachée à
+    // l'exercice 2025 — une subvention encaissée en janvier pour l'année
+    // précédente — perdait son rattachement au moindre changement de date,
+    // et sortait du filtre en cours sans que rien ne l'explique.
+    const y=yrOf(r.dt),suivait=!r.yr||String(r.yr)===yrOf(avant);
+    if(y&&suivait)r.yr=y;
+    else if(y&&!suivait)
+      toast("Année d'affectation conservée sur "+r.yr+" (saisie manuelle), malgré la nouvelle date.","var(--accent-l)");
+  }
   autoSave();render();
+  // Une ligne qui sort des filtres affichés disparaît sans explication : le dire
+  // évite de la croire perdue et d'en ressaisir une seconde.
+  if(!getFilt().some(x=>x.id===id))
+    toast("Ligne modifiée et enregistrée, mais elle ne correspond plus aux filtres affichés : elle est masquée, pas supprimée.","var(--amber)");
 }
 function del(id){pushUndo();D.rows=D.rows.filter(r=>r.id!==id);delete D.att[id];autoSave();render()}
 function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){D.rows.splice(i+1,0,{...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0});autoSave();render()}}
