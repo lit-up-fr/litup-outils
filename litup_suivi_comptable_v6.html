@@ -158,7 +158,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25v <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25w <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -2161,14 +2161,14 @@ async function execAutoMatch(matchList){
 // ─── UNDO HISTORY ───
 let undoStack=[];const MAX_UNDO=30;
 function pushUndo(){
-  undoStack.push(JSON.stringify({rows:D.rows,att_keys:Object.keys(D.att),budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate}));
+  undoStack.push(JSON.stringify({rows:D.rows,att_keys:Object.keys(D.att),budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC}));
   if(undoStack.length>MAX_UNDO)undoStack.shift();
 }
 function undo(){
   if(!undoStack.length){alert("Rien à annuler");return}
   const prev=JSON.parse(undoStack.pop());
   D.rows=prev.rows;D.budget=prev.budget||D.budget;D.budgetVersions=prev.budgetVersions||D.budgetVersions;
-  D.soldeInitial=prev.soldeInitial??D.soldeInitial;D.soldeDate=prev.soldeDate||D.soldeDate;
+  D.soldeInitial=prev.soldeInitial??D.soldeInitial;D.soldeDate=prev.soldeDate||D.soldeDate;D.soldeInitialCC=prev.soldeInitialCC??D.soldeInitialCC;
   // Keep attachments that still have matching rows, remove orphaned
   const validKeys=new Set(prev.att_keys||[]);
   for(const k of Object.keys(D.att)){if(!validKeys.has(k))delete D.att[k]}
@@ -4819,8 +4819,20 @@ function srAncrer(i){
     +"si des écritures y manquent.\n\nAnnulable avec ↩️."))return;
   pushUndo();
   D.soldeInitial=x.mt;D.soldeDate=x.d;
+  // La carte « C/C » du haut part de soldeInitialCC et compte toutes les écritures,
+  // la trésorerie part de soldeInitial et ne compte que celles d'après la date.
+  // Sans réaligner le premier, les deux chemins divergeraient dès l'ancrage et
+  // l'outil signalerait un écart qui ne serait que le sien.
+  const fluxAvant=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r)&&String(r.dt||"").substring(0,10)<x.d)
+    .reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+  const ccAvant=D.soldeInitialCC||0;
+  D.soldeInitialCC=Math.round((x.mt-fluxAvant)*100)/100;
   autoSave();render();
-  alert("✅ Point de départ fixé au "+x.d+" : "+fmt(x.mt)+"\n\nPensez à ☁️ Sauvegarder.");
+  alert("✅ Point de départ fixé au "+x.d+" : "+fmt(x.mt)
+    +"\n\nLe « C/C initial » a été réaligné en conséquence : "+fmt(ccAvant)+" → "+fmt(D.soldeInitialCC)
+    +"\n(solde du "+x.d+" moins les écritures antérieures déjà saisies, pour que la carte du haut"
+    +"\net la trésorerie décrivent enfin le même compte)."
+    +"\n\nPensez à ☁️ Sauvegarder.");
 }
 // Étiquette en bloc les virements entre comptes propres repérés en trésorerie.
 // La colonne « Mod. » reste modifiable ligne par ligne dans le Classement.
@@ -5216,9 +5228,13 @@ function rTreasury(el){
     // cause possible d'écart, le solde initial de départ.
     const ccRows=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r));
     const fluxTotal=ccRows.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
-    const soldeRef=String(D.soldeDate||"").substring(0,7);
-    const fluxDepuis=ccRows.filter(r=>!soldeRef||moKey(r.dt)>=soldeRef).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
-    const avant=ccRows.filter(r=>soldeRef&&moKey(r.dt)&&moKey(r.dt)<soldeRef);
+    // Au jour près, comme la trésorerie : au mois près, une écriture du 1er mars
+    // sortait du calcul de trésorerie (ancrage au 2 mars) mais restait dans celui-ci,
+    // et l'écart affiché n'était que cette différence de découpage.
+    const soldeRef=String(D.soldeDate||"").substring(0,10);
+    const jourDe=r=>String(r.dt||"").substring(0,10);
+    const fluxDepuis=ccRows.filter(r=>!soldeRef||jourDe(r)>=soldeRef).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+    const avant=ccRows.filter(r=>soldeRef&&jourDe(r)&&jourDe(r)<soldeRef);
     const soldeCarte=(D.soldeInitialCC||0)+fluxTotal;
     const soldeTres=(D.soldeInitial||0)+fluxDepuis;
     const ec=Math.round((soldeTres-soldeCarte)*100)/100;
