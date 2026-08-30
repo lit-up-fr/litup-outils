@@ -10,17 +10,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Lit uP">
-<script>if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script>
-<!-- xlsx et jszip ne sont utilisés que pour l'import du relevé et les exports ZIP.
-     Chargés à la demande (voir chargeLib) : déclarés ici en balise script classique, ils bloquaient
-     l'affichage de toute la page tant que le CDN ne répondait pas. -->
-<!-- Les polices sont un confort, pas une condition : chargées sans bloquer le rendu.
-     En @import dans <style>, elles retardaient le premier affichage jusqu'à la réponse
-     de fonts.googleapis.com — donc page blanche indéfinie si ce domaine est injoignable. -->
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" media="print" onload="this.media='all'"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<!-- Archivage : pas de service worker ici. L'archive n'a pas vocation à être mise en cache,
+     et un worker installé sous /archives/ ajouterait un cache de plus à gérer. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 :root{
   --bg-0:#0b0d12;--bg-1:#12151c;--bg-2:#181c26;--bg-3:#1f2433;
   --border:#252d3f;--border-h:#3a4560;
@@ -30,8 +25,8 @@
   --red:#f87171;--red-bg:rgba(248,113,113,.08);
   --amber:#fbbf24;--amber-bg:rgba(251,191,36,.08);
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
-  --mono:'JetBrains Mono','SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
-  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
   --radius:6px;--shadow:none;
 }
 html.light{
@@ -155,10 +150,21 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <body>
 <script>if(localStorage.getItem("litup_pwd_compta")!=="litup-compta-2026"){document.body.innerHTML='<div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f1019;color:#e2e8f0"><div style="text-align:center;max-width:340px"><h2 style="margin-bottom:8px">🔒 Accès Comptabilité</h2><p style="color:#94a3b8;font-size:12px;margin-bottom:16px">Entrez le mot de passe pour accéder au suivi comptable.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;background:#1a1b2e;border:1.5px solid #2d2f45;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#ef4444;font-size:11px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>';document.getElementById("gPwd").focus();window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-compta-2026"){localStorage.setItem("litup_pwd_compta",p);location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect";document.getElementById("gPwd").style.borderColor="#ef4444"}};throw"auth"}</script>
 
+<!-- ══ AJOUT D'ARCHIVAGE — seule modification par rapport au build 2026-08-25s ══ -->
+<div style="position:sticky;top:0;z-index:9999;background:#7c2d12;color:#fed7aa;font-family:system-ui;
+            font-size:12px;line-height:1.6;padding:10px 16px;border-bottom:2px solid #ea580c">
+  <strong style="font-size:13px">🧊 ARCHIVE GELÉE — état du 28/08/2026 (build 2026-08-25s)</strong><br>
+  Version de secours, à consulter, pas à utiliser au quotidien.
+  <a href="../litup_suivi_comptable_v6.html" style="color:#fed7aa;font-weight:700">↩ Revenir à l'outil courant</a><br>
+  <strong>⚠️ Attention :</strong> cette archive partage le même stockage local et le même Google Sheet
+  que l'outil courant. Un clic sur <strong>☁️ Sauvegarder</strong> depuis ici écraserait le Sheet avec
+  le comportement de l'ancien code. Pour simplement regarder, n'enregistrez rien.
+</div>
+
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25v <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25s <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -610,7 +616,7 @@ let D={
     {n:"ML Coudon Gapeau 9",s:"négo",mt:1755,dp:"2026-12-31",tp:"Jeunes"},
   ],
 };
-const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis","Virement interne","Virement interne Cpte à terme","Écriture comptable (hors banque)"];
+const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Virement émis","Virement interne","Virement interne Cpte à terme"];
 const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Classé - Virement interne","Justificatif manquant","En attente","À créer","À demander","Absence"];
 // Virement interne (CC↔Livret, CC↔Cpte à terme) : ni charge ni produit
 const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
@@ -626,16 +632,6 @@ const estRegul=r=>String(r&&r.modal||"")==="Régularisation";
 // Sert à traiter les remboursements. Un remboursement de formation reçu de
 // l'OPCO, ou le remboursement d'un achat payé par erreur, arrive en CRÉDIT sur
 // un compte de CHARGE : ce n'est pas une recette, c'est une charge en moins.
-// Écriture comptable sans contrepartie bancaire dans la période : reprise d'un
-// produit constaté d'avance, subvention encaissée un exercice antérieur et
-// rattachée à celui-ci, dotation, écriture d'inventaire. Elle compte dans le
-// résultat, jamais dans la trésorerie ni dans les soldes bancaires.
-// C'est le miroir du virement interne, qui bouge la banque sans toucher au
-// résultat. Sans ce concept, rattacher une subvention à un exercice obligeait à
-// lui inventer une date bancaire — et l'outil croyait l'argent arrivé ce jour-là.
-const estEcritureCompta=r=>String(r&&r.modal||"")==="Écriture comptable (hors banque)";
-// Écriture qui a réellement bougé un compte bancaire
-const toucheBanque=r=>!estEcritureCompta(r);
 const sensCompte=c=>{const k=catKey(c);return k.charAt(0)==="7"?"produit":(k.charAt(0)==="6"?"charge":"")};
 // Réalisé d'une écriture dans le sens de son compte. Un crédit sur un compte de
 // charge vient donc en déduction de la charge, au lieu d'être ignoré.
@@ -1069,8 +1065,7 @@ async function loadComptaFromSheet(){
 
 // ─── IMPORTS with dedup + smart parsing ───
 $("fi_bank").onchange=function(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();
-  rd.onload=async ev=>{if(!await besoinLib("XLSX"))return;
-    pushUndo();const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
+  rd.onload=ev=>{pushUndo();const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
     let added=0;window._pendingDups=[];
     // Detect Crédit Mutuel multi-sheet format (Vos comptes / Livret / C/C)
     const isCM=wb.SheetNames.some(n=>n.startsWith("Cpt ")||n.startsWith("Vos comptes"));
@@ -1594,8 +1589,7 @@ function viewAtt(k){const a=D.att[k];if(!a)return;window.open(URL.createObjectUR
 function exportCSV(){const h=["Date","Année","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","Modalité","Statut","Responsable","N° Justificatif","NDF","Source"];
   const l=[h.join(";")];D.rows.forEach(r=>l.push([r.dt,r.yr,'"'+r.lib+'"','"'+r.four+'"','"'+r.cat+'"','"'+r.act+'"',r.deb||"",r.cre||"",r.modal,'"'+r.stat+'"',r.resp,r.numj,r.ndf,r.src].join(";")));
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+l.join("\n")],{type:"text/csv;charset=utf-8;"}));a.download="suivi_compta_"+ds(new Date())+".csv";a.click()}
-async function exportZIP(){if(!await besoinLib("JSZip"))return;
-  const z=new JSZip();const h=["Date","Année","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","Modalité","Statut","Responsable","N° Justificatif"];
+async function exportZIP(){const z=new JSZip();const h=["Date","Année","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","Modalité","Statut","Responsable","N° Justificatif"];
   const l=[h.join(";")];D.rows.forEach(r=>l.push([r.dt,r.yr,'"'+r.lib+'"','"'+r.four+'"','"'+r.cat+'"','"'+r.act+'"',r.deb||"",r.cre||"",r.modal,'"'+r.stat+'"',r.resp,r.numj].join(";")));
   z.file("suivi_comptable.csv","\uFEFF"+l.join("\n"));
   for(const[k,a] of Object.entries(D.att)){const r=D.rows.find(x=>x.id===k);const mo=r?moKey(r.dt).replace("-","/"):"divers";z.file("justificatifs/"+mo+"/"+a.name,a.data)}
@@ -1605,7 +1599,6 @@ async function exportZIP(){if(!await besoinLib("JSZip"))return;
 async function exportJustifsZIP(){
   const attEntries=Object.entries(D.att);
   if(!attEntries.length){alert("Aucun justificatif à exporter.\nImportez d'abord des justificatifs via 📎 Justif.");return}
-  if(!await besoinLib("JSZip"))return;
   const z=new JSZip();const classees=z.folder("Factures_classees");const aTraiter=z.folder("Factures_a_traiter");
   let nClassees=0,nATraiter=0;
   attEntries.forEach(([k,a])=>{
@@ -2211,77 +2204,14 @@ function upd(id,f,v){
   render();   // montants, dates, année, compte : les totaux changent
 }
 // Édition par double-clic des cellules texte (date, libellé)
-// Message bref, non bloquant, en bas de l'écran.
-// ─── BIBLIOTHÈQUES EXTERNES, CHARGÉES À LA DEMANDE ───
-// xlsx (import du relevé bancaire) et jszip (exports ZIP) pèsent près d'un mégaoctet
-// et viennent d'un CDN. Tant qu'ils étaient déclarés en <script src> dans <head>, le
-// navigateur refusait d'afficher quoi que ce soit avant de les avoir reçus : un CDN
-// injoignable ou lent donnait une page blanche qui tourne sans fin. On ne les charge
-// donc plus qu'au moment où l'on s'en sert, et l'échec est dit clairement.
-const LIBS={
-  XLSX:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
-  JSZip:"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
-};
-const _libs={};
-function chargeLib(nom){
-  if(window[nom])return Promise.resolve(true);
-  if(_libs[nom])return _libs[nom];
-  toast("Chargement de la bibliothèque "+nom+"…","var(--accent-l)");
-  _libs[nom]=new Promise((ok,ko)=>{
-    const sc=document.createElement("script");
-    sc.src=LIBS[nom];sc.async=true;
-    sc.onload=()=>ok(true);
-    sc.onerror=()=>{delete _libs[nom];ko(new Error(nom))};
-    document.head.appendChild(sc);
-  }).then(r=>{toast("");return r});
-  return _libs[nom];
-}
-// Rend true si la bibliothèque est prête, false après avoir prévenu l'utilisateur.
-async function besoinLib(nom){
-  try{await chargeLib(nom);return true}
-  catch(e){
-    alert("❌ La bibliothèque « "+nom+" » n'a pas pu être chargée.\n\n"
-      +"Elle vient d'Internet (cdnjs.cloudflare.com) et cette fonction ne marche pas hors ligne.\n"
-      +"Vérifiez votre connexion, ou un bloqueur de publicité / pare-feu qui bloquerait ce domaine.\n\n"
-      +"Le reste de l'outil fonctionne normalement.");
-    return false;
-  }
-}
-
-let _toastT=null;
-function toast(msg,couleur){
-  let el=$("toastC");
-  if(!el){el=document.createElement("div");el.id="toastC";document.body.appendChild(el)}
-  el.textContent=msg;
-  el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:9999;"
-    +"background:var(--bg-2);color:"+(couleur||"var(--text-1)")+";border:1px solid var(--border);"
-    +"border-radius:8px;padding:9px 15px;font-size:11px;line-height:1.5;box-shadow:0 6px 24px rgba(0,0,0,.35);"
-    +"max-width:76vw;text-align:center";
-  clearTimeout(_toastT);_toastT=setTimeout(()=>{const x=$("toastC");if(x)x.remove()},6000);
-}
 function editCell(id,f){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
   const label=f==="dt"?"la date (format AAAA-MM-JJ)":"le libellé";
-  const avant=String(r[f]||"");
   const v=prompt("Modifier "+label+" :",r[f]||"");
   if(v===null)return;
   pushUndo();r[f]=v.trim();
-  if(f==="dt"){
-    // L'année d'affectation ne suit la date que si elle la suivait déjà.
-    // Elle était réécrite sans condition : une écriture de 2026 rattachée à
-    // l'exercice 2025 — une subvention encaissée en janvier pour l'année
-    // précédente — perdait son rattachement au moindre changement de date,
-    // et sortait du filtre en cours sans que rien ne l'explique.
-    const y=yrOf(r.dt),suivait=!r.yr||String(r.yr)===yrOf(avant);
-    if(y&&suivait)r.yr=y;
-    else if(y&&!suivait)
-      toast("Année d'affectation conservée sur "+r.yr+" (saisie manuelle), malgré la nouvelle date.","var(--accent-l)");
-  }
+  if(f==="dt"){const y=yrOf(r.dt);if(y)r.yr=y}
   autoSave();render();
-  // Une ligne qui sort des filtres affichés disparaît sans explication : le dire
-  // évite de la croire perdue et d'en ressaisir une seconde.
-  if(!getFilt().some(x=>x.id===id))
-    toast("Ligne modifiée et enregistrée, mais elle ne correspond plus aux filtres affichés : elle est masquée, pas supprimée.","var(--amber)");
 }
 function del(id){pushUndo();D.rows=D.rows.filter(r=>r.id!==id);delete D.att[id];autoSave();render()}
 function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){D.rows.splice(i+1,0,{...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0});autoSave();render()}}
@@ -3280,7 +3210,6 @@ function getFilt(){const q=($("si")?.value||"").toLowerCase();const cf=window._c
   if(curFilt==="cc"&&!((r.compte||"").toLowerCase()==="cc"||!r.compte))return false;
   if(curFilt==="livret"&&(r.compte||"").toLowerCase()!=="livret")return false;
   if(curFilt==="cat"&&r.modal!=="Virement interne Cpte à terme")return false;
-  if(curFilt==="horsb"&&toucheBanque(r))return false;
   if(q&&!r.lib?.toLowerCase().includes(q)&&!r.four?.toLowerCase().includes(q)&&!r.cat?.toLowerCase().includes(q)&&!r.numj?.toLowerCase().includes(q)&&!r.comment?.toLowerCase().includes(q))return false;
   for(const[k,v] of Object.entries(cf)){if(!v)continue;const rv=String(r[k]||"").toLowerCase();if(!rv.includes(String(v).toLowerCase()))return false}
   // Multi-select filters
@@ -4410,7 +4339,7 @@ function openTresDepart(){
   // y sont pourtant déjà : le point de départ était surévalué d'autant.
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,10);
   const jour=r=>String(r.dt||"").substring(0,10);
-  const ccRows=(D.rows||[]).filter(r=>!estLivret(r)&&toucheBanque(r)&&/^\d{4}-\d{2}$/.test(moKey(r.dt)));
+  const ccRows=(D.rows||[]).filter(r=>!estLivret(r)&&/^\d{4}-\d{2}$/.test(moKey(r.dt)));
   const dedans=ccRows.filter(r=>(!soldeRef||jour(r)>=soldeRef)&&moKey(r.dt)<debutWin)
     .sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
   // Écritures antérieures au solde initial : volontairement ignorées, puisque
@@ -4767,7 +4696,7 @@ function soldeReconstitue(dISO){
   const ref=String(D.soldeDate||"").substring(0,10);
   let s=D.soldeInitial||0,n=0;
   (D.rows||[]).forEach(r=>{
-    if(estLivret(r)||!toucheBanque(r))return;
+    if(estLivret(r))return;
     const j=String(r.dt||"").substring(0,10);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(j))return;
     if(ref&&j<ref)return;
@@ -5121,7 +5050,6 @@ function rTreasury(el){
   let nbLivret=0;
   const mvtInt=win.map(()=>0);
   (D.rows||[]).forEach(r=>{
-    if(!toucheBanque(r))return;          // écriture comptable : aucun flux bancaire
     if(estLivret(r)){nbLivret++;return}
     const i=idxDe[moKey(r.dt)];
     if(i===undefined)return;
@@ -5137,7 +5065,7 @@ function rTreasury(el){
   const debutWin=win[0].k,soldeRef=String(D.soldeDate||"").substring(0,10);
   let soldeDebut=D.soldeInitial||0,nbAvant=0;
   (D.rows||[]).forEach(r=>{
-    if(estLivret(r)||!toucheBanque(r))return;   // virements internes compris : ils bougent le C/C
+    if(estLivret(r))return;               // virements internes compris : ils bougent le C/C
     const k=moKey(r.dt),j=String(r.dt||"").substring(0,10);
     if(!/^\d{4}-\d{2}$/.test(k))return;
     if(soldeRef&&j<soldeRef)return;          // déjà contenue dans le solde initial
@@ -5214,7 +5142,7 @@ function rTreasury(el){
     // Les deux chemins additionnent maintenant exactement les mêmes écritures
     // (compte courant, virements internes compris) : il ne reste qu'une seule
     // cause possible d'écart, le solde initial de départ.
-    const ccRows=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r));
+    const ccRows=(D.rows||[]).filter(estCC);
     const fluxTotal=ccRows.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
     const soldeRef=String(D.soldeDate||"").substring(0,7);
     const fluxDepuis=ccRows.filter(r=>!soldeRef||moKey(r.dt)>=soldeRef).reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
@@ -5291,7 +5219,7 @@ function rTreasury(el){
   // datée de la convention d'un côté et du virement de l'autre — passe entre
   // les mailles : deux lignes, un seul encaissement, et la recette double.
   {
-    const cr=(D.rows||[]).filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!estRegul(r)&&toucheBanque(r)
+    const cr=(D.rows||[]).filter(r=>(r.cre||0)>0&&!isVirInterne(r)&&!estRegul(r)
       &&/^\d{4}-\d{2}-\d{2}/.test(String(r.dt||"")));
     const jours=x=>Math.round(new Date(String(x.dt).substring(0,10)+"T12:00:00").getTime()/86400000);
     const paires=[];
@@ -5315,21 +5243,6 @@ function rTreasury(el){
         ${paires.length>6?"<br>… et "+(paires.length-6)+" autre(s)":""}
         <br>Vérifiez sur votre relevé : si l'encaissement est unique, supprimez la ligne en trop dans 📋 Classement.
         Si ce sont bien deux versements distincts du même montant, ignorez ce message.
-      </div>`;
-    }
-  }
-
-  // ── Écritures comptables sans contrepartie bancaire ──
-  {
-    const hb=(D.rows||[]).filter(r=>!toucheBanque(r)&&String(r.yr||"")===String(compYear));
-    if(hb.length){
-      const net=hb.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
-      h+=`<div style="font-size:9px;color:var(--text-2);background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;margin-bottom:8px;line-height:1.7">
-        📘 <strong>${hb.length} écriture(s) comptable(s) hors banque sur l'exercice ${compYear}</strong> (net ${fmt(net)}).
-        Elles comptent dans ⚖️ Prévi. vs Réalisé et dans le compte de résultat, jamais ici :
-        aucun euro n'est entré ou sorti du compte à cette date.
-        C'est le traitement d'une subvention encaissée un exercice antérieur et rattachée à celui-ci
-        (produit constaté d'avance repris), d'une dotation ou d'une écriture d'inventaire.
       </div>`;
     }
   }
@@ -6155,8 +6068,7 @@ function exportAirtableReq(){
 // des DEUX comptes au seul solde initial du compte courant : le total annoncé
 // était faux dès qu'un livret était importé, donc inutilisable comme contrôle.
 function checkSolde(){
-  const cc=(D.rows||[]).filter(r=>estCC(r)&&toucheBanque(r)),liv=(D.rows||[]).filter(r=>estLivret(r)&&toucheBanque(r));
-  const horsB=(D.rows||[]).filter(r=>!toucheBanque(r));
+  const cc=(D.rows||[]).filter(estCC),liv=(D.rows||[]).filter(estLivret);
   const som=(a,f)=>a.reduce((s,r)=>s+(f(r)||0),0);
   const bloc=(nom,arr,init,dt)=>{
     const cre=som(arr,r=>r.cre),deb=som(arr,r=>r.deb);
@@ -6173,8 +6085,6 @@ function checkSolde(){
     +(liv.length?"\n"+bloc("LIVRET",liv,(D.soldeInitialLivret||0),""):"\n(aucune écriture de livret importée)\n")
     +"\nTOTAL BANQUE : "+fmt(sCC+sLiv+(D.soldeInitialCAT||0))
     +(D.soldeInitialCAT?"  (dont compte à terme "+fmt(D.soldeInitialCAT)+")":"")
-    +(horsB.length?"\n\n"+horsB.length+" écriture(s) comptable(s) hors banque exclue(s) de ce calcul\n"
-      +"(net "+fmt(horsB.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0))+") : elles comptent dans le résultat, pas en trésorerie.":"")
     +"\n\nComparez chaque ligne au solde de votre banque. Un écart signale des écritures"
     +"\nmanquantes, en doublon, ou un solde initial erroné — pas les deux à la fois :"
     +"\ntraitez un compte après l'autre.");
@@ -6195,11 +6105,10 @@ function render(){
   const yLbl=statsYear==="all"?"(tout)":statsYear;
   const statsYrs=[...new Set(D.rows.map(r=>String(r.yr||"")).filter(Boolean))].sort();
   // Comparaison de compte insensible à la casse : l'import écrit "cc"/"livret" en minuscules
-  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>toucheBanque(r)&&((r.compte||"").toLowerCase()==="cc"||!r.compte)).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
-  const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>toucheBanque(r)&&(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeCC=(D.soldeInitialCC||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="cc"||!r.compte).reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
+  const soldeLivret=(D.soldeInitialLivret||0)+D.rows.filter(r=>(r.compte||"").toLowerCase()==="livret").reduce((s,r)=>s+(r.cre||0)-(r.deb||0),0);
   // Cpte à terme : alimenté par les lignes C/C marquées "Virement interne Cpte à terme" (débit = placement, crédit = retrait)
   const soldeCAT=(D.soldeInitialCAT||0)+D.rows.filter(r=>r.modal==="Virement interne Cpte à terme").reduce((s,r)=>s+(r.deb||0)-(r.cre||0),0);
-  const nbHorsBanque=D.rows.filter(r=>!toucheBanque(r)).length;
   $("statsBar").innerHTML=`<div class="sc"><div class="sl">Année</div>
     <select class="ms" style="margin-top:3px;width:70px" onchange="setStatsYear(this.value)">
       ${statsYrs.map(y=>`<option value="${y}"${y===statsYear?" selected":""}>${y}</option>`).join("")}
@@ -6218,7 +6127,7 @@ function render(){
     {l:"C/C",v:fmt(soldeCC),c:"#818cf8",f:"cc"},{l:"Livret",v:fmt(soldeLivret),c:"#818cf8",f:"livret"},
     {l:"Cpte à terme",v:fmt(soldeCAT),c:"#818cf8",f:"cat"},
     {l:"Total banque",v:fmt(soldeCC+soldeLivret+soldeCAT),c:"#60a5fa",f:""}
-  ].concat(nbHorsBanque?[{l:"Hors banque",v:String(nbHorsBanque),c:"#a78bfa",f:"horsb"}]:[]));
+  ]);
 
   // No alerts banner — stats cards are sufficient
 
@@ -6970,43 +6879,14 @@ function startResize(e,tk){
   document.addEventListener('mouseup',onUp);
 }
 
-// ─── DÉMARRAGE ───
-// Mode secours : litup_suivi_comptable_v6.html?secours=1
-// Désinstalle le service worker, vide les caches, et n'appelle ni Airtable ni le
-// backend. À utiliser quand la page refuse de s'afficher ou tourne sans fin.
-const _secours=/[?&]secours=1/.test(location.search);
-if(_secours&&"serviceWorker" in navigator){
-  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));
-  if(window.caches)caches.keys().then(ks=>ks.forEach(k=>caches.delete(k)));
-}
-// Si le premier rendu échoue, on affiche l'erreur : une page blanche muette est le
-// pire des diagnostics, et elle ressemble à s'y méprendre à un chargement sans fin.
-try{
-  render();
-  appDemarree=true;majCloudBadge();
-}catch(e){
-  document.body.insertAdjacentHTML("afterbegin",
-    '<div style="font-family:system-ui;max-width:760px;margin:24px auto;padding:16px 20px;border-radius:10px;'
-    +'background:#7f1d1d;color:#fee2e2;font-size:13px;line-height:1.6">'
-    +'<strong style="font-size:15px">⛔ L\'affichage a échoué au démarrage</strong><br>'
-    +'<code style="display:block;margin:8px 0;padding:8px;background:rgba(0,0,0,.35);border-radius:6px;'
-    +'font-size:11px;white-space:pre-wrap">'+String(e&&e.stack||e).replace(/[<>]/g,"")+'</code>'
-    +'Vos données ne sont pas perdues : elles sont dans ce navigateur et dans le Google Sheet.<br>'
-    +'Essayez <a style="color:#fecaca" href="?secours=1">le mode secours</a>, '
-    +'puis envoyez ce message pour correction.</div>');
-  throw e;
-}
-if(_secours){
-  toast("Mode secours : service worker désinstallé, caches vidés, Airtable et Apps Script non appelés. "
-    +"Rechargez la page normalement (sans ?secours=1) une fois le problème passé.","var(--amber)");
-}else{
-  // Actualisation Airtable à l'ouverture, une fois par jour au plus : la lecture
-  // complète d'Airtable prend 15 à 40 s, inutile de la relancer à chaque
-  // rechargement de page. Le menu 🔄 Actualisation → ☁️ Airtable la force.
-  if(D.airtableSync!==new Date().toISOString().split("T")[0])autoSyncAirtable();
-  // Contrôle de version du backend, en tâche de fond : ne bloque pas l'affichage.
-  checkBackendVersion();
-}
+render();
+appDemarree=true;majCloudBadge();
+// Actualisation Airtable à l'ouverture, une fois par jour au plus : la lecture
+// complète d'Airtable prend 15 à 40 s, inutile de la relancer à chaque
+// rechargement de page. Le menu 🔄 Actualisation → ☁️ Airtable la force.
+if(D.airtableSync!==new Date().toISOString().split("T")[0])autoSyncAirtable();
+// Contrôle de version du backend, en tâche de fond : ne bloque pas l'affichage.
+checkBackendVersion();
 </script>
 <div style="max-width:1200px;margin:20px auto;padding:16px 20px;border-radius:12px;border:1px solid var(--bd);background:var(--bg2);font-family:var(--sans);font-size:11px;line-height:2;color:var(--t2)">
   <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende</div>

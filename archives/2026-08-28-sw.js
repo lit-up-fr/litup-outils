@@ -1,7 +1,7 @@
 // Service worker Lit uP Outils
 // Stratégie : réseau d'abord, cache en secours (jamais de HTML périmé quand on est en ligne).
 // Incrémenter CACHE_VERSION à chaque évolution notable des fichiers.
-const CACHE_VERSION = "litup-outils-v25";
+const CACHE_VERSION = "litup-outils-v22";
 
 const PRECACHE = [
   "./",
@@ -19,12 +19,9 @@ const PRECACHE = [
 ];
 
 self.addEventListener("install", (e) => {
-  // Fichier par fichier : avec addAll, un seul 404 fait échouer toute l'installation
-  // et le service worker reste bloqué en « installing » à chaque ouverture.
   e.waitUntil(
     caches.open(CACHE_VERSION)
-      .then((c) => Promise.all(PRECACHE.map((u) => c.add(u).catch(() => null))))
-      .catch(() => null)
+      .then((c) => c.addAll(PRECACHE))
       .then(() => self.skipWaiting())
   );
 });
@@ -57,18 +54,6 @@ self.addEventListener("fetch", (e) => {
         return res;
       })
       // ignoreSearch : les pages ont historiquement des URLs ?v=XX
-      // Si le réseau échoue ET que le cache est vide, respondWith recevrait undefined :
-      // la navigation part alors en erreur réseau, page blanche à l'appui. On rend
-      // toujours une vraie réponse, quitte à ce qu'elle soit lisible plutôt que muette.
-      .catch(() => caches.match(req, { ignoreSearch: true }).then((c) => c || (
-        isDoc
-          ? new Response(
-              "<!doctype html><meta charset=utf-8><body style=\"font-family:system-ui;background:#0b0d12;color:#e2e8f0;padding:32px\">"
-              + "<h2>Hors ligne</h2><p>Cette page n'est ni joignable sur le réseau ni disponible en cache.</p>"
-              + "<p><a style=\"color:#00989D\" href=\"?secours=1\">Ouvrir en mode secours</a> une fois la connexion revenue.</p>",
-              { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
-            )
-          : new Response("", { status: 504 })
-      )))
+      .catch(() => caches.match(req, { ignoreSearch: true }))
   );
 });
