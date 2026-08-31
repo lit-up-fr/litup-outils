@@ -185,6 +185,70 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 /* Une ligne d'en-tête faite de td (ligne de filtres) est figée aussi, mais
    seulement dans un conteneur .tbl-fige : ailleurs le tableau défile avec la page. */
 .tbl-fige thead td{position:sticky;z-index:9;background:var(--bg-1)}
+
+/* ═══ TÉLÉPHONE ═══
+   L'outil a été conçu au clavier, sur grand écran. Sur un téléphone, la gêne
+   n'était pas un débordement horizontal — il n'y en a pas — mais la HAUTEUR :
+   l'en-tête, la bande d'indicateurs et la barre d'onglets se repliaient en une
+   quinzaine de lignes, et le contenu commençait après 1 700 px de défilement.
+   On rend donc les bandes horizontales défilantes au lieu de les laisser
+   s'empiler, et on resserre ce qui peut l'être. */
+.rh-lbl{display:none}
+@media (max-width:760px){
+  /* En-tête : moins de marge, un titre sur une ligne, des boutons plus courts.
+     flex-wrap reste indispensable ici — ce sont les tailles qu'on réduit. */
+  .hd{padding:8px 12px!important;gap:5px!important}
+  .hd svg{height:22px!important}
+  .b{padding:5px 9px;font-size:10px}
+  .st,.tb{padding:7px 12px}
+
+  /* Indicateurs et onglets : UNE bande qui défile du doigt, au lieu de trois
+     rangées repliées. C'est ce qui rend le contenu visible sans défiler. */
+  .st{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      scrollbar-width:none;gap:7px}
+  .st::-webkit-scrollbar{display:none}
+  .sc{padding:6px 10px}
+  .sl{font-size:8px;letter-spacing:.5px}
+  .sv{font-size:13px}
+  .tb{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      scrollbar-width:none}
+  .tb::-webkit-scrollbar{display:none}
+  .tab{padding:6px 10px;font-size:10px}
+  .si{min-width:150px}
+
+  /* Zone de contenu : la gouttière de 20 px coûtait 40 px de largeur utile. */
+  #content>div,#alertsBanner{padding-left:0;padding-right:0}
+  .scard{padding:10px}
+
+  /* Modales : plein écran utile, et le contenu défile à l'intérieur. */
+  .modal{width:100%;max-width:none;border-radius:12px 12px 0 0;padding:16px 14px;
+         max-height:92vh}
+  .modal-bg{align-items:flex-end}
+
+  /* Tableaux : le défilement horizontal reste la bonne réponse (quinze colonnes
+     ne tiennent pas), mais il doit être fluide au doigt. */
+  #content div[style*="overflow-x"]{-webkit-overflow-scrolling:touch}
+
+  /* Cibles tactiles : 9 px de police convient à une souris, pas à un pouce. */
+  .ib,.att,.fb,.cf-btn{min-height:26px;min-width:26px}
+
+  /* Affectations RH : six champs à largeur fixe se repliaient en escalier, les
+     étiquettes d'un côté et les champs de l'autre. On les remet en paires
+     étiquette / champ, une par ligne. */
+  .rh-alloc-hd{display:none!important}
+  .rh-lbl{display:block;font-size:8px;color:var(--text-3);text-transform:uppercase;
+          letter-spacing:.5px;font-weight:600}
+  .rh-alloc{display:grid!important;grid-template-columns:auto 1fr;gap:5px 9px;
+            align-items:center;padding:9px;border:1px solid var(--border);
+            border-radius:9px;background:var(--bg-1);margin-bottom:7px!important}
+  .rh-alloc>select{grid-column:1/-1;width:100%!important}
+  .rh-alloc>input,.rh-alloc>span:not(.rh-lbl){width:auto!important;min-width:0;
+            text-align:left!important;justify-self:start}
+  .rh-alloc>input[type=date]{font-size:11px!important}
+  .rh-alloc>button{grid-column:1/-1;justify-self:end}
+  .rh-alloc>.rh-souci{grid-column:1/-1}
+  .rh-fam-note{margin-left:0!important}
+}
 </style>
 </head>
 <body>
@@ -193,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31l <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31m <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -5054,7 +5118,7 @@ function rRH(el){
           ${cv.hors.length} mois hors contrat (${cv.hors.map(m=>MONAMES[m]).join(", ")}) : ils ne sont pas à couvrir.
           ${p.debut?"Début "+escHtml(String(p.debut)):""}${p.fin?" · fin "+escHtml(String(p.fin)):""}</div>`:""}`;
       if(allocs.length){
-        h+=`<div style="display:flex;gap:4px;font-size:8px;color:var(--text-3);margin:4px 0 2px">
+        h+=`<div class="rh-alloc-hd" style="display:flex;gap:4px;font-size:8px;color:var(--text-3);margin:4px 0 2px">
           <span style="width:220px">Code projet</span><span style="width:56px;text-align:center">% temps</span>
           <span style="width:104px">du</span><span style="width:104px">au</span>
           <span style="width:44px;text-align:center">mois</span><span style="width:92px;text-align:right">coût réparti</span></div>`;
@@ -5063,22 +5127,27 @@ function rRH(el){
         const idx=rhAllocArr().indexOf(a);
         const b=allocBornes(a,rhYear),part=allocPart(a,rhYear);
         const souci=b.inverse?"La date de fin précède la date de début.":b.horsExo?("Période hors de l'exercice "+rhYear+" : ne compte pas ici."):"";
-        h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
+        h+=`<div class="rh-alloc" style="display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
           <select class="ms" style="width:220px" onchange="rhAllocSet(${idx},'act',this.value)">${actOptionsRH(a.act)}</select>
+          <span class="rh-lbl">% temps</span>
           <input type="number" class="cj" style="width:56px;text-align:center" value="${a.pct||0}" min="0" max="100" step="5"
             onchange="rhAllocSet(${idx},'pct',this.value)">
+          <span class="rh-lbl">du</span>
           <input type="date" class="cj" style="width:104px;font-size:9px" value="${b.du}" onchange="rhAllocSet(${idx},'du',this.value)">
+          <span class="rh-lbl">au</span>
           <input type="date" class="cj" style="width:104px;font-size:9px" value="${b.au}" onchange="rhAllocSet(${idx},'au',this.value)">
+          <span class="rh-lbl">mois</span>
           <span style="width:44px;text-align:center;font-size:9px;color:var(--text-3)" title="Part de l'exercice couverte par cette période">${(part*12).toFixed(1)}</span>
+          <span class="rh-lbl">coût réparti</span>
           <span style="font-size:10px;font-family:var(--mono);color:var(--accent-l);width:92px;text-align:right">${fmt(allocCout(a,rhYear,pp.cout))}</span>
           <button class="ib" onclick="rhAllocDel(${idx})" title="Supprimer cette affectation">🗑</button>
-          ${souci?`<span style="font-size:9px;color:var(--red)">⚠️ ${souci}</span>`:""}
+          ${souci?`<span class="rh-souci" style="font-size:9px;color:var(--red)">⚠️ ${souci}</span>`:""}
         </div>`;
         if(estFam(a.act)){
           const act=famActifsPeriode(famCle(a.act),a,rhYear);
           const tous=famProjets(famCle(a.act));
           const sans=act.filter(l=>actHeures(actCode(l))<=0);
-          h+=`<div style="font-size:9px;color:var(--text-3);margin:-1px 0 5px 224px;line-height:1.7">`;
+          h+=`<div class="rh-fam-note" style="font-size:9px;color:var(--text-3);margin:-1px 0 5px 224px;line-height:1.7">`;
           if(!act.length){
             h+=`<span style="color:var(--amber)">⚠️ aucun projet de cette famille n'a d'écriture sur la période : le coût resterait non réparti. Choisissez un projet précis, ou attendez que des écritures existent.</span>`;
           }else{
