@@ -158,8 +158,9 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25x <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25y <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
+  <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
   <input type="file" id="fi_bank" accept=".xlsx,.xls,.csv" style="display:none">
@@ -169,6 +170,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     <button class="b by dd-trigger" onclick="toggleDD('dd_actual')">🔄 Actualisation ▾</button>
     <div class="dd-menu" id="dd_actual">
       <button onclick="loadComptaFromSheet();closeDD()">☁️ Dernière sauvegarde</button>
+      <button onclick="fusRecuperer();closeDD()" title="Récupérer le travail de l'autre personne en gardant le vôtre : ce qui ne se recouvre pas est additionné, et l'outil n'interroge que sur ce qui se contredit">🔀 Fusionner avec le Sheet</button>
       <button onclick="syncAirtable();closeDD()">☁️ Airtable (codes + financements)</button>
       <button onclick="importAirtable();closeDD()">📥 Données Airtable (fichier)</button>
       <button onclick="loadNDFFromSheet();closeDD()">☁️ NDF Cloud</button>
@@ -1016,24 +1018,44 @@ async function saveComptaToSheet(){
     if(res.conflict){
       const q=res.savedBy||"quelqu'un d'autre";
       const q_at=res.savedAt?new Date(res.savedAt).toLocaleString("fr-FR"):"?";
-      const forcer=confirm("🛑 Sauvegarde refusée : le Google Sheet a été modifié depuis votre dernier chargement.\n\n"
-        +"Dernière sauvegarde dans le Sheet :\n"
-        +"   par « "+q+" »\n"
-        +"   le "+q_at+"\n"
-        +(res.rows?"   "+res.rows+" écriture(s)\n":"")
-        +"\nVotre version part de "+(baseAt?new Date(baseAt).toLocaleString("fr-FR"):"aucun chargement")+".\n\n"
-        +"➡️ Recommandé : Annuler, puis 🔄 Actualisation → ☁️ Dernière sauvegarde\n"
-        +"   pour récupérer son travail. Vos modifications non sauvegardées seront perdues :\n"
-        +"   faites d'abord 📤 Export → 💾 JSON si vous voulez les garder.\n\n"
-        +"OK = ÉCRASER le travail de "+q+". Cette action est irréversible côté Sheet.");
-      if(!forcer)return;
-      if(!confirm("Dernière confirmation : écraser la sauvegarde de « "+q+" » du "+q_at+" ?\n\n"
-        +"Son travail sera définitivement perdu."))return;
-      res=await sheetAPI("saveCompta",{rows:D.rows,meta,baseAt,force:true});
+      // Fusionner d'abord : écraser ou abandonner ne sont acceptables qu'en dernier
+      // recours, et seulement si la version commune de départ manque.
+      if(baseSnap){
+        if(!confirm("🔀 Le Google Sheet a été modifié depuis votre dernier chargement.\n\n"
+          +"   par « "+q+" »\n   le "+q_at+"\n"
+          +(res.rows?"   "+res.rows+" écriture(s)\n":"")
+          +"\nL'outil peut fusionner les deux versions : tout ce qui ne se recouvre pas est\n"
+          +"additionné, et il ne vous interroge que sur ce qui se contredit vraiment.\n"
+          +"Rien ne sera écrit sans votre validation.\n\n"
+          +"OK = fusionner · Annuler = ne rien faire (votre travail reste en local)"))return;
+        const r=await fusRecuperer();
+        if(r!==true)return;   // conflits à arbitrer, ou échec : la sauvegarde reprendra après
+        const baseAt2=(D.cloudSaved&&D.cloudSaved.at)||"";
+        meta.savedAt=new Date().toISOString();
+        res=await sheetAPI("saveCompta",{rows:D.rows,meta,baseAt:baseAt2});
+        if(res.conflict){alert("🛑 Quelqu'un a encore enregistré pendant la fusion.\n\nRelancez ☁️ Sauvegarder : la fusion repartira de la nouvelle version.");return}
+      }else{
+        const forcer=confirm("🛑 Sauvegarde refusée : le Google Sheet a été modifié depuis votre dernier chargement.\n\n"
+          +"Dernière sauvegarde dans le Sheet :\n"
+          +"   par « "+q+" »\n"
+          +"   le "+q_at+"\n"
+          +(res.rows?"   "+res.rows+" écriture(s)\n":"")
+          +"\nLa fusion n'est pas possible ici : l'outil n'a pas la version de départ commune\n"
+          +"(elle vit en mémoire et un rechargement de page la perd).\n\n"
+          +"➡️ Recommandé : Annuler, puis 📤 Export → 💾 JSON pour garder votre travail,\n"
+          +"   puis 🔄 Actualisation → ☁️ Dernière sauvegarde pour repartir de sa version.\n\n"
+          +"OK = ÉCRASER le travail de "+q+". Cette action est irréversible côté Sheet.");
+        if(!forcer)return;
+        if(!confirm("Dernière confirmation : écraser la sauvegarde de « "+q+" » du "+q_at+" ?\n\n"
+          +"Son travail sera définitivement perdu."))return;
+        res=await sheetAPI("saveCompta",{rows:D.rows,meta,baseAt,force:true});
+      }
     }
     if(res.error){alert("❌ Erreur : "+res.error);return}
     if(res.metaError){alert("⚠️ "+res.metaError+"\n\nLes lignes sont sauvegardées, mais PAS le budget ni les paramètres. Réessayez.");return}
     D.cloudSaved={at:meta.savedAt,by:qui};
+    fusSnapshot();   // ce qui vient d'être écrit devient la base commune
+    if($("fusWarn"))$("fusWarn").style.display="none";
     cloudDirty=false;autoSaveSilencieux();render();
     alert("✅ Sauvegardé vers Google Sheet !\n\n"
       +res.saved+" lignes classées\n"
@@ -1041,6 +1063,351 @@ async function saveComptaToSheet(){
       +(D.rhPostes||[]).length+" poste(s) RH\n"
       +"Par : "+qui+"\nDate : "+new Date().toLocaleString("fr-FR"));
   }catch(e){alert("❌ Erreur réseau : "+e.message)}
+}
+
+// ─── TRAVAIL À DEUX : FUSION À TROIS CÔTÉS ───
+// Le garde-fou d'horodatage empêchait d'écraser le travail de l'autre, mais il
+// ne laissait que deux issues : abandonner ses modifications, ou détruire les
+// siennes. Ce qu'il faut, quand les deux ont travaillé, c'est additionner ce qui
+// ne se recouvre pas et ne demander d'arbitrer que ce qui se contredit vraiment.
+//
+// Trois états sont nécessaires : la version commune de départ (celle qu'on a
+// chargée), la nôtre, et celle du Sheet. Pour chaque champ de chaque écriture :
+//   • un seul côté l'a changé  → on prend ce côté, sans rien demander ;
+//   • les deux, à l'identique  → rien à faire ;
+//   • les deux, différemment   → conflit, on demande.
+// La version commune vit en mémoire, prise à chaque chargement et à chaque
+// sauvegarde réussie. Sans elle (page rechargée entre-temps) on ne fusionne pas :
+// on le dit, plutôt que de deviner.
+let baseSnap=null;
+const FUS_CHAMPS=["dt","yr","lib","four","cat","act","deb","cre","modal","stat","resp","numj","src","ndf","compte","driveUrl","comment"];
+// Réglages fusionnés à la valeur entière : on ne descend pas dans le détail d'un
+// budget ligne à ligne, on demande laquelle des deux versions garder.
+const FUS_REGLAGES=[
+  ["budget","Budget prévisionnel"],["budgetVersions","Versions de budget"],["budgetVerYears","Exercices des versions"],
+  ["soldesRef","Points de contrôle bancaires"],["soldeInitial","Solde initial de trésorerie"],
+  ["soldeDate","Date du solde initial"],["soldeInitialCC","C/C initial"],["soldeInitialLivret","Livret initial"],
+  ["soldeLivret","Solde du livret"],["soldeInitialCAT","Compte à terme initial"],
+  ["ctr","Contrats"],["freedN","Numéros libérés"],["rhPostes","Postes RH"],["rhTx","Taux RH"],
+  ["rhAlloc","Affectations RH"],["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
+  ["airtableSubs","Subventions Airtable"],["airtablePrestas","Prestations Airtable"]
+];
+const cloneP=v=>{try{return JSON.parse(JSON.stringify(v===undefined?null:v))}catch(e){return null}};
+const memeV=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
+
+// La version commune est conservée durablement : sans cela, un simple
+// rechargement de page ramenait au choix entre écraser et abandonner. Elle pèse
+// autant que les données elles-mêmes, d'où IndexedDB plutôt que localStorage,
+// déjà occupé par l'état courant et plafonné à quelques mégaoctets.
+function fusDB(){
+  return new Promise((ok,ko)=>{
+    if(!window.indexedDB)return ko(new Error("indexedDB indisponible"));
+    const rq=indexedDB.open("litup_compta",1);
+    rq.onupgradeneeded=()=>{const db=rq.result;if(!db.objectStoreNames.contains("base"))db.createObjectStore("base")};
+    rq.onsuccess=()=>ok(rq.result);
+    rq.onerror=()=>ko(rq.error||new Error("ouverture refusée"));
+  });
+}
+async function fusBaseEcrire(snap){
+  try{
+    const db=await fusDB();
+    await new Promise((ok,ko)=>{const t=db.transaction("base","readwrite");
+      t.objectStore("base").put(snap,"compta");t.oncomplete=()=>ok();t.onerror=()=>ko(t.error)});
+    db.close();
+  }catch(e){}   // la copie en mémoire suffit pour la session en cours
+}
+async function fusBaseLire(){
+  try{
+    const db=await fusDB();
+    const v=await new Promise((ok,ko)=>{const t=db.transaction("base","readonly");
+      const r=t.objectStore("base").get("compta");r.onsuccess=()=>ok(r.result||null);r.onerror=()=>ko(r.error)});
+    db.close();return v;
+  }catch(e){return null}
+}
+// Photographie l'état courant comme nouvelle version commune de départ.
+function fusSnapshot(){
+  const meta={};
+  FUS_REGLAGES.forEach(([k])=>meta[k]=cloneP(D[k]));
+  meta.detIgnore=cloneP(D.detIgnore);
+  baseSnap={rows:cloneP(D.rows)||[],meta,at:(D.cloudSaved&&D.cloudSaved.at)||""};
+  fusBaseEcrire(baseSnap);
+}
+// Au démarrage : on ne reprend la version commune que si elle correspond bien à
+// la sauvegarde dont on se croit issu. Sinon elle est périmée, et fusionner à
+// partir d'elle produirait des résultats faux en silence.
+async function fusBaseRestaurer(){
+  const v=await fusBaseLire();
+  if(!v||!Array.isArray(v.rows))return;
+  if(String(v.at||"")!==String((D.cloudSaved&&D.cloudSaved.at)||""))return;
+  baseSnap=v;
+}
+// Les décisions prises sur les détecteurs s'additionnent : chacune est un « je
+// me suis prononcée sur cette ligne », jamais une valeur concurrente.
+function fusUnionDecisions(base,mien,leur){
+  const out={vi:{},dbl:{}};
+  ["vi","dbl"].forEach(k=>{
+    [base,mien,leur].forEach(src=>{
+      const o=(src&&src[k])||{};
+      Object.keys(o).forEach(c=>{if(o[c])out[k][c]=1});
+    });
+    // Une décision présente dans la base mais retirée d'un côté (« Tout revoir »)
+    // doit disparaître : on respecte le retrait.
+    const b=(base&&base[k])||{},m=(mien&&mien[k])||{},l=(leur&&leur[k])||{};
+    Object.keys(b).forEach(c=>{if(b[c]&&(!m[c]||!l[c]))delete out[k][c]});
+  });
+  return out;
+}
+// Cœur de la fusion. Rend l'état fusionné et la liste des points à arbitrer.
+function fusionner(base,mien,leur){
+  const conflits=[],res={rows:[],meta:{}};
+  const idx=t=>{const m=new Map();(t||[]).forEach(r=>m.set(String(r.id),r));return m};
+  const B=idx(base.rows),M=idx(mien.rows),L=idx(leur.rows);
+  const ids=[...new Set([...B.keys(),...M.keys(),...L.keys()])];
+  let prisMien=0,prisLeur=0,ajoutMien=0,ajoutLeur=0,supp=0;
+  const ordre=new Map();(mien.rows||[]).forEach((r,i)=>ordre.set(String(r.id),i));
+  ids.forEach(id=>{
+    const b=B.get(id),m=M.get(id),l=L.get(id);
+    if(!b&&m&&!l){res.rows.push(cloneP(m));ajoutMien++;return}
+    if(!b&&!m&&l){res.rows.push(cloneP(l));ajoutLeur++;return}
+    if(!b&&m&&l){
+      if(memeV(m,l)){res.rows.push(cloneP(m));return}
+      conflits.push({type:"ligne",id,titre:"Écriture ajoutée des deux côtés avec le même identifiant",
+        lib:(m.dt||"")+" · "+(m.lib||""),mien:cloneP(m),leur:cloneP(l)});
+      res.rows.push(cloneP(m));return;
+    }
+    if(b&&!m&&!l){supp++;return}
+    if(b&&m&&!l){
+      if(memeV(m,b)){supp++;return}                       // l'autre a supprimé, je n'ai rien touché
+      conflits.push({type:"suppr",id,titre:"Supprimée par l'autre, modifiée par vous",
+        lib:(m.dt||"")+" · "+(m.lib||""),mien:cloneP(m),leur:null});
+      res.rows.push(cloneP(m));return;
+    }
+    if(b&&!m&&l){
+      if(memeV(l,b)){supp++;return}                       // je l'ai supprimée, l'autre n'y a pas touché
+      conflits.push({type:"suppr",id,titre:"Supprimée par vous, modifiée par l'autre",
+        lib:(l.dt||"")+" · "+(l.lib||""),mien:null,leur:cloneP(l)});
+      return;
+    }
+    // Présente des trois côtés : arbitrage champ par champ.
+    const out=Object.assign({},b,{id:id});
+    FUS_CHAMPS.forEach(f=>{
+      const vb=b[f],vm=m[f],vl=l[f];
+      if(memeV(vm,vl)){out[f]=cloneP(vm);return}
+      if(memeV(vm,vb)){out[f]=cloneP(vl);prisLeur++;return}
+      if(memeV(vl,vb)){out[f]=cloneP(vm);prisMien++;return}
+      conflits.push({type:"champ",id,champ:f,titre:FUS_LIB(f),
+        lib:(m.dt||b.dt||"")+" · "+(m.lib||b.lib||""),mien:cloneP(vm),leur:cloneP(vl)});
+      out[f]=cloneP(vm);
+    });
+    ["driveUrl","comment"].forEach(f=>{if(out[f]===undefined&&m[f]!==undefined)out[f]=cloneP(m[f])});
+    res.rows.push(out);
+  });
+  res.rows.sort((a,b)=>{
+    const oa=ordre.has(String(a.id))?ordre.get(String(a.id)):1e9;
+    const ob=ordre.has(String(b.id))?ordre.get(String(b.id)):1e9;
+    if(oa!==ob)return oa-ob;
+    return String(a.dt||"").localeCompare(String(b.dt||""));
+  });
+  // Réglages : même logique, à la valeur entière.
+  FUS_REGLAGES.forEach(([k,lab])=>{
+    const vb=base.meta?base.meta[k]:undefined,vm=mien.meta[k],vl=leur.meta[k];
+    if(memeV(vm,vl)){res.meta[k]=cloneP(vm);return}
+    if(memeV(vm,vb)){res.meta[k]=cloneP(vl);prisLeur++;return}
+    if(memeV(vl,vb)){res.meta[k]=cloneP(vm);prisMien++;return}
+    conflits.push({type:"reglage",champ:k,titre:lab,lib:"Réglage global",mien:cloneP(vm),leur:cloneP(vl)});
+    res.meta[k]=cloneP(vm);
+  });
+  res.meta.detIgnore=fusUnionDecisions(base.meta&&base.meta.detIgnore,mien.meta.detIgnore,leur.meta.detIgnore);
+  return {res,conflits,stats:{prisMien,prisLeur,ajoutMien,ajoutLeur,supp}};
+}
+const FUS_LIBS={dt:"Date",yr:"Exercice",lib:"Libellé",four:"Fournisseur",cat:"Compte comptable",
+  act:"Code projet",deb:"Débit",cre:"Crédit",modal:"Modalité",stat:"Statut",resp:"Responsable",
+  numj:"N° justificatif",src:"Origine",ndf:"Note de frais",compte:"Compte bancaire",
+  driveUrl:"Lien Drive",comment:"Commentaire"};
+const FUS_LIB=f=>FUS_LIBS[f]||f;
+// Écriture du Sheet ramenée à la forme locale, sans toucher à D.
+function fusNormRow(r){
+  return {id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
+    dt:ds(r.dt||""),yr:r.yr||"",lib:r.lib||"",four:r.four||"",
+    cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
+    modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
+    src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""};
+}
+// État du Sheet, dans la même forme que le nôtre. Une clé absente des
+// métadonnées du Sheet (sauvegarde faite par une version antérieure de l'outil)
+// vaut « pas touché » et non « vidé » : sinon la fusion croirait à une
+// suppression et effacerait un réglage que personne n'a modifié.
+async function fusEtatServeur(){
+  const res=await sheetAPI("getCompta");
+  if(!res||res.error)throw new Error((res&&res.error)||"réponse vide");
+  const m=res.meta||{},meta={};
+  FUS_REGLAGES.forEach(([k])=>{
+    meta[k]=m[k]!==undefined?cloneP(m[k]):cloneP(baseSnap&&baseSnap.meta?baseSnap.meta[k]:D[k]);
+  });
+  meta.detIgnore=m.detIgnore!==undefined?cloneP(m.detIgnore)
+                :cloneP(baseSnap&&baseSnap.meta?baseSnap.meta.detIgnore:D.detIgnore);
+  return {rows:(res.rows||[]).map(fusNormRow),meta,savedAt:m.savedAt||"",savedBy:m.savedBy||"?"};
+}
+function fusEtatLocal(){
+  const meta={};
+  FUS_REGLAGES.forEach(([k])=>meta[k]=cloneP(D[k]));
+  meta.detIgnore=cloneP(D.detIgnore);
+  return {rows:cloneP(D.rows)||[],meta};
+}
+function fusAppliquer(out){
+  D.rows=out.rows;
+  FUS_REGLAGES.forEach(([k])=>{if(out.meta[k]!==undefined&&out.meta[k]!==null)D[k]=out.meta[k]});
+  D.detIgnore=out.meta.detIgnore||{vi:{},dbl:{}};
+  if(typeof normBudget==="function")normBudget();
+}
+const fusAff=v=>{
+  if(v===null||v===undefined||v==="")return '<em style="color:var(--text-3)">vide</em>';
+  if(typeof v==="object")return '<em>'+(Array.isArray(v)?v.length+" élément(s)":"objet")+'</em>';
+  return String(v).replace(/[<>]/g,"").substring(0,90);
+};
+let _fusEnCours=null;   // {conflits, out, srv, choix:{}}
+// Récupère le Sheet, fusionne, et n'interroge que sur ce qui se contredit.
+async function fusRecuperer(){
+  if(!baseSnap){
+    alert("🔄 Fusion impossible : l'outil n'a pas la version de départ commune.\n\n"
+      +"Elle est prise à chaque chargement et à chaque sauvegarde, et vit en mémoire :\n"
+      +"un rechargement de page la perd.\n\n"
+      +"Faites 📤 Export → 💾 JSON pour garder votre travail, puis\n"
+      +"🔄 Actualisation → ☁️ Dernière sauvegarde pour repartir de la version du Sheet.");
+    return false;
+  }
+  let srv;
+  try{ srv=await fusEtatServeur(); }
+  catch(e){ alert("❌ Lecture du Sheet impossible : "+e.message); return false; }
+  const {res:out,conflits,stats}=fusionner(baseSnap,fusEtatLocal(),srv);
+  if(!conflits.length){
+    fusAppliquer(out);
+    baseSnap={rows:cloneP(srv.rows),meta:cloneP(srv.meta),at:srv.savedAt||""};fusBaseEcrire(baseSnap);
+    D.cloudSaved={at:srv.savedAt,by:srv.savedBy};
+    autoSave();render();
+    alert("✅ Modifications fusionnées, sans rien à arbitrer.\n\n"
+      +"Reprises de « "+srv.savedBy+" » : "+stats.ajoutLeur+" écriture(s) ajoutée(s), "+stats.prisLeur+" champ(s) modifié(s).\n"
+      +"Vos modifications conservées : "+stats.ajoutMien+" ajout(s), "+stats.prisMien+" champ(s).\n"
+      +(stats.supp?stats.supp+" écriture(s) supprimée(s) de part et d'autre.\n":"")
+      +"\nPensez à ☁️ Sauvegarder pour renvoyer le tout.");
+    return true;
+  }
+  _fusEnCours={conflits,out,srv,choix:{}};
+  conflits.forEach((c,i)=>_fusEnCours.choix[i]="mien");
+  openFusion();
+  return "conflits";
+}
+function fusChoix(i,q){_fusEnCours.choix[i]=q;openFusion()}
+function fusChoixTout(q){Object.keys(_fusEnCours.choix).forEach(i=>_fusEnCours.choix[i]=q);openFusion()}
+function openFusion(){
+  const f=_fusEnCours;if(!f)return;
+  const qui=f.srv.savedBy||"l'autre personne";
+  const lignes=f.conflits.map((c,i)=>{
+    const sel=f.choix[i];
+    const btn=(q,lab)=>`<button class="b ${sel===q?"bb":"bd"}" style="font-size:9px;padding:2px 7px" onclick="fusChoix(${i},'${q}')">${lab}</button>`;
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 7px;font-size:9px;vertical-align:top">
+        <div style="font-weight:600">${c.titre}</div>
+        <div style="color:var(--text-3)">${String(c.lib||"").replace(/[<>]/g,"").substring(0,70)}</div></td>
+      <td style="padding:5px 7px;font-size:9px;vertical-align:top;background:${sel==="mien"?"var(--accent-bg)":"transparent"}">${
+        c.mien===null?'<em style="color:var(--red)">supprimée</em>':fusAff(c.mien)}</td>
+      <td style="padding:5px 7px;font-size:9px;vertical-align:top;background:${sel==="leur"?"var(--accent-bg)":"transparent"}">${
+        c.leur===null?'<em style="color:var(--red)">supprimée</em>':fusAff(c.leur)}</td>
+      <td style="padding:5px 7px;white-space:nowrap;vertical-align:top">${btn("mien","La mienne")} ${btn("leur","La sienne")}</td>
+    </tr>`;
+  }).join("");
+  $("modalC").innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:1000px">
+    <h3>🔀 ${f.conflits.length} point(s) à arbitrer avec « ${qui} »</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Tout ce qui ne se recouvrait pas a déjà été additionné : ces ${f.conflits.length} point(s) sont les seuls
+      où vous et « ${qui} » avez modifié la même chose différemment. Choisissez pour chacun, puis validez.
+      <br><strong>Rien n'est écrit avant que vous validiez</strong>, ni chez vous ni dans le Sheet.
+    </p>
+    <div style="margin-bottom:6px">
+      <button class="b bd" style="font-size:9px" onclick="fusChoixTout('mien')">Tout garder de moi</button>
+      <button class="b bd" style="font-size:9px" onclick="fusChoixTout('leur')">Tout garder de « ${qui} »</button>
+    </div>
+    <div style="overflow:auto;max-height:52vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg-2);position:sticky;top:0">
+          <th style="padding:5px 7px;font-size:9px;text-align:left">Ce qui se contredit</th>
+          <th style="padding:5px 7px;font-size:9px;text-align:left">Votre valeur</th>
+          <th style="padding:5px 7px;font-size:9px;text-align:left">Celle de « ${qui} »</th>
+          <th></th></tr></thead>
+        <tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bb" onclick="fusValider()">✅ Appliquer la fusion</button>
+      <button class="b bd" onclick="closeM();_fusEnCours=null">Annuler — ne rien changer</button>
+    </div></div></div>`;
+}
+function fusValider(){
+  const f=_fusEnCours;if(!f)return;
+  const idx=new Map();f.out.rows.forEach(r=>idx.set(String(r.id),r));
+  let repris=0,supprimees=0;
+  f.conflits.forEach((c,i)=>{
+    if(f.choix[i]!=="leur")return;
+    repris++;
+    if(c.type==="champ"){const r=idx.get(String(c.id));if(r)r[c.champ]=cloneP(c.leur);return}
+    if(c.type==="reglage"){f.out.meta[c.champ]=cloneP(c.leur);return}
+    if(c.type==="ligne"){const r=idx.get(String(c.id));if(r)Object.assign(r,cloneP(c.leur));return}
+    if(c.type==="suppr"){
+      if(c.leur===null){idx.delete(String(c.id));supprimees++}      // l'autre l'a supprimée : on suit
+      else idx.set(String(c.id),cloneP(c.leur));                    // l'autre l'a modifiée : on la remet
+    }
+  });
+  f.out.rows=f.out.rows.filter(r=>idx.has(String(r.id)));
+  f.conflits.forEach((c,i)=>{
+    if(f.choix[i]==="leur"&&c.type==="suppr"&&c.leur!==null&&!f.out.rows.some(r=>String(r.id)===String(c.id)))
+      f.out.rows.push(idx.get(String(c.id)));
+  });
+  pushUndo();
+  fusAppliquer(f.out);
+  baseSnap={rows:cloneP(f.srv.rows),meta:cloneP(f.srv.meta),at:f.srv.savedAt||""};fusBaseEcrire(baseSnap);
+  D.cloudSaved={at:f.srv.savedAt,by:f.srv.savedBy};
+  const qui=f.srv.savedBy||"l'autre personne";
+  _fusEnCours=null;closeM();autoSave();render();
+  alert("✅ Fusion appliquée.\n\n"
+    +repris+" arbitrage(s) rendu(s) en faveur de « "+qui+" », le reste selon votre version.\n"
+    +(supprimees?supprimees+" écriture(s) supprimée(s) en conséquence.\n":"")
+    +"\nAnnulable avec ↩️. Pensez à ☁️ Sauvegarder pour renvoyer le tout.");
+}
+// ─── SAVOIR QUE L'AUTRE A ENREGISTRÉ ───
+// Un enregistrement fait ailleurs n'était visible qu'au moment où l'on tentait
+// soi-même de sauvegarder, donc trop tard : on avait déjà travaillé sur une
+// version périmée. L'empreinte de la dernière sauvegarde (qui, quand, combien de
+// lignes) est demandée toutes les 90 secondes et au retour sur l'onglet ; c'est
+// une requête minuscule, distincte de la lecture des données.
+let _stampT=null,_stampVu="";
+async function majStamp(silencieux){
+  let s;
+  try{ s=await sheetAPI("comptaStamp"); }catch(e){ return }
+  if(!s||s.error||!s.savedAt)return;
+  const el=$("fusWarn");if(!el)return;
+  const mien=(D.cloudSaved&&D.cloudSaved.at)||"";
+  if(String(s.savedAt)===String(mien)){el.style.display="none";return}
+  const quand=new Date(s.savedAt);
+  const auj=quand.toDateString()===new Date().toDateString();
+  el.style.display="";
+  el.innerHTML=`🔀 ${s.savedBy||"Quelqu'un"} a enregistré ${auj?"à "+quand.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})
+    :"le "+quand.toLocaleDateString("fr-FR")} — récupérer`;
+  el.title="Le Google Sheet contient une sauvegarde plus récente que celle que vous avez chargée.\n\n"
+    +"Par : "+(s.savedBy||"?")+"\nLe : "+quand.toLocaleString("fr-FR")
+    +(s.rowCount?"\n"+s.rowCount+" écriture(s)":"")
+    +"\n\nCliquer pour fusionner : ce qui ne se recouvre pas est additionné,\n"
+    +"et l'outil ne vous interroge que sur ce qui se contredit vraiment.\n"
+    +"Rien n'est écrit sans votre validation.";
+  el.onclick=()=>fusRecuperer();
+  if(!silencieux&&_stampVu!==String(s.savedAt)){
+    _stampVu=String(s.savedAt);
+    toast((s.savedBy||"Quelqu'un")+" vient d'enregistrer. Cliquez sur le bandeau 🔀 en haut pour fusionner.","var(--accent-l)");
+  }
+}
+function demarreVeilleStamp(){
+  clearInterval(_stampT);
+  majStamp(true);
+  _stampT=setInterval(()=>majStamp(false),90000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)majStamp(false)});
 }
 
 async function loadComptaFromSheet(){
@@ -1085,7 +1452,9 @@ async function loadComptaFromSheet(){
       if(m.rhBulletins)D.rhBulletins=m.rhBulletins;
       if(m.rhDriveFolder!==undefined)D.rhDriveFolder=m.rhDriveFolder;
     }
+    fusSnapshot();   // version commune de départ pour une fusion ultérieure
     autoSave();render();
+    if($("fusWarn"))$("fusWarn").style.display="none";
     const info=res.meta?.savedBy?" (sauvé par "+res.meta.savedBy+" le "+(res.meta.savedAt||"?").split("T")[0]+")":"";
     alert("✅ Chargé depuis Google Sheet !\n\n"+D.rows.length+" lignes"+info);
   }catch(e){alert("❌ Erreur réseau : "+e.message)}
@@ -5921,13 +6290,14 @@ function finBackfillRids(){
 // l'éditeur Apps Script puis redéployé à la main. Plusieurs fonctionnalités
 // dépendaient d'un backend à jour sans qu'aucun écran ne le dise — le doute
 // pouvait durer des semaines. On compare donc les versions au démarrage.
-const BACKEND_ATTENDU="2026-08-28a";
+const BACKEND_ATTENDU="2026-08-30a";
 // Ce qu'apporte la version attendue, pour que l'avertissement soit actionnable.
 const BACKEND_APPORTS=[
   "identifiant Airtable stable (rid) : un financement renommé ne casse plus son rapprochement bancaire",
   "refus d'écraser une sauvegarde plus récente que celle que vous avez chargée",
   "statut Airtable « clôturée » compté comme versée, et prestation « 5. paiement effectué » comptée comme versée",
-  "codes projets filtrés côté serveur (getCodesProjets) pour les outils NDF et dépenses"
+  "codes projets filtrés côté serveur (getCodesProjets) pour les outils NDF et dépenses",
+  "signalement immédiat quand l'autre personne enregistre, et fusion des deux versions au lieu du choix entre écraser et abandonner"
 ];
 let _backendVer=null;
 async function checkBackendVersion(){
@@ -7245,13 +7615,17 @@ if(_secours){
   if(D.airtableSync!==new Date().toISOString().split("T")[0])autoSyncAirtable();
   // Contrôle de version du backend, en tâche de fond : ne bloque pas l'affichage.
   checkBackendVersion();
+  // La version commune de départ est relue avant la veille : le bandeau doit
+  // pouvoir proposer la fusion dès la première alerte.
+  fusBaseRestaurer().then(demarreVeilleStamp);
 }
 </script>
 <div style="max-width:1200px;margin:20px auto;padding:16px 20px;border-radius:12px;border:1px solid var(--bd);background:var(--bg2);font-family:var(--sans);font-size:11px;line-height:2;color:var(--t2)">
   <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
     <div><strong>CHARGEMENT</strong></div><div></div>
-    <div><strong style="color:var(--t1)">☁️ Dernière sauvegarde</strong> — Charger tout depuis le Google Sheet</div>
+    <div><strong style="color:var(--t1)">☁️ Dernière sauvegarde</strong> — Charger tout depuis le Google Sheet (remplace vos données)</div>
+    <div><strong style="color:var(--t1)">🔀 Fusionner avec le Sheet</strong> — Récupérer le travail de l'autre <em>en gardant le vôtre</em></div>
     <div><strong style="color:var(--t1)">📥 Airtable</strong> — Importer subventions et prestations (JSON)</div>
     <div><strong style="color:var(--t1)">☁️ NDF</strong> — Charger les NDF depuis le Google Sheet</div>
     <div><strong style="color:var(--t1)">☁️ Dépenses</strong> — Charger les dépenses depuis le Google Sheet</div>
@@ -7272,7 +7646,11 @@ if(_secours){
   </div>
   <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(99,102,241,.06);font-size:10px;color:var(--t2)">
     <strong>💡 Travail à deux :</strong> Après vos modifications, cliquez <strong>☁️ Sauvegarder</strong>.
-    L'autre personne clique <strong>☁️ Dernière sauvegarde</strong> pour récupérer.
+    Quand l'autre personne enregistre, un bandeau <strong style="color:#6366f1">🔀</strong> apparaît en haut :
+    cliquez-le pour <strong>fusionner</strong>. Ce qui ne se recouvre pas est additionné automatiquement, et
+    l'outil ne vous interroge que sur ce que vous avez modifié tous les deux différemment.
+    Rien n'est écrit sans votre validation, et tout est annulable avec ↩️.
+    <br><strong>☁️ Dernière sauvegarde</strong> reste utile pour repartir de zéro : elle <em>remplace</em> vos données.
   </div>
   <div style="margin-top:8px;padding:8px 10px;border-radius:6px;font-size:10px;color:var(--t3);border:1px solid var(--bd)">
     <strong>Code couleur :</strong>

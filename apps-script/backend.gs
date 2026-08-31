@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-08-28a";
+var BACKEND_VERSION = "2026-08-30a";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -82,6 +82,7 @@ function handleRequest(e) {
       case "listJustifFiles": result = listJustifFiles(); break;
       case "getCodesProjets": result = getCodesProjets(params); break;
       case "version": result = { version: BACKEND_VERSION }; break;
+      case "comptaStamp": result = comptaStamp(); break;
       default: result = { error: "Action inconnue: " + action };
     }
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -334,6 +335,19 @@ function getCompta() {
   return { rows, meta };
 }
 
+function comptaStamp() {
+  var s = null;
+  try { s = JSON.parse(getConfig("compta_stamp") || "null"); } catch (e) {}
+  if (!s) {
+    // Repli le temps qu'une première sauvegarde écrive l'empreinte.
+    try {
+      var p = JSON.parse(getConfigChunked("compta_meta") || "null");
+      if (p) s = { savedAt: p.savedAt || "", savedBy: p.savedBy || "", rowCount: p.rowCount || 0 };
+    } catch (e) {}
+  }
+  return s || { savedAt: "", savedBy: "", rowCount: 0 };
+}
+
 function saveCompta(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET_COMPTA);
@@ -345,15 +359,14 @@ function saveCompta(data) {
   // Le contrôle est fait AVANT de toucher à la feuille, pour ne rien détruire
   // en cas de conflit.
   if (data.baseAt !== undefined && !data.force) {
-    var precedent = null;
-    try { precedent = JSON.parse(getConfigChunked("compta_meta") || "null"); } catch (e) {}
-    var dejaAt = (precedent && precedent.savedAt) ? String(precedent.savedAt) : "";
+    var precedent = comptaStamp();
+    var dejaAt = precedent.savedAt ? String(precedent.savedAt) : "";
     if (dejaAt && String(data.baseAt || "") !== dejaAt) {
       return {
         conflict: true,
         savedAt: dejaAt,
-        savedBy: (precedent && precedent.savedBy) || "quelqu'un d'autre",
-        rows: (precedent && precedent.rowCount) || 0
+        savedBy: precedent.savedBy || "quelqu'un d'autre",
+        rows: precedent.rowCount || 0
       };
     }
   }
@@ -373,6 +386,16 @@ function saveCompta(data) {
       metaChunks = setConfigChunked("compta_meta", JSON.stringify(data.meta));
     } catch(e) { metaError = e.message; }
   }
+  // Empreinte écrite en dernier : si la sauvegarde des métadonnées échoue,
+  // l'horodatage ne bouge pas et le prochain enregistrement ne croit pas à tort
+  // que celui-ci a abouti.
+  try {
+    setConfig("compta_stamp", JSON.stringify({
+      savedAt: (data.meta && data.meta.savedAt) || new Date().toISOString(),
+      savedBy: (data.meta && data.meta.savedBy) || "",
+      rowCount: (data.rows || []).length
+    }));
+  } catch (e) {}
   var result = { ok: true, saved: (data.rows||[]).length, metaChunks: metaChunks, backendVersion: BACKEND_VERSION, timestamp: new Date().toISOString() };
   if (metaError) result.metaError = "Lignes sauvées mais métadonnées en échec : " + metaError;
   return result;
