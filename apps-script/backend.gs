@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-08-30a";
+var BACKEND_VERSION = "2026-08-31a";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -666,7 +666,8 @@ var F_PAR = {
   terr:   "fldv8H1uEeptu56OJ",   // Territoire_texte
   statut: "fldEXSoG5PbUKLAQl",   // Statut
   debut:  "fldRc5jvycrucZGyY",   // Date de debut
-  fin:    "fldx69vwn1zxoe5u0"    // Date de fin
+  fin:    "fldx69vwn1zxoe5u0",   // Date de fin
+  heures: "fld8ZxcAC074NVHx3"    // Nb heures formation
 };
 
 // Codes transversaux : toujours proposes, jamais issus d'Airtable.
@@ -711,7 +712,7 @@ function parcoursActifs() {
   var limite = new Date();
   limite.setMonth(limite.getMonth() - PARCOURS_MOIS);
   var recs = airtableFetchAll(AIRTABLE_TBL_PARCOURS,
-    [F_PAR.label, F_PAR.terr, F_PAR.statut, F_PAR.debut, F_PAR.fin], true);
+    [F_PAR.label, F_PAR.terr, F_PAR.statut, F_PAR.debut, F_PAR.fin, F_PAR.heures], true);
   var out = [], transv = [], vus = {}, exclus = 0;
   recs.forEach(function(r) {
     var f = r.fields || {};
@@ -730,7 +731,14 @@ function parcoursActifs() {
     var k = l.toLowerCase();
     if (vus[k]) return;              // doublons de libelle : une seule entree
     vus[k] = 1;
-    var o = { l: l, t: String(f[F_PAR.terr] || "NAT").trim() || "NAT" };
+    // "Nb heures formation" sert de cle de repartition quand on ventile un
+    // montant sur plusieurs parcours. Une cellule vide n'est pas un zero : on
+    // renvoie h = null pour que l'outil sache la difference et le signale.
+    var hv = f[F_PAR.heures];
+    var h = (hv === "" || hv === null || hv === undefined) ? null : Number(hv);
+    if (h !== null && (isNaN(h) || h < 0)) h = null;
+    var o = { l: l, t: String(f[F_PAR.terr] || "NAT").trim() || "NAT",
+              h: h, rid: r.id };
     (parcoursEstTransversal_(l) ? transv : out).push(o);
   });
   var parLibelle = function(a, b) { return a.l.localeCompare(b.l, "fr", { numeric: true }); };

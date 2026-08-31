@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26k <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31a <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -577,6 +577,8 @@ let D={
   soldeDate:"2025-01-01",
   soldesRef:[],
   actHeures:{},   // code projet → heures d'action, pour pondérer la répartition RH
+  actHeuresSrc:{},// code projet → "airtable" ou "manuel" : provenance de ces heures
+  actRid:{},      // code projet → identifiant du record Airtable, pour y renvoyer
   // rhAlloc n'avait aucune valeur par défaut : « + Ajouter projet » appelait
   // .push sur undefined et échouait sans rien dire à l'écran.
   rhAlloc:[],
@@ -993,7 +995,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -1063,7 +1065,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -1083,7 +1085,7 @@ async function saveComptaToSheet(){
     normBudget();
     const qui=prompt("Votre nom (pour le suivi) :","Direction")||"?";
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
-      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
@@ -1181,7 +1183,9 @@ const FUS_REGLAGES=[
   ["soldeDate","Date du solde initial"],["soldeInitialCC","C/C initial"],["soldeInitialLivret","Livret initial"],
   ["soldeLivret","Solde du livret"],["soldeInitialCAT","Compte à terme initial"],
   ["ctr","Contrats"],["freedN","Numéros libérés"],["rhPostes","Postes RH"],["rhTx","Taux RH"],
-  ["rhAlloc","Affectations RH"],["actHeures","Heures d'action par projet"],["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
+  ["rhAlloc","Affectations RH"],["actHeures","Heures d'action par projet"],
+  ["actHeuresSrc","Provenance des heures d'action"],["actRid","Liens Airtable des projets"],
+  ["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
   ["airtableSubs","Subventions Airtable"],["airtablePrestas","Prestations Airtable"]
 ];
 const cloneP=v=>{try{return JSON.parse(JSON.stringify(v===undefined?null:v))}catch(e){return null}};
@@ -3499,12 +3503,78 @@ function famActifsPeriode(cle,a,y){
 // dit lesquels manquent. Un projet réel ne doit jamais recevoir zéro parce qu'on
 // a oublié de saisir ses heures.
 function actHeuresMap(){if(!D.actHeures||typeof D.actHeures!=="object")D.actHeures={};return D.actHeures}
+// Provenance de chaque volume d'heures : "airtable" ou "manuel". Sans cette
+// trace, impossible de dire a l'utilisatrice si un chiffre vient de la base ou
+// d'une saisie, ni de distinguer une cellule Airtable vide d'un oubli local.
+function actHeuresSrc(){if(!D.actHeuresSrc||typeof D.actHeuresSrc!=="object")D.actHeuresSrc={};return D.actHeuresSrc}
+function actRidMap(){if(!D.actRid||typeof D.actRid!=="object")D.actRid={};return D.actRid}
+const actHeuresOrig=code=>actHeuresSrc()[String(code||"").toUpperCase()]||"";
+const actRid=code=>actRidMap()[String(code||"").toUpperCase()]||"";
+const AT_BASE="appWof91rLGFIUnrT", AT_TBL_PARCOURS="tbl7jv5UM8DPR5Sa6";
+const actAirtableUrl=code=>{const r=actRid(code);
+  return r?"https://airtable.com/"+AT_BASE+"/"+AT_TBL_PARCOURS+"/"+r:"https://airtable.com/"+AT_BASE+"/"+AT_TBL_PARCOURS};
 const actHeures=code=>{const v=parseFloat(actHeuresMap()[String(code||"").toUpperCase()]);return isNaN(v)||v<0?0:v};
 function setActHeures(code,v){
   const k=String(code||"").toUpperCase();if(!k)return;
   const n=parseFloat(String(v).replace(",","."));
-  if(!v||isNaN(n)||n<=0)delete actHeuresMap()[k];else actHeuresMap()[k]=n;
-  autoSave();render();
+  if(!v||isNaN(n)||n<=0){delete actHeuresMap()[k];delete actHeuresSrc()[k]}
+  else{actHeuresMap()[k]=n;actHeuresSrc()[k]="manuel"}
+  invalidateActCache();autoSave();render();
+}
+// Reprend « Nb heures formation » d'Airtable pour tous les parcours renvoyes,
+// pas seulement les nouveaux : c'est la base qui fait foi sur ce chiffre.
+// Une cellule vide (h null) n'ecrase jamais une saisie locale — on ne detruit
+// pas du travail — mais elle est remontee pour etre signalee.
+function actHeuresDepuisAirtable(acts){
+  const H=actHeuresMap(),S=actHeuresSrc(),R=actRidMap();
+  let maj=0,inchange=0;const vides=[],gardes=[];
+  (acts||[]).forEach(a=>{
+    if(!a||typeof a!=="object")return;
+    const code=actCode(a.l);if(!code)return;
+    if(a.rid)R[code]=a.rid;
+    const h=(a.h===null||a.h===undefined||a.h==="")?null:Number(a.h);
+    if(h===null||isNaN(h)||h<=0){
+      if(H[code]>0&&S[code]==="manuel")gardes.push({code,lib:a.l});
+      else vides.push({code,lib:a.l});
+      return;
+    }
+    if(H[code]===h&&S[code]==="airtable")inchange++;else maj++;
+    H[code]=h;S[code]="airtable";
+  });
+  if(maj)invalidateActCache();
+  return {maj,inchange,vides,gardes};
+}
+// Codes projets qui servent de cle de repartition et n'ont aucun volume
+// d'heures : ceux-la font basculer un partage en parts egales.
+function heuresManquantes(){
+  return actLabels().filter(l=>!rhExclu(l)&&!actEstAncien(l)&&rhGroupeDe(l)>=0&&actHeures(actCode(l))<=0)
+    .map(l=>({code:actCode(l),lib:l}));
+}
+function openHeuresManquantes(){
+  const L=heuresManquantes();
+  const lignes=L.length?L.map(x=>`<tr>
+      <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(x.code)}</td>
+      <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(x.lib).substring(0,44))}</td>
+      <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(actTerr(x.lib)||"—"))}</td>
+      <td style="padding:3px 6px"><input class="ni" style="width:70px" placeholder="heures"
+        onchange="setActHeures('${x.code}',this.value)"></td>
+      <td style="padding:3px 6px"><a href="${actAirtableUrl(x.code)}" target="_blank" rel="noopener"
+        style="font-size:9px;color:var(--accent-l)">Ouvrir dans Airtable ↗</a></td>
+    </tr>`).join("")
+    :`<tr><td colspan="5" style="padding:14px;font-size:10px;color:var(--text-3)">Tous les projets ont un volume d'heures.</td></tr>`;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:820px">
+    <h3>⏱ Heures d'action manquantes</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      ${L.length} projet(s) sans volume d'heures. Le champ de référence est <strong>« Nb heures formation »</strong> dans la table <em>4. Parcours</em> d'Airtable : remplissez-le là-bas, puis <strong>☁️ Charger → Airtable</strong> pour le reprendre ici.
+      <br><span style="color:var(--text-3)">Sans heures, une répartition sur une famille se fait à <strong>parts égales</strong> : un parcours de six heures pèse alors autant qu'un parcours de soixante. La colonne ci-dessous permet aussi de saisir la valeur à la main, en attendant.</span>
+    </p>
+    <div style="overflow:auto;max-height:56vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
+        ${["Code","Projet","Territoire","Heures (saisie manuelle)","Airtable"].map(x=>`<th style="padding:5px 6px;font-size:9px;text-align:left">${x}</th>`).join("")}
+      </tr></thead><tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px"><button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button></div>
+  </div></div>`;
 }
 // Nombre de mois de l'exercice où le projet porte au moins une écriture.
 function projMoisActifs(label,y){
@@ -3671,24 +3741,47 @@ function famSplitCalc(){
   const mk=moKey(r.dt)||"";
   const y=mk?Number(mk.substring(0,4)):Number(anStr(r.yr))||new Date().getFullYear();
   const m=mk?Number(mk.substring(5,7))-1:0;
-  const proj=st.cle?famSplitProjets(st.cle,st.scope,y,m):[];
-  const k=proj.length?famParts(proj,y):{mode:"egal",sans:[],parts:[]};
+  // tous = les projets du périmètre, affichés avec leur case. retenus = ceux
+  // qui sont cochés, et eux seuls se partagent le montant. Une famille n'est
+  // qu'une proposition de départ : c'est la sélection qui décide.
+  const tous=st.cle?famSplitProjets(st.cle,st.scope,y,m):[];
+  const retenus=st.sel?tous.filter(l=>st.sel.indexOf(l)>=0):tous.slice();
+  const k=retenus.length?famParts(retenus,y):{mode:"egal",sans:[],parts:[]};
   let rd=0,rc=0;
-  const parts=proj.map((l,i)=>{
-    const dernier=i===proj.length-1;
+  const parts=retenus.map((l,i)=>{
+    const dernier=i===retenus.length-1;
     const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*k.parts[i]*100)/100;
     const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*k.parts[i]*100)/100;
     rd+=d;rc+=c;
     return {act:l,part:k.parts[i],deb:d,cre:c};
   });
-  return {r,y,m,mk,proj,mode:k.mode,sans:k.sans,parts};
+  const parAct={};parts.forEach(x=>{parAct[x.act]=x});
+  return {r,y,m,mk,tous,retenus,proj:retenus,mode:k.mode,sans:k.sans,parts,parAct};
+}
+// La sélection se règle par indice dans le périmètre : un libellé de projet
+// contient apostrophes et guillemets, et un attribut onclick ne les supporte pas.
+function famSplitCoche(i){
+  const c=famSplitCalc();if(!c)return;
+  const l=c.tous[i];if(l===undefined)return;
+  const sel=_famSplit.sel?_famSplit.sel.slice():c.tous.slice();
+  const j=sel.indexOf(l);
+  if(j>=0)sel.splice(j,1);else sel.push(l);
+  _famSplit.sel=sel;
+  famSplitDessine();
+}
+function famSplitTout(v){
+  const c=famSplitCalc();if(!c)return;
+  _famSplit.sel=v?c.tous.slice():[];
+  famSplitDessine();
 }
 function openFamSplit(id){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
-  _famSplit={id,cle:"",scope:"annee"};
+  _famSplit={id,cle:"",scope:"annee",sel:null};
   famSplitDessine();
 }
-function famSplitSet(champ,v){if(!_famSplit)return;_famSplit[champ]=v;famSplitDessine()}
+// Changer de famille ou de périmètre repart d'une sélection complète : garder
+// l'ancienne cocherait des projets qui ne sont plus proposés.
+function famSplitSet(champ,v){if(!_famSplit)return;_famSplit[champ]=v;_famSplit.sel=null;famSplitDessine()}
 function famSplitDessine(){
   const c=famSplitCalc();
   if(!c){$("modalC").innerHTML="";_famSplit=null;return}
@@ -3710,36 +3803,50 @@ function famSplitDessine(){
   let corps="";
   if(!st.cle){
     corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Choisissez une famille pour voir la répartition proposée.</div>';
-  }else if(!c.parts.length){
+  }else if(!c.tous.length){
     corps='<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de cette famille ne répond à ce périmètre. Élargissez le périmètre ci-dessus, ou vérifiez que les projets de la famille portent bien un territoire.</div>';
   }else{
     const sd=c.parts.reduce((a,x)=>a+x.deb,0),sc=c.parts.reduce((a,x)=>a+x.cre,0);
     const ecart=Math.round((sd-(r.deb||0))*100)/100, ecartC=Math.round((sc-(r.cre||0))*100)/100;
-    corps=`<div style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:44vh">
-      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2)">
-        ${["Code","Projet","Heures d’action","Part","Débit","Crédit"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=3?"right":"left"}">${x}</th>`).join("")}
+    const nCoch=c.retenus.length;
+    corps=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
+        <span style="font-size:9px;color:var(--text-3)">Projets retenus : <strong style="color:var(--text-1)">${nCoch}</strong> sur ${c.tous.length}</span>
+        <button class="b bd" style="font-size:8px" onclick="famSplitTout(true)">Tout cocher</button>
+        <button class="b bd" style="font-size:8px" onclick="famSplitTout(false)">Tout décocher</button>
+      </div>
+      <div id="famSplitScroll" style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:42vh">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
+        ${["","Code","Projet","Heures d’action","Part","Débit","Crédit"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=4?"right":"left"}">${x}</th>`).join("")}
       </tr></thead><tbody>
-      ${c.parts.map(x=>`<tr>
-        <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(actCode(x.act))}</td>
-        <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(x.act).substring(0,42))}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;color:var(--text-3)">${actHeures(actCode(x.act))||"—"}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${(x.part*100).toFixed(2)} %</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${x.deb?fmt(x.deb):""}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${x.cre?fmt(x.cre):""}</td></tr>`).join("")}
+      ${c.tous.map((l,i)=>{
+        const x=c.parAct[l], on=!!x, code=actCode(l), hh=actHeures(code), org=actHeuresOrig(code);
+        return `<tr style="${on?"":"opacity:.45"}">
+        <td style="padding:3px 6px"><input type="checkbox"${on?" checked":""} onchange="famSplitCoche(${i})"
+          title="${on?"Retirer ce projet de la répartition":"Inclure ce projet dans la répartition"}"></td>
+        <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(code)}</td>
+        <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(l).substring(0,40))}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right">${hh>0
+          ?`<span style="color:var(--text-2)" title="${org==="airtable"?"Reprises d’Airtable (« Nb heures formation »)":"Saisie manuelle"}">${hh}${org==="airtable"?"":" ✎"}</span>`
+          :`<span style="color:var(--amber)" title="« Nb heures formation » est vide dans Airtable pour ce parcours : la répartition retombe à parts égales.">vide ⚠️</span>`}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${on?(x.part*100).toFixed(2)+" %":"—"}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${on&&x.deb?fmt(x.deb):""}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${on&&x.cre?fmt(x.cre):""}</td></tr>`}).join("")}
       <tr style="border-top:2px solid var(--accent);font-weight:700">
-        <td colspan="3" style="padding:4px 6px;font-size:9px">${c.parts.length} sous-ligne(s)</td>
-        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">100,00 %</td>
+        <td colspan="4" style="padding:4px 6px;font-size:9px">${nCoch} sous-ligne(s)</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${nCoch?"100,00 %":"—"}</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sd)}</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sc)}</td></tr>
       </tbody></table></div>
       <p style="font-size:9px;color:var(--text-3);margin:8px 0 0;line-height:1.7">
-        ${c.mode==="heures"
-          ?"Pondération par les <strong>heures d’action</strong> de chaque projet, ramenées à leur nombre de mois d’activité."
-          :"Parts <strong>égales</strong>"+(c.sans.length?" : "+c.sans.length+" projet(s) sans heures renseignées ("+escHtml(c.sans.map(actCode).join(", "))+"). Renseignez les heures dans RH → Par projet pour pondérer.":" — aucune heure d’action renseignée.")}
-        ${(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":"<br>La somme des sous-lignes égale l’écriture d’origine, au centime."}
+        ${!nCoch?'<span style="color:var(--amber)">Aucun projet coché : rien à répartir.</span>'
+        :c.mode==="heures"
+          ?"Pondération par les <strong>heures d’action</strong> (« Nb heures formation » d’Airtable), ramenées au nombre de mois d’activité de chaque projet."
+          :"Parts <strong>égales</strong>"+(c.sans.length?' : '+c.sans.length+" projet(s) sans heures ("+escHtml(c.sans.map(actCode).join(", "))+"). Remplissez « Nb heures formation » dans Airtable puis ☁️ Charger → Airtable, ou saisissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>.":" — aucune heure d’action renseignée.")}
+        ${nCoch&&(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":nCoch?"<br>La somme des sous-lignes égale l’écriture d’origine, au centime.":""}
       </p>`;
   }
   const pret=st.cle&&c.parts.length;
+  const scrollAv=(document.getElementById("famSplitScroll")||{}).scrollTop||0;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:860px">
     <h3>⧉ Répartir sur une famille de projets</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
@@ -3759,6 +3866,10 @@ function famSplitDessine(){
       <button class="b bp"${pret?"":" disabled style=\"opacity:.4;cursor:not-allowed\""} onclick="famSplitValider()">⧉ Éclater en ${pret?c.parts.length:0} sous-ligne(s)</button>
       <button class="b bd" style="margin-left:auto" onclick="famSplitFermer()">Annuler</button>
     </div></div></div>`;
+  // Cocher une case redessine la modale : sans cela la liste remonterait en
+  // haut a chaque clic, ce qui rend une famille de vingt projets impraticable.
+  const sc=document.getElementById("famSplitScroll");
+  if(sc&&scrollAv)sc.scrollTop=scrollAv;
 }
 function famSplitFermer(){_famSplit=null;closeM()}
 function famSplitValider(){
@@ -4155,6 +4266,16 @@ function rRH(el){
           </div>`).join("")}
         </div>`;
     }
+    const hMank=heuresManquantes();
+    if(hMank.length){
+      h+=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:6px;padding:7px 10px;margin-bottom:10px;line-height:1.7">
+        ⏱ <strong>${hMank.length} projet(s) sans heures d'action</strong> : ${hMank.slice(0,10).map(x=>escHtml(x.code)).join(" · ")}${hMank.length>10?" …":""}.
+        Le champ de référence est <strong>« Nb heures formation »</strong> dans la table <em>4. Parcours</em> d'Airtable ; il est repris à chaque
+        <strong>☁️ Charger → Airtable</strong>. Sans lui, une répartition sur une famille se fait à <strong>parts égales</strong> — un parcours
+        de six heures pèse alors autant qu'un parcours de soixante.
+        <div style="margin-top:5px"><button class="b bb" style="font-size:9px" onclick="openHeuresManquantes()">⏱ Voir la liste et compléter</button></div>
+      </div>`;
+    }
     const libs=new Set(D.rhPostes.map(p=>p.lib));
     const mig=rhAllocMigre();
     if(mig.ambigus.length){
@@ -4229,7 +4350,10 @@ function rRH(el){
                   <input class="cj" style="width:52px;text-align:center;font-size:9px${hh>0?"":";border-color:var(--amber)"}"
                     value="${hh||""}" placeholder="h" data-c="${escHtml(c)}"
                     onchange="setActHeures(this.dataset.c,this.value)"
-                    title="Heures d'action de ce projet sur l'exercice. Réparties sur ses mois d'activité pour pondérer le coût.">
+                    title="Heures d'action de ce projet sur l'exercice. Réparties sur ses mois d'activité pour pondérer le coût.${
+                      actHeuresOrig(c)==="airtable"?" — reprises d'Airtable (« Nb heures formation »)"
+                      :actHeuresOrig(c)==="manuel"?" — saisie manuelle : Airtable est vide pour ce projet"
+                      :" — vide dans Airtable et non saisi ici"}">
                 </span>`}).join("")}</div>`;
           }
           h+=`</div>`;
@@ -7416,11 +7540,12 @@ async function autoSyncAirtable(){
       atStatSet("⚠️ Airtable","#ef4444",(res&&res.error)||"Actualisation impossible — données en cache conservées");
       return false;
     }
-    let added=0;
+    let added=0,heu=null;
     if(res.acts&&res.acts.length){
       const existing=new Set(D.acts.map(a=>String(typeof a==="string"?a:a.l).split(" - ")[0].trim()));
       res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);added++}});
       if(added)invalidateActCache();
+      heu=actHeuresDepuisAirtable(res.acts.filter(actEstValide));
     }
     let gardes=0;
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
@@ -7431,6 +7556,7 @@ async function autoSyncAirtable(){
     atStatSet("✅ Airtable","#16a34a",
       (res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s) · "+
       (res.acts?.length||0)+" code(s) projet"+(added?" dont "+added+" nouveau(x)":"")+
+      (heu?" · heures d'action : "+heu.maj+" reprise(s)"+(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":""):"")+
       " — sync "+D.airtableSync);
     setTimeout(()=>atStatSet(""),8000);
     return true;
@@ -7450,10 +7576,11 @@ async function syncAirtable(){
     closeM();
     if(res.error){alert("❌ "+res.error+(String(res.error).includes("AIRTABLE_TOKEN")?"\n\nConfigurez le jeton dans Apps Script → ⚙️ Paramètres du projet → Propriétés du script.":""));return}
     pushUndo();
-    let actsAdded=0;
+    let actsAdded=0,heu=null;
     if(res.acts&&res.acts.length){
       const existing=new Set(D.acts.map(a=>a.l.split(" - ")[0].trim()));
       res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);actsAdded++}});
+      heu=actHeuresDepuisAirtable(res.acts.filter(actEstValide));
     }
     let gardes=0;
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
@@ -7461,7 +7588,11 @@ async function syncAirtable(){
     const bf=finBackfillRids();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
+    if(heu&&(heu.vides.length||heu.gardes.length))setTimeout(()=>openHeuresManquantes(),50);
     if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)"
+      +(heu?"\n⏱ Heures d'action : "+heu.maj+" reprise(s) depuis « Nb heures formation »"
+          +(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":"")
+          +(heu.gardes.length?"\n   "+heu.gardes.length+" saisie(s) manuelle(s) conservée(s) là où Airtable est vide":""):"")
       +(gardes?"\n"+gardes+" saisie(s) manuelle(s) conservée(s) : compte, année, mois de trésorerie":"")
       +(bf.maj?"\n🔗 "+bf.maj+" rapprochement(s) bancaire(s) consolidé(s) sur l'identifiant Airtable (ils ne dépendent plus du nom)":"")
       +(bf.ambigus?"\n⚠️ "+bf.ambigus+" rapprochement(s) sur un nom porté par plusieurs financements : à revoir à la main":"")
