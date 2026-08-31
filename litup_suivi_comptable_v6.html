@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26i <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26j <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3279,6 +3279,57 @@ function rhSetPresentation(v){pushUndo();D.rhPresentation=v;autoSave();render()}
 // est vérifiée mois par mois : un mois où le total n'atteint pas 100 % est un
 // trou, un mois au-delà de 100 % est une sur-affectation.
 function rhAllocArr(){if(!Array.isArray(D.rhAlloc))D.rhAlloc=[];return D.rhAlloc}
+// Chaque poste doit avoir un identifiant : les anciens n'en ont pas.
+function rhPostesIds(){
+  let n=0;
+  (D.rhPostes||[]).forEach((p,i)=>{if(p&&!p.id){p.id="p"+i+"_"+Math.random().toString(36).substr(2,6);n++}});
+  return n;
+}
+// Migration : une affectation qui ne porte que l'intitulé est rattachée au
+// premier poste de cet intitulé. Quand plusieurs postes le partagent, l'outil
+// ne peut pas trancher — il le dit plutôt que de choisir en silence.
+function rhAllocMigre(){
+  rhPostesIds();
+  const parLib={};
+  (D.rhPostes||[]).forEach(p=>{const l=String(p.lib||"");(parLib[l]=parLib[l]||[]).push(p)});
+  let migrees=0,ambigus=new Set();
+  rhAllocArr().forEach(a=>{
+    if(a.pid)return;
+    const L=parLib[String(a.sal||"")];
+    if(!L||!L.length)return;
+    a.pid=L[0].id;migrees++;
+    if(L.length>1)ambigus.add(String(a.sal||""));
+  });
+  return {migrees,ambigus:[...ambigus]};
+}
+// Affectations d'un poste : par identifiant, avec repli sur l'intitulé pour les
+// lignes non encore migrées.
+function rhAllocDe(p){
+  return rhAllocArr().filter(a=>a.pid?a.pid===p.id:String(a.sal||"")===String(p.lib||""));
+}
+function rhCouverturePoste(p,y){
+  const parMois=new Array(12).fill(0);
+  rhAllocDe(p).forEach(a=>{
+    const pct=parseFloat(a.pct)||0;
+    allocCouv(a,y).forEach((c,m)=>{parMois[m]+=pct*c});
+  });
+  // Un poste n'est à couvrir que sur ses mois de contrat : exiger 100 % avant
+  // l'embauche ou après la sortie inventerait un trou qui n'existe pas.
+  const dansContrat=m=>{
+    const mk=y+"-"+String(m+1).padStart(2,"0");
+    const du=String(p.debut||"").substring(0,7),au=String(p.fin||"").substring(0,7);
+    if(du&&mk<du)return false;
+    if(au&&mk>au)return false;
+    return true;
+  };
+  const trous=[],surs=[],hors=[];
+  parMois.forEach((v,m)=>{
+    if(!dansContrat(m)){hors.push(m);return}
+    if(v<99.5)trous.push(m);
+    else if(v>100.5)surs.push(m);
+  });
+  return {parMois,trous,surs,hors,dansContrat};
+}
 const rhJoursMois=(y,m)=>new Date(Number(y),m+1,0).getDate();
 function allocBornes(a,y){
   const du0=y+"-01-01",au0=y+"-12-31";
@@ -3307,19 +3358,9 @@ function allocCouv(a,y){
 const allocPart=(a,y)=>allocCouv(a,y).reduce((s,x)=>s+x,0)/12;
 const allocCout=(a,y,coutAnnuel)=>coutAnnuel*(parseFloat(a.pct)||0)/100*allocPart(a,y);
 // Couverture d'un poste, mois par mois, en pourcentage.
-function rhCouverture(lib,y){
-  const parMois=new Array(12).fill(0);
-  rhAllocArr().filter(a=>a.sal===lib).forEach(a=>{
-    const pct=parseFloat(a.pct)||0;
-    allocCouv(a,y).forEach((c,m)=>{parMois[m]+=pct*c});
-  });
-  const trous=[],surs=[];
-  parMois.forEach((v,m)=>{
-    if(v<99.5)trous.push(m);
-    else if(v>100.5)surs.push(m);
-  });
-  return {parMois,trous,surs};
-}
+// rhCouverture(lib) a été retirée : rattacher la couverture à l'intitulé du
+// poste est précisément le défaut corrigé — deux postes de même nom partageaient
+// leurs affectations. rhCouverturePoste(p) travaille sur l'identifiant.
 // L'intitule du poste ne doit pas transiter par un attribut HTML : JSON.stringify
 // y insere des guillemets doubles, qui referment l'attribut onclick et rendent le
 // bouton inerte. On passe l'indice du poste.
@@ -3488,9 +3529,11 @@ function famParts(actifs,y){
 }
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
-  const lib=rhPosteLib(pi);if(!lib)return;
+  const p=(D.rhPostes||[])[pi];if(!p)return;
+  rhPostesIds();
+  const lib=String(p.lib||"");
   pushUndo();
-  const L=rhAllocArr().filter(a=>a.sal===lib);
+  const L=rhAllocDe(p);
   // La nouvelle période démarre là où la précédente s'arrête : c'est le cas
   // courant, et cela évite de recréer un trou à chaque ajout.
   const finies=L.map(a=>allocBornes(a,y).auEx).filter(Boolean).sort();
@@ -3500,7 +3543,7 @@ function rhAllocAjout(pi,y){
     const t=Date.parse(derniere+"T12:00:00");
     if(!isNaN(t))du=new Date(t+86400000).toISOString().substring(0,10);
   }
-  rhAllocArr().push({sal:lib,act:"",pct:0,du,au:y+"-12-31"});
+  rhAllocArr().push({pid:p.id,sal:lib,act:"",pct:0,du,au:y+"-12-31"});
   autoSave();render();
 }
 function rhAllocSet(i,champ,v){
@@ -3511,8 +3554,10 @@ function rhAllocSet(i,champ,v){
 function rhAllocDel(i){pushUndo();rhAllocArr().splice(i,1);autoSave();render()}
 // Étire la dernière période jusqu'au 31/12, ou crée une ligne sur les mois nus.
 function rhBoucherTrou(pi,y){
-  const lib=rhPosteLib(pi);if(!lib)return;
-  const c=rhCouverture(lib,y);
+  const p=(D.rhPostes||[])[pi];if(!p)return;
+  rhPostesIds();
+  const lib=String(p.lib||"");
+  const c=rhCouverturePoste(p,y);
   if(!c.trous.length){toast("Aucun trou à combler sur "+y+".","var(--green)");return}
   const m0=c.trous[0],m1=c.trous[c.trous.length-1];
   const mm=x=>String(x+1).padStart(2,"0");
@@ -3522,16 +3567,19 @@ function rhBoucherTrou(pi,y){
     +"  du "+du+" au "+au+"\n  "+manque+" % du temps\n\n"
     +"Il restera à choisir le code projet. Annulable avec ↩️."))return;
   pushUndo();
-  rhAllocArr().push({sal:lib,act:"",pct:manque,du,au});
+  rhAllocArr().push({pid:p.id,sal:lib,act:"",pct:manque,du,au});
   autoSave();render();
   toast("Affectation créée sur les mois non couverts. Choisissez le code projet.","var(--accent-l)");
 }
 function rhBandeauCouv(c,y){
+  const hors=new Set(c.hors||[]);
   return `<div style="display:flex;gap:1px;margin:4px 0 2px">${c.parMois.map((v,m)=>{
-    const col=v>100.5?"var(--red)":v>99.5?"var(--green)":v<0.5?"var(--bg-3)":"var(--amber)";
-    return `<div title="${MONAMES[m]} ${y} — ${Math.round(v*10)/10} % affecté${
-      v>100.5?" (sur-affectation)":v>99.5?"":v<0.5?" (aucune affectation)":" (incomplet)"}"
-      style="flex:1;height:12px;background:${col};border-radius:2px;font-size:6px;color:#000;text-align:center;line-height:12px">${MONAMES[m].charAt(0)}</div>`;
+    const dehors=hors.has(m);
+    const col=dehors?"transparent":v>100.5?"var(--red)":v>99.5?"var(--green)":v<0.5?"var(--bg-3)":"var(--amber)";
+    return `<div title="${MONAMES[m]} ${y} — ${dehors?"hors contrat, rien à couvrir":Math.round(v*10)/10+" % affecté"+(
+      v>100.5?" (sur-affectation)":v>99.5?"":v<0.5?" (aucune affectation)":" (incomplet)")}"
+      style="flex:1;height:12px;background:${col};border-radius:2px;font-size:6px;color:#000;text-align:center;line-height:12px${
+      dehors?";border:1px dashed var(--border);color:var(--text-3)":""}">${MONAMES[m].charAt(0)}</div>`;
   }).join("")}</div>`;
 }
 function rhSetYear(v){rhYear=String(v);render()}
@@ -3837,16 +3885,25 @@ function rRH(el){
         </div>`;
     }
     const libs=new Set(D.rhPostes.map(p=>p.lib));
+    const mig=rhAllocMigre();
+    if(mig.ambigus.length){
+      h+=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:6px;padding:7px 10px;margin-bottom:10px;line-height:1.7">
+        ⚠️ <strong>Plusieurs postes portent le même intitulé</strong> : ${mig.ambigus.map(escHtml).join(" · ")}.
+        Les affectations créées avant cette version étaient rattachées à l'intitulé, pas au poste : elles ont été
+        données au premier poste de ce nom. Vérifiez la répartition, et distinguez les intitulés (« Coord. Pros — CDD »,
+        « Coord. Pros — CDI ») pour éviter la confusion.</div>`;
+    }
     let nTrous=0;
     D.rhPostes.forEach((p,pi)=>{
-      const allocs=rhAllocArr().filter(a=>a.sal===p.lib);
+      const allocs=rhAllocDe(p);
       const pp=res2.parPoste[pi]||{cout:0};
-      const cv=rhCouverture(p.lib,rhYear);
+      const cv=rhCouverturePoste(p,rhYear);
       const reparti=allocs.reduce((s,a)=>s+allocCout(a,rhYear,pp.cout),0);
       if(cv.trous.length)nTrous++;
+      const nAcouvrir=12-cv.hors.length;
       const etat=cv.surs.length?{c:"var(--red)",t:cv.surs.length+" mois au-delà de 100 %"}
                 :cv.trous.length?{c:"var(--amber)",t:cv.trous.length+" mois non couvert"+(cv.trous.length>1?"s":"")}
-                :{c:"var(--green)",t:"12 mois couverts"};
+                :{c:"var(--green)",t:nAcouvrir+" mois couvert"+(nAcouvrir>1?"s":"")+(cv.hors.length?" (contrat)":"")};
       h+=`<div class="scard" style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-wrap:wrap;gap:6px">
           <div><strong style="font-size:11px">${escHtml(p.lib||"(sans intitulé)")}</strong>
@@ -3855,7 +3912,10 @@ function rRH(el){
             · réparti <strong style="font-family:var(--mono);color:var(--accent-l)">${fmt(reparti)}</strong>
             · <span style="color:${etat.c};font-weight:700">${etat.t}</span></div>
         </div>
-        ${rhBandeauCouv(cv,rhYear)}`;
+        ${rhBandeauCouv(cv,rhYear)}
+        ${cv.hors.length?`<div style="font-size:9px;color:var(--text-3);margin:-2px 0 3px">
+          ${cv.hors.length} mois hors contrat (${cv.hors.map(m=>MONAMES[m]).join(", ")}) : ils ne sont pas à couvrir.
+          ${p.debut?"Début "+escHtml(String(p.debut)):""}${p.fin?" · fin "+escHtml(String(p.fin)):""}</div>`:""}`;
       if(allocs.length){
         h+=`<div style="display:flex;gap:4px;font-size:8px;color:var(--text-3);margin:4px 0 2px">
           <span style="width:220px">Code projet</span><span style="width:56px;text-align:center">% temps</span>
@@ -3917,7 +3977,8 @@ function rRH(el){
         par projet, alors qu'il est bien payé. Comblez les trous, ou assumez-les en connaissance de cause.</div>`;
     }
     // Affectations orphelines (anciennes lignes nominatives)
-    const orph=(D.rhAlloc||[]).filter(a=>!libs.has(a.sal));
+    const idsP=new Set((D.rhPostes||[]).map(p=>p.id));
+    const orph=rhAllocArr().filter(a=>a.pid?!idsP.has(a.pid):!libs.has(a.sal));
     if(orph.length){
       h+=`<div class="scard" style="border-color:rgba(251,191,36,.4)">
         <div style="font-size:10px;font-weight:700;color:var(--amber);margin-bottom:4px">⚠️ ${orph.length} affectation(s) sans poste correspondant</div>
@@ -3937,7 +3998,7 @@ function rRH(el){
     };
     rhAllocArr().forEach(a=>{
       if(!a.act||!a.pct)return;
-      const pi=D.rhPostes.findIndex(p=>p.lib===a.sal);if(pi<0)return;
+      const pi=D.rhPostes.findIndex(p=>a.pid?p.id===a.pid:String(p.lib||"")===String(a.sal||""));if(pi<0)return;
       const coutAn=(res2.parPoste[pi]||{cout:0}).cout;
       const pct=parseFloat(a.pct)||0;
       const b=allocBornes(a,rhYear),plein=b.duEx===rhYear+"-01-01"&&b.auEx===rhYear+"-12-31";
@@ -7541,7 +7602,7 @@ function detRestaure(){
   });
 }
 function figerEntetes(){
-  document.querySelectorAll("#content table thead").forEach(th=>{
+  document.querySelectorAll("#content .tbl-fige table thead").forEach(th=>{
     const rows=th.querySelectorAll("tr");
     if(rows.length<2)return;
     let haut=0;
