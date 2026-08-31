@@ -173,7 +173,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26d <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26e <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3296,6 +3296,67 @@ function rhCouverture(lib,y){
 // L'intitule du poste ne doit pas transiter par un attribut HTML : JSON.stringify
 // y insere des guillemets doubles, qui referment l'attribut onclick et rendent le
 // bouton inerte. On passe l'indice du poste.
+// ─── REGROUPEMENT DES CODES PROJETS POUR L'AFFECTATION RH ───
+// Choisir parmi quarante-cinq codes à plat n'est pas praticable quand on répartit
+// le temps d'un poste. Les codes sont donc rangés par zone puis par nature
+// d'activité, selon les préfixes et le territoire porté par le code lui-même.
+// Un code n'apparaît qu'une fois : il tombe dans le PREMIER groupe qui le
+// réclame, l'ordre ci-dessous faisant loi. Ce qui ne correspond à rien reste
+// accessible sous « Autres », pour ne jamais rendre un code insélectionnable.
+const RH_GROUPES=[
+  {zone:"National",      lib:"LAB",                       pfx:["LU","LAB"],                 terr:["NAT",""]},
+  {zone:"National",      lib:"FG",                        pfx:["FG"],                       terr:null},
+  {zone:"National",      lib:"IU",                        pfx:["IU"],                       terr:["NAT",""]},
+  {zone:"Sud",           lib:"FV",                        pfx:["FV"],                       terr:null},
+  {zone:"Sud",           lib:"Action Jeunes Sud",         pfx:["EXP","BU","ME","UTY","LU"], terr:["SUD"]},
+  {zone:"Sud",           lib:"Accompagnement pro Sud",    pfx:["F2F"],                      terr:["SUD"]},
+  {zone:"Sud",           lib:"Suivi Service Civique Sud", pfx:["SU"],                       terr:["SUD"]},
+  {zone:"Sud",           lib:"Suivi Impact uP Sud",       pfx:["IU"],                       terr:["SUD"]},
+  {zone:"\u00cele-de-France", lib:"FP",                        pfx:["FP"],                       terr:null},
+  {zone:"\u00cele-de-France", lib:"Action Jeunes IDF",         pfx:["EXP","BU","ME","UTY","LU"], terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Accompagnement pro IDF",    pfx:["F2F"],                      terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Suivi Service Civique IDF", pfx:["SU"],                       terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Suivi Impact uP IDF",       pfx:["IU"],                       terr:["IDF"]}
+];
+// « SU » ne doit pas happer un code « SUD… », et « ME » ni « BU » ne doivent
+// mordre sur un préfixe plus long : on exige que le préfixe soit suivi d'un
+// chiffre ou de la fin du code, ce qui est la forme de tous les codes existants.
+function rhPfxMatch(code,pfx){
+  if(code.indexOf(pfx)!==0)return false;
+  const suite=code.substring(pfx.length);
+  return suite===""||/^[0-9]/.test(suite);
+}
+function rhGroupeDe(label){
+  const code=actCode(label),terr=String(actTerr(label)||"").toUpperCase();
+  for(let i=0;i<RH_GROUPES.length;i++){
+    const g=RH_GROUPES[i];
+    if(!g.pfx.some(x=>rhPfxMatch(code,x)))continue;
+    if(g.terr&&g.terr.indexOf(terr)<0)continue;
+    return i;
+  }
+  return -1;
+}
+// Options du sélecteur de projet côté RH : optgroup « Zone — Nature ».
+function actOptionsRH(current){
+  const cur=current||"";
+  const labels=actLabels();
+  const paniers=RH_GROUPES.map(()=>[]),autres=[];
+  labels.forEach(l=>{const i=rhGroupeDe(l);if(i<0)autres.push(l);else paniers[i].push(l)});
+  const opt=l=>`<option${l===cur?" selected":""}>${escHtml(l)}</option>`;
+  const tri=(a,b)=>actCode(a).localeCompare(actCode(b),"fr",{numeric:true});
+  const inconnu=cur&&labels.indexOf(cur)<0;
+  let h=`<option value="">— Code projet —</option>`+(inconnu?`<option selected>${escHtml(cur)}</option>`:"");
+  RH_GROUPES.forEach((g,i)=>{
+    if(!paniers[i].length)return;
+    h+=`<optgroup label="${escHtml(g.zone+" \u2014 "+g.lib)}">`+paniers[i].sort(tri).map(opt).join("")+`</optgroup>`;
+  });
+  if(autres.length)h+=`<optgroup label="Hors regroupement \u2014 \u00e0 classer">`+autres.sort(tri).map(opt).join("")+`</optgroup>`;
+  return h;
+}
+// Codes qu'aucun groupe ne réclame : ni un préfixe connu, ni le bon territoire.
+// Ils restent sélectionnables, mais il faut le savoir — sans quoi un vrai projet
+// se retrouve rangé sous « à classer » sans que personne ne s'en aperçoive.
+function rhCodesHorsGroupe(){return actLabels().filter(l=>rhGroupeDe(l)<0)}
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
   const lib=rhPosteLib(pi);if(!lib)return;
@@ -3630,7 +3691,15 @@ function rRH(el){
       les pourcentages peuvent changer d'un trimestre à l'autre. Le coût réparti est le coût complet du poste — brut,
       cotisations et provision congés payés — au prorata des mois couverts sur ${rhYear}.
       <br>Le bandeau de douze cases contrôle la couverture mois par mois : <span style="color:var(--green);font-weight:700">vert</span> = 100 % affecté,
-      <span style="color:var(--amber);font-weight:700">ambre</span> = incomplet, <span style="color:var(--red);font-weight:700">rouge</span> = plus de 100 %, gris = aucune affectation.</p>`;
+      <span style="color:var(--amber);font-weight:700">ambre</span> = incomplet, <span style="color:var(--red);font-weight:700">rouge</span> = plus de 100 %, gris = aucune affectation.
+      <br>Les codes projets sont rangés par <strong>zone</strong> puis par <strong>nature d'activité</strong> — le territoire lu sur le code décide de sa zone.</p>`;
+    const horsGrp=rhCodesHorsGroupe();
+    if(horsGrp.length){
+      h+=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:6px;padding:7px 10px;margin-bottom:10px;line-height:1.7">
+        ⚠️ <strong>${horsGrp.length} code(s) projet ne correspondent à aucun groupe</strong> et se rangent sous « Hors regroupement — à classer » :
+        ${horsGrp.map(l=>escHtml(actCode(l))+(actTerr(l)?" ("+escHtml(actTerr(l))+")":" (sans territoire)")).join(" · ")}.
+        Soit leur territoire est absent ou inattendu pour leur préfixe, soit le préfixe lui-même n'est pas prévu.</div>`;
+    }
     const libs=new Set(D.rhPostes.map(p=>p.lib));
     let nTrous=0;
     D.rhPostes.forEach((p,pi)=>{
@@ -3662,7 +3731,7 @@ function rRH(el){
         const b=allocBornes(a,rhYear),part=allocPart(a,rhYear);
         const souci=b.inverse?"La date de fin précède la date de début.":b.horsExo?("Période hors de l'exercice "+rhYear+" : ne compte pas ici."):"";
         h+=`<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
-          <select class="ms" style="width:220px" onchange="rhAllocSet(${idx},'act',this.value)">${actOptions(a.act,"— Code projet —")}</select>
+          <select class="ms" style="width:220px" onchange="rhAllocSet(${idx},'act',this.value)">${actOptionsRH(a.act)}</select>
           <input type="number" class="cj" style="width:56px;text-align:center" value="${a.pct||0}" min="0" max="100" step="5"
             onchange="rhAllocSet(${idx},'pct',this.value)">
           <input type="date" class="cj" style="width:104px;font-size:9px" value="${b.du}" onchange="rhAllocSet(${idx},'du',this.value)">
