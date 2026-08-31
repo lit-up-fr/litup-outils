@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-08-31a";
+var BACKEND_VERSION = "2026-08-31b";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -947,13 +947,22 @@ function getAirtableData() {
       return o;
     }).filter(function(x) { return x; });
 
-  // Codes projets (4. Parcours) : label "BU92 - MLDS - Hyères 3" + territoire
-  var acts = airtableFetchAll(AIRTABLE_TBL_PARCOURS, ["Parcours", "Territoire_texte"])
+  // Codes projets (4. Parcours) : label "BU92 - MLDS - Hyères 3" + territoire.
+  // Volontairement SANS le filtre de parcoursActifs : le suivi comptable doit
+  // pouvoir classer une ecriture sur un code ancien.
+  // "Nb heures formation" sert de cle de repartition quand un montant se
+  // ventile sur plusieurs parcours. Une cellule vide n'est pas un zero : on
+  // renvoie h = null pour que l'outil sache la difference et le signale.
+  // rid permet de renvoyer vers le record depuis l'outil.
+  var acts = airtableFetchAll(AIRTABLE_TBL_PARCOURS, ["Parcours", "Territoire_texte", "Nb heures formation"])
     .map(function(r) {
       var f = r.fields || {};
       var l = String(f["Parcours"] || "").replace(/\s+/g, " ").trim();
       if (!l) return null;
-      return { l: l, t: String(f["Territoire_texte"] || "NAT").trim() || "NAT" };
+      var hv = f["Nb heures formation"];
+      var h = (hv === "" || hv === null || hv === undefined) ? null : Number(hv);
+      if (h !== null && (isNaN(h) || h < 0)) h = null;
+      return { l: l, t: String(f["Territoire_texte"] || "NAT").trim() || "NAT", h: h, rid: r.id };
     }).filter(function(x) { return x; });
 
   return { ok: true, subs: subs, prestas: prestas, acts: acts,

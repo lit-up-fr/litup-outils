@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31d <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31e <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -579,6 +579,7 @@ let D={
   actHeures:{},   // code projet → heures d'action, pour pondérer la répartition RH
   actHeuresSrc:{},// code projet → "airtable" ou "manuel" : provenance de ces heures
   actRid:{},      // code projet → identifiant du record Airtable, pour y renvoyer
+  splits:{},      // répartitions mémorisées, pour y rattacher un projet arrivé après
   // rhAlloc n'avait aucune valeur par défaut : « + Ajouter projet » appelait
   // .push sur undefined et échouait sans rien dire à l'écran.
   rhAlloc:[],
@@ -999,7 +1000,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -1069,7 +1070,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -1089,7 +1090,7 @@ async function saveComptaToSheet(){
     normBudget();
     const qui=prompt("Votre nom (pour le suivi) :","Direction")||"?";
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
-      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
@@ -1189,6 +1190,7 @@ const FUS_REGLAGES=[
   ["ctr","Contrats"],["freedN","Numéros libérés"],["rhPostes","Postes RH"],["rhTx","Taux RH"],
   ["rhAlloc","Affectations RH"],["actHeures","Heures d'action par projet"],
   ["actHeuresSrc","Provenance des heures d'action"],["actRid","Liens Airtable des projets"],
+  ["splits","Répartitions mémorisées"],
   ["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
   ["airtableSubs","Subventions Airtable"],["airtablePrestas","Prestations Airtable"]
 ];
@@ -3667,19 +3669,27 @@ function projMoisActifs(label,y){
   return n;
 }
 // Poids d'un projet sur un mois : ses heures ramenées au mois d'activité.
+// Un projet sans aucune écriture n'a pas zéro heure de mois — il n'a pas encore
+// d'historique. Lui donner un poids nul l'excluait de toute répartition, et un
+// projet fraîchement arrivé d'Airtable recevait 0,00 €.
 function projPoidsMois(label,y){
   const h=actHeures(actCode(label));
   if(h<=0)return 0;
   const nm=projMoisActifs(label,y);
-  return nm>0?h/nm:0;
+  return nm>0?h/nm:h;
 }
-// Clé de répartition d'un mois : rend les parts, et dit si elles viennent des
-// heures ou d'un partage égal.
-function famParts(actifs,y){
+// Clé de répartition : rend les parts, et dit si elles viennent des heures ou
+// d'un partage égal.
+// parMois : les heures ramenées au mois d'activité, pour répartir le coût d'UN
+// mois de salaire — un parcours actif six mois ne mobilise chaque mois qu'un
+// sixième de ses heures. Sinon les heures brutes, pour répartir un financement
+// sur un exercice : un parcours de 60 h y pèse deux fois un parcours de 30 h,
+// quelle que soit sa durée.
+function famParts(actifs,y,parMois){
   const sans=actifs.filter(l=>actHeures(actCode(l))<=0);
   if(sans.length||!actifs.length)
     return {mode:"egal",sans,parts:actifs.map(()=>actifs.length?1/actifs.length:0)};
-  const poids=actifs.map(l=>projPoidsMois(l,y));
+  const poids=actifs.map(l=>parMois?projPoidsMois(l,y):actHeures(actCode(l)));
   const tot=poids.reduce((a,x)=>a+x,0);
   if(tot<=0)return {mode:"egal",sans:[],parts:actifs.map(()=>1/actifs.length)};
   return {mode:"heures",sans:[],parts:poids.map(x=>x/tot)};
@@ -3731,7 +3741,7 @@ function ventFamActifs(cle,y,m){
 }
 function ventFamParts(actifs,y){
   const c=ventMemo().fp,k=y+"|"+actifs.join("~");
-  if(!(k in c))c[k]=famParts(actifs,y);
+  if(!(k in c))c[k]=famParts(actifs,y,true);   // coût d'un mois : heures au mois
   return c[k];
 }
 // Cles de repartition d'une ecriture de paie : rend les parts (somme = 1) ou la
@@ -3853,7 +3863,9 @@ function famSplitCalc(){
     groupes.push({cle,lib:g?g.lib:cle,zone:g?g.zone:"",proj});
   });
   const retenus=st.sel?tous.filter(l=>st.sel.indexOf(l)>=0):tous.slice();
-  const k=retenus.length?famParts(retenus,y):{mode:"egal",sans:[],parts:[]};
+  // Périmètre « mois » : on répartit ce qui se passe ce mois-là, donc heures au
+  // mois. Exercice ou famille entière : les heures totales de chaque parcours.
+  const k=retenus.length?famParts(retenus,y,st.scope==="mois"):{mode:"egal",sans:[],parts:[]};
   let rd=0,rc=0;
   const parts=retenus.map((l,i)=>{
     const dernier=i===retenus.length-1;
@@ -3915,6 +3927,167 @@ function famSplitTout(v){
   _famSplit.sel=v?c.tous.slice():[];
   famSplitDessine();
 }
+// ─── MÉMOIRE DES RÉPARTITIONS ───
+// Une fois éclatée, une écriture n'existe plus : il ne reste que ses sous-lignes.
+// Pour pouvoir y rattacher un projet qui arrive plus tard d'Airtable, il faut
+// garder la trace de la répartition — les familles retenues, le périmètre, les
+// codes servis, et si la sélection était complète ou choisie à la main.
+function splitsMap(){if(!D.splits||typeof D.splits!=="object")D.splits={};return D.splits}
+function splitLignes(sid){return (D.rows||[]).filter(r=>r.split===sid)}
+function splitSommeActuelle(sid){
+  const L=splitLignes(sid);
+  return {deb:Math.round(L.reduce((a,r)=>a+(r.deb||0),0)*100)/100,
+          cre:Math.round(L.reduce((a,r)=>a+(r.cre||0),0)*100)/100};
+}
+function splitFamLib(label){
+  const gi=rhGroupeDe(label);
+  return gi>=0?RH_GROUPES[gi].zone+" \u2014 "+RH_GROUPES[gi].lib:"famille";
+}
+// Recalcule une répartition sur un jeu de codes élargi. On n'ENLÈVE jamais de
+// sous-ligne : une ligne peut porter un justificatif et un numéro de pièce, et
+// les perdre en silence serait pire que la répartition inexacte. On réajuste les
+// montants et on ajoute les nouvelles lignes, en gardant le total au centime.
+function splitRecalc(sid,labels){
+  const rec=splitsMap()[sid];if(!rec)return {err:"répartition inconnue"};
+  const L=splitLignes(sid);if(!L.length)return {err:"sous-lignes introuvables"};
+  if(!labels||!labels.length)return {err:"aucun code"};
+  const act=splitSommeActuelle(sid);
+  // Si les montants ont bougé depuis la répartition, quelqu'un les a corrigés à
+  // la main : on ne les écrase pas.
+  if(Math.abs(act.deb-(rec.deb||0))>0.005||Math.abs(act.cre-(rec.cre||0))>0.005)
+    return {err:"montants modifiés à la main depuis la répartition ("+fmt(act.deb-(rec.deb||0))+" / "+fmt(act.cre-(rec.cre||0))+" d'écart)"};
+  const k=famParts(labels,rec.y,rec.scope==="mois");
+  const modele=L[0], idx=D.rows.indexOf(L[L.length-1]);
+  let rd=0,rc=0;const nouvelles=[];
+  labels.forEach((l,i)=>{
+    const dernier=i===labels.length-1;
+    const d=dernier?Math.round(((rec.deb||0)-rd)*100)/100:Math.round((rec.deb||0)*k.parts[i]*100)/100;
+    const c=dernier?Math.round(((rec.cre||0)-rc)*100)/100:Math.round((rec.cre||0)*k.parts[i]*100)/100;
+    rd+=d;rc+=c;
+    const com=[String(rec.comment||"").trim(),
+      "Réparti depuis « "+splitFamLib(l)+" » ("+(k.parts[i]*100).toFixed(2)+" %)"].filter(Boolean).join(" · ");
+    const ex=L.find(r=>actCode(r.act)===actCode(l));
+    if(ex){ex.act=l;ex.deb=d;ex.cre=c;ex.comment=com}
+    else nouvelles.push(Object.assign({},modele,{
+      id:"f"+Date.now().toString(36)+"_"+i+"_"+Math.random().toString(36).substr(2,4),
+      act:l,deb:d,cre:c,comment:com,
+      driveUrl:"",driveFileId:"",numj:""}));
+  });
+  if(nouvelles.length&&idx>=0)D.rows.splice(idx+1,0,...nouvelles);
+  rec.codes=labels.slice();
+  return {ajoutees:nouvelles.length,total:labels.length,mode:k.mode};
+}
+// Répartitions qu'un nouveau code projet peut rejoindre. Celles prises « famille
+// entière » l'accueillent d'office ; celles où des projets avaient été écartés
+// à la main demandent un arbitrage — l'outil ne devine pas.
+function splitCandidats(labels){
+  const autos=[],demandes=[];
+  (labels||[]).forEach(l=>{
+    const gi=rhGroupeDe(l);if(gi<0)return;
+    const cle=RH_GROUPES[gi].k;
+    const sids=Object.keys(splitsMap()).filter(sid=>{
+      const rec=splitsMap()[sid];
+      if(!rec||(rec.cles||[]).indexOf(cle)<0)return false;
+      if((rec.codes||[]).some(x=>actCode(x)===actCode(l)))return false;   // déjà dedans
+      return splitLignes(sid).length>0;                                    // encore éclatée
+    });
+    sids.forEach(sid=>{
+      if(splitsMap()[sid].complet)autos.push({sid,label:l});
+      else{
+        const d=demandes.find(x=>x.label===l);
+        if(d)d.sids.push(sid);else demandes.push({label:l,sids:[sid]});
+      }
+    });
+  });
+  return {autos,demandes};
+}
+function splitAppliquer(sid,label){
+  const rec=splitsMap()[sid];if(!rec)return {err:"répartition inconnue"};
+  const codes=(rec.codes||[]).slice();
+  if(codes.some(x=>actCode(x)===actCode(label)))return {err:"déjà pris en compte"};
+  codes.push(label);
+  return splitRecalc(sid,codes);
+}
+let _splitNouv=null;
+// Ouvre l'arbitrage. Les reprises automatiques sont déjà faites et listées : on
+// ne demande que ce qui ne se déduit pas.
+function openSplitNouveaux(etat){
+  _splitNouv=etat;
+  const dem=etat.demandes||[];
+  if(!dem.length&&!(etat.faits||[]).length){_splitNouv=null;return}
+  let h="";
+  if((etat.faits||[]).length){
+    h+=`<div style="font-size:10px;color:var(--text-2);background:var(--accent-bg);border-radius:6px;padding:8px 10px;margin-bottom:10px;line-height:1.7">
+      <strong>${etat.faits.length} reprise(s) automatique(s)</strong> — ces financements portaient sur la famille entière, le nouveau projet y entre de droit :
+      ${etat.faits.map(x=>`<div style="margin-top:3px">· <strong>${escHtml(actCode(x.label))}</strong> ajouté à « ${escHtml(String(x.lib||"").substring(0,52))} »${x.err?` <span style="color:var(--red)">— non appliqué : ${escHtml(x.err)}</span>`:` — ${x.total} projet(s) désormais servis`}</div>`).join("")}
+    </div>`;
+  }
+  if(dem.length){
+    h+=`<p style="font-size:10px;color:var(--text-2);margin:0 0 8px;line-height:1.7">
+      Ces financements ont été répartis sur une <strong>sélection</strong> de projets, pas sur la famille entière : l'outil ne peut pas deviner si le nouveau projet en fait partie.
+      <br><span style="color:var(--text-3)">Cochez les financements concernés. Les montants des sous-lignes existantes seront réajustés, et une sous-ligne sera créée pour le nouveau projet. Annulable avec ↩.</span></p>`;
+    dem.forEach((d,di)=>{
+      h+=`<div class="scard" style="margin-bottom:6px">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px">${escHtml(actCode(d.label))} — ${escHtml(actNom(d.label).substring(0,44))}
+          <span style="font-weight:400;color:var(--text-3);font-size:9px">· ${escHtml(splitFamLib(d.label))}</span></div>`;
+      d.sids.forEach((sid,si)=>{
+        const rec=splitsMap()[sid]||{};
+        const mt=(rec.cre||0)>0?fmt(rec.cre)+" de crédit":fmt(rec.deb)+" de débit";
+        h+=`<label style="display:flex;gap:6px;align-items:flex-start;font-size:10px;margin-bottom:3px;cursor:pointer">
+          <input type="checkbox" data-di="${di}" data-si="${si}" style="margin-top:2px">
+          <span><strong>${escHtml(String(rec.lib||"").substring(0,64))}</strong> — ${String(rec.dt||"").substring(0,10)} — ${mt}
+          <br><span style="color:var(--text-3)">réparti sur ${(rec.codes||[]).length} projet(s) : ${escHtml((rec.codes||[]).map(actCode).join(", ").substring(0,110))}</span></span>
+        </label>`;
+      });
+      h+=`</div>`;
+    });
+  }
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)splitNouvFermer()"><div class="modal" style="max-width:900px">
+    <h3>🆕 Nouveaux projets et financements déjà répartis</h3>
+    ${h}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      ${dem.length?`<button class="b bp" onclick="splitNouvValider()">Appliquer les financements cochés</button>`:""}
+      <button class="b bd" style="margin-left:auto" onclick="splitNouvFermer()">${dem.length?"Ignorer":"Fermer"}</button>
+    </div></div></div>`;
+}
+function splitNouvFermer(){_splitNouv=null;closeM()}
+function splitNouvValider(){
+  if(!_splitNouv)return;
+  const coches=[...document.querySelectorAll("#modalC input[type=checkbox]:checked")]
+    .map(c=>({di:Number(c.dataset.di),si:Number(c.dataset.si)}));
+  if(!coches.length){splitNouvFermer();return}
+  pushUndo();
+  const faits=[],echecs=[];
+  coches.forEach(({di,si})=>{
+    const d=(_splitNouv.demandes||[])[di];if(!d)return;
+    const sid=d.sids[si];if(!sid)return;
+    const rec=splitsMap()[sid]||{};
+    const r=splitAppliquer(sid,d.label);
+    if(r.err)echecs.push(actCode(d.label)+" → "+String(rec.lib||"").substring(0,40)+" : "+r.err);
+    else faits.push(actCode(d.label)+" → "+String(rec.lib||"").substring(0,40)+" ("+r.total+" projets)");
+  });
+  _splitNouv=null;closeM();autoSave();render();
+  if(echecs.length)alert("Certains financements n'ont pas pu être réajustés :\n\n• "+echecs.join("\n• ")
+    +(faits.length?"\n\nAppliqués :\n• "+faits.join("\n• "):""));
+  else toast(faits.length+" financement(s) réajusté(s)");
+}
+// Après un chargement Airtable : reprend d'office les familles entières, et
+// prépare l'arbitrage pour les sélections.
+function splitNouveauxProjets(labels){
+  const c=splitCandidats(labels);
+  const faits=[];
+  if(c.autos.length)pushUndo();
+  c.autos.forEach(({sid,label})=>{
+    const rec=splitsMap()[sid]||{};
+    const r=splitAppliquer(sid,label);
+    faits.push({label,lib:rec.lib,total:r.total,err:r.err});
+  });
+  if(faits.length||c.demandes.length){
+    if(faits.length)autoSave();
+    setTimeout(()=>openSplitNouveaux({faits,demandes:c.demandes}),60);
+  }
+  return {autos:faits.length,demandes:c.demandes.length};
+}
 function openFamSplit(id){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
   _famSplit={id,cles:[],scope:"annee",sel:null};
@@ -3932,9 +4105,14 @@ function famSplitDessine(){
   RH_GROUPES.forEach(g=>{
     if(cles.indexOf(g.k)>=0)return;
     if(g.zone!==zone){if(zone)opts+="</optgroup>";opts+='<optgroup label="'+escHtml(g.zone)+'">';zone=g.zone}
-    const n=famSplitProjets(g.k,st.scope,c.y,c.m).length;
-    opts+='<option value="'+g.k+'"'+(n?"":" disabled")+'>'
-      +escHtml(g.lib)+" — "+n+" projet(s)"+(n?"":" : rien à répartir")+"</option>";
+    // Le total de la famille ET ce que le périmètre en retient : une famille de
+    // deux projets encore sans écriture affichait « 0 projet : rien à répartir »
+    // et n'était même pas sélectionnable — c'était le cas de SC et IU, dont la
+    // première écriture est justement celle qu'on cherche à répartir.
+    const n=famSplitProjets(g.k,st.scope,c.y,c.m).length, tot=famProjets(g.k).length;
+    opts+='<option value="'+g.k+'"'+(tot?"":" disabled")+'>'
+      +escHtml(g.lib)+" — "+tot+" projet(s)"
+      +(tot?(n===tot?"":", "+n+" sur ce périmètre"):" : famille vide")+"</option>";
   });
   if(zone)opts+="</optgroup>";
   const scopes=[["mois","Projets actifs le mois de l’écriture"+(c.mk?" ("+c.mk+")":"")],
@@ -3944,7 +4122,11 @@ function famSplitDessine(){
   if(!cles.length){
     corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Ajoutez une ou plusieurs familles pour voir la répartition proposée. Un financement qui couvre le Service Civique et l’Impact uP, par exemple, se répartit sur les deux d’un coup.</div>';
   }else if(!c.tous.length){
-    corps='<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de ces familles ne répond à ce périmètre. Élargissez le périmètre ci-dessus, ou vérifiez que les projets portent bien un territoire.</div>';
+    const nTous=cles.reduce((a,k)=>a+famProjets(k).length,0);
+    corps=`<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de ces familles ne porte d'écriture sur ce périmètre.
+      ${nTous?`Ces familles comptent <strong>${nTous} projet(s)</strong> au total — c'est le cas quand l'écriture à répartir est justement la première qui les concerne.
+      <div style="margin-top:5px"><button class="b bb" style="font-size:9px" onclick="famSplitScope('tous')">Élargir à tous les projets de la famille</button></div>`
+      :"Ces familles sont vides : vérifiez que les projets portent bien un territoire."}</div>`;
   }else{
     const sd=c.parts.reduce((a,x)=>a+x.deb,0),sc=c.parts.reduce((a,x)=>a+x.cre,0);
     const ecart=Math.round((sd-(r.deb||0))*100)/100, ecartC=Math.round((sc-(r.cre||0))*100)/100;
@@ -4029,10 +4211,20 @@ function famSplitValider(){
   const i=D.rows.findIndex(x=>x.id===c.r.id);if(i<0)return;
   pushUndo();
   const base=c.r;
+  // La répartition est mémorisée : un projet qui arrivera plus tard d'Airtable
+  // pourra la rejoindre. « complet » retient si la famille a été prise telle
+  // qu'elle était proposée ou si des projets ont été écartés à la main — c'est
+  // ce qui décide entre reprise automatique et arbitrage.
+  const sid="s"+Date.now().toString(36)+Math.random().toString(36).substr(2,3);
+  splitsMap()[sid]={cles:(_famSplit.cles||[]).slice(),scope:_famSplit.scope,
+    complet:c.retenus.length===c.tous.length,
+    codes:c.retenus.slice(),y:c.y,lib:String(base.lib||""),dt:String(base.dt||""),
+    comment:String(base.comment||""),deb:base.deb||0,cre:base.cre||0,
+    cree:new Date().toISOString().substring(0,10)};
   // Chaque sous-ligne trace SA famille d'origine, pas la liste entiere : c'est
   // ce qu'on veut lire six mois plus tard sur une ligne prise au hasard.
   const subs=c.parts.map((x,j)=>Object.assign({},base,{
-    id:"f"+Date.now().toString(36)+"_"+j,
+    id:"f"+Date.now().toString(36)+"_"+j, split:sid,
     act:x.act, deb:x.deb, cre:x.cre,
     comment:[String(base.comment||"").trim(),
       "Réparti depuis « "+(c.parFam[x.act]||"famille")+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
@@ -4573,7 +4765,7 @@ function rRH(el){
           pose("\u26a0\ufe0f "+famLib(a.act)+" \u2014 aucun projet en cours",coutMois,qui+" \u00b7 "+MONAMES[m]);
           return;
         }
-        const K=famParts(actifs,rhYear);
+        const K=famParts(actifs,rhYear,true);   // coût d'un mois
         const suffixe=qui+" \u00b7 via "+famLib(a.act)+(K.mode==="heures"?" \u00b7 au prorata des heures":" \u00b7 \u00e0 parts \u00e9gales");
         actifs.forEach((l,j)=>pose(l,coutMois*K.parts[j],suffixe));
       });
@@ -7637,7 +7829,7 @@ function finBackfillRids(){
 // l'éditeur Apps Script puis redéployé à la main. Plusieurs fonctionnalités
 // dépendaient d'un backend à jour sans qu'aucun écran ne le dise — le doute
 // pouvait durer des semaines. On compare donc les versions au démarrage.
-const BACKEND_ATTENDU="2026-08-31a";
+const BACKEND_ATTENDU="2026-08-31b";
 // Ce qu'apporte la version attendue, pour que l'avertissement soit actionnable.
 const BACKEND_APPORTS=[
   "identifiant Airtable stable (rid) : un financement renommé ne casse plus son rapprochement bancaire",
@@ -7703,10 +7895,10 @@ async function autoSyncAirtable(){
       atStatSet("⚠️ Airtable","#ef4444",(res&&res.error)||"Actualisation impossible — données en cache conservées");
       return false;
     }
-    let added=0,heu=null;
+    let added=0,heu=null,nouveaux=[];
     if(res.acts&&res.acts.length){
       const existing=new Set(D.acts.map(a=>String(typeof a==="string"?a:a.l).split(" - ")[0].trim()));
-      res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);added++}});
+      res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);nouveaux.push(a.l);added++}});
       if(added)invalidateActCache();
       heu=actHeuresDepuisAirtable(res.acts.filter(actEstValide));
     }
@@ -7722,6 +7914,7 @@ async function autoSyncAirtable(){
       (heu?" · heures d'action : "+heu.maj+" reprise(s)"+(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":""):"")+
       " — sync "+D.airtableSync);
     setTimeout(()=>atStatSet(""),8000);
+    if(nouveaux.length)splitNouveauxProjets(nouveaux);
     return true;
   }catch(e){
     stop();
@@ -7739,10 +7932,11 @@ async function syncAirtable(){
     closeM();
     if(res.error){alert("❌ "+res.error+(String(res.error).includes("AIRTABLE_TOKEN")?"\n\nConfigurez le jeton dans Apps Script → ⚙️ Paramètres du projet → Propriétés du script.":""));return}
     pushUndo();
-    let actsAdded=0,heu=null;
+    let actsAdded=0,heu=null,nouveaux=[];
     if(res.acts&&res.acts.length){
       const existing=new Set(D.acts.map(a=>a.l.split(" - ")[0].trim()));
-      res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);actsAdded++}});
+      res.acts.filter(actEstValide).forEach(a=>{if(!existing.has(a.l.split(" - ")[0].trim())){D.acts.push(a);nouveaux.push(a.l);actsAdded++}});
+      invalidateActCache();
       heu=actHeuresDepuisAirtable(res.acts.filter(actEstValide));
     }
     let gardes=0;
@@ -7751,7 +7945,10 @@ async function syncAirtable(){
     const bf=finBackfillRids();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
-    if(heu&&(heu.vides.length||heu.gardes.length))setTimeout(()=>openHeuresManquantes(),50);
+    // Les nouveaux projets d'abord : un financement reajuste change les montants,
+    // et il vaut mieux trancher cela avant de regarder les heures manquantes.
+    const nv=nouveaux.length?splitNouveauxProjets(nouveaux):{autos:0,demandes:0};
+    if(!nv.autos&&!nv.demandes&&heu&&(heu.vides.length||heu.gardes.length))setTimeout(()=>openHeuresManquantes(),50);
     if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)"
       +(heu?"\n⏱ Heures d'action : "+heu.maj+" reprise(s) depuis « Nb heures formation »"
           +(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":"")
