@@ -78,7 +78,7 @@ a{color:var(--accent-l);text-decoration:none}
 
 /* ─── TABLE ─── */
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
-th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;position:sticky;top:0;z-index:10;font-weight:600}
+th{background:var(--bg-1);padding:8px 8px;text-align:left;border-bottom:2px solid rgba(99,102,241,.2);color:var(--text-3);font-size:10px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;font-weight:600;position:relative}
 th .col-resize{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:transparent;z-index:11}
 th .col-resize:hover{background:rgba(99,102,241,.5)}
 .filter-row td{padding:2px 3px;background:var(--bg-1)}
@@ -157,6 +157,10 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
    Le conteneur doit défiler dans les deux sens : sans hauteur maximale, une
    entête sticky n'a rien contre quoi se coller. */
 .tbl-fige{overflow:auto;max-height:calc(100vh - 230px)}
+/* Les en-têtes ne se figent QUE dans un conteneur prévu pour. Rendus collants
+   partout, ils flottaient au-dessus du contenu qui les précède — un bouton juste
+   au-dessus d'un tableau devenait inatteignable, le clic partant dans l'en-tête. */
+.tbl-fige thead th{position:sticky;top:0;z-index:10}
 /* Colonne de gauche gelée : le nom du compte reste lisible quand on fait
    défiler quarante colonnes de projets. Fond opaque obligatoire, sinon les
    cellules défilent derrière. */
@@ -173,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26g <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26h <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -2358,7 +2362,11 @@ function openFinPicker(i,mode){
 // Un virement peut regrouper plusieurs subventions : on peut sélectionner plusieurs
 // financements, la ligne est alors scindée en une ligne par financement (indispensable
 // pour imputer chaque part sur son propre compte comptable).
-function finList(){return [...(D.airtableSubs||[]).map(s=>({...s,type:"Subvention"})),...(D.airtablePrestas||[]).map(p=>({...p,type:"Presta"}))]}
+// coll et idx désignent l'origine de l'entrée : sans eux, une liste aplatie ne
+// permet pas de réécrire dans la collection dont elle vient.
+function finList(){return [
+  ...(D.airtableSubs||[]).map((s,i)=>({...s,type:"Subvention",coll:"airtableSubs",idx:i})),
+  ...(D.airtablePrestas||[]).map((p,i)=>({...p,type:"Presta",coll:"airtablePrestas",idx:i}))]}
 // ─── TRACE DU RAPPROCHEMENT BANQUE ↔ FINANCEMENT ───
 // Écrite dans le commentaire de la ligne de banque : « Airtable: <nom> #<rid> ».
 // Le nom sert à la lecture humaine, l'identifiant Airtable (rid) au rattachement :
@@ -4882,6 +4890,74 @@ const CPT_FINANCEMENT=c=>/^(70|741|744|748|75412)/.test(String(c||""));
 // « Versées / Validées / … » disent quel argent on veut voir en trésorerie, pas
 // quel argent est déjà identifié. Sinon décocher un statut le ferait revenir par
 // le budget et le filtre ne servirait à rien.
+// Financements Airtable dépourvus de compte comptable, pour l'exercice donné.
+// Sans compte, on ne sait pas quelle ligne de budget ils couvrent : ils sont
+// déduits au prorata, ce qui rend le total juste et la ventilation approximative.
+function finSansCompte(annee){
+  return finList().filter(f=>{
+    const an=finAnnee(f)||String(finMoisKey(f)||"").substring(0,4);
+    if(an!==String(annee))return false;
+    if(!(finAmt(f)||0))return false;
+    return !catKey(finCompte(f).code);
+  });
+}
+function openFinSansCompte(annee){
+  const L=finSansCompte(annee).sort((a,b)=>(finAmt(b)||0)-(finAmt(a)||0));
+  const tot=L.reduce((a,f)=>a+(finAmt(f)||0),0);
+  const selCC=f=>{
+    const fc=finCompte(f);
+    if(fc.src==="Airtable")
+      return `<span style="font-size:9px;color:var(--green)" title="Renseigné dans Airtable : c'est la référence.">${escHtml(fc.code)} · Airtable</span>`;
+    const cur=String(f.cc||"");
+    return `<select class="ms" style="min-width:210px${cur?"":";border-color:var(--amber)"}"
+      onchange="finSetCC('${f.coll}',${f.idx},this.value,'${escHtml(String(annee))}')">
+      <option value="">— à renseigner</option>${
+      (D.cats||[]).filter(c=>String(c).charAt(0)==="7").map(c=>`<option${catKey(c)===catKey(cur)?" selected":""}>${escHtml(c)}</option>`).join("")}</select>`;
+  };
+  const lignes=L.length?L.map(f=>{
+    const mk=finMoisKey(f);
+    return `<tr>
+      <td style="padding:3px 6px;font-size:10px">${escHtml(String(f.n||"?"))}</td>
+      <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(f.s||""))}</td>
+      <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${mk&&mk!=="hors"?escHtml(tresMoisLabel(mk)):"\u2014"}</td>
+      <td style="padding:3px 6px;font-size:10px;text-align:right;font-family:var(--mono);color:var(--green)">${fmt(finAmt(f))}</td>
+      <td style="padding:3px 6px">${selCC(f)}</td>
+    </tr>`}).join("")
+    :`<tr><td colspan="5" style="padding:14px;font-size:10px;color:var(--text-3)">Tous les financements de ${escHtml(String(annee))} portent un compte comptable.</td></tr>`;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1000px">
+    <h3>⚠️ ${L.length} financement(s) sans compte comptable — exercice ${escHtml(String(annee))}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Total <strong>${fmt(tot)}</strong>. Faute de savoir quelle ligne de budget ils couvrent, ils sont déduits du
+      « reste à obtenir » au prorata des comptes de financement : <strong>le total du mois est juste</strong>, seule la
+      ventilation entre comptes est conventionnelle.
+      <br>Renseignez le compte ici : c'est mémorisé dans vos données locales, et la ligne disparaît de cette liste.
+      Pour que la correction survive à une réactualisation d'Airtable, portez-la aussi dans Airtable, table
+      <em>3.1 Suivi financeurs</em> — un compte venu d'Airtable prime toujours sur celui mémorisé ici.
+    </p>
+    <div style="overflow:auto;max-height:58vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2)">
+        <th style="padding:5px 6px;font-size:9px;text-align:left">Financement</th>
+        <th style="padding:5px 6px;font-size:9px;text-align:left">Statut</th>
+        <th style="padding:5px 6px;font-size:9px;text-align:left">Mois trésorerie</th>
+        <th style="padding:5px 6px;font-size:9px;text-align:right">Montant</th>
+        <th style="padding:5px 6px;font-size:9px;text-align:left">Compte comptable</th>
+      </tr></thead><tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+// Mémorise le compte d'un financement et rouvre la liste, pour voir l'effet.
+function finSetCC(coll,idx,v,annee){
+  const arr=D[coll];
+  if(!arr||!arr[idx])return;
+  arr[idx].cc=String(v||"");
+  autoSave();render();
+  openFinSansCompte(annee);
+  toast(arr[idx].cc?("« "+String(arr[idx].n||"?").substring(0,34)+" » rattaché au compte "+catKey(arr[idx].cc)
+        +". Portez-le aussi dans Airtable pour qu'il survive à une réactualisation.")
+      :"Compte retiré.", arr[idx].cc?"var(--green)":"var(--amber)");
+}
 function finIdentifiesParCompte(annee){
   const parCompte={};let sansCompte=0,nSansCompte=0,total=0,n=0;
   finList().forEach(f=>{
@@ -5923,8 +5999,14 @@ function srDecalage(aISO,bISO,manque){
   return {explique:best/100,pris,
     fin:pris.filter(x=>x.cote==="fin"),debut:pris.filter(x=>x.cote==="debut")};
 }
+// Avec un seul point de contrôle, la borne de gauche est le solde initial daté :
+// l'écart se mesure de ce solde au point, et le contrôle de décalage vaut aussi.
 function srManqueDe(i){
-  srNorm();const a=D.soldesRef[i-1],b=D.soldesRef[i];if(!a||!b)return null;
+  srNorm();
+  const b=D.soldesRef[i];if(!b)return null;
+  const a=i>0?D.soldesRef[i-1]
+             :{d:String(D.soldeDate||"").substring(0,10),mt:D.soldeInitial||0,initial:true};
+  if(!a||!a.d||!/^\d{4}-\d{2}-\d{2}$/.test(a.d))return null;
   const varB=Math.round((b.mt-a.mt)*100)/100;
   const ra=soldeReconstitue(a.d),rb=soldeReconstitue(b.d);
   return {a,b,manque:Math.round((varB-(rb.s-ra.s))*100)/100};
@@ -6075,6 +6157,8 @@ function srBloc(){
         <td style="text-align:right;font-family:var(--mono);font-size:9px;font-weight:700;color:${ok?"var(--green)":"var(--red)"}">${ok?"✓ 0,00 €"
           :`<span class="tcell" style="text-decoration:underline dotted;cursor:pointer" title="Cliquer pour chercher l'origine de l'écart" onclick="openSrDetail(${i})">${fmt(ec)}</span>`}</td>
         <td style="white-space:nowrap">
+          ${ok?"":`<button class="b bb" style="font-size:8px;padding:2px 5px" title="Un paiement carte daté de la veille de ce relevé peut être comptabilisé le lendemain : l'écriture existe alors des deux côtés, mais pas du même côté de la borne"
+            onclick="srVoirDecalage(${i})">📅 décalage ?</button>`}
           <button class="b bd" style="font-size:8px;padding:2px 5px" title="Faire de ce solde le point de départ de la trésorerie : les écritures antérieures sortent du calcul"
             onclick="srAncrer(${i})">⚓ Ancrer ici</button>
           <button class="b bd" style="font-size:8px;padding:2px 5px;color:var(--red)" onclick="srDel(${i})">🗑</button>
@@ -6196,7 +6280,8 @@ function rTreasury(el){
       +` = <span style="color:var(--green)">${fmt(bi.reste)} restant à obtenir</span>`
       +` &nbsp;·&nbsp; ${nt.n} financement(s) Airtable pour ${fmt(nt.total)} en trésorerie`;
     if(nt.total>bi.budgetPr+0.5)h+=` <span style="color:var(--green)">, soit ${fmt(nt.total-bi.budgetPr)} au-delà du budget</span>`;
-    if(nt.nSansCompte)h+=`<br>&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">⚠️ ${nt.nSansCompte} financement(s) sans compte comptable (${fmt(nt.sansCompte)})</span> :`
+    if(nt.nSansCompte)h+=`<br>&nbsp;&nbsp;&nbsp;<span class="tcell" style="color:var(--amber);cursor:pointer;text-decoration:underline dotted"
+        title="Voir lesquels" onclick="openFinSansCompte('${y}')">⚠️ ${nt.nSansCompte} financement(s) sans compte comptable (${fmt(nt.sansCompte)})</span> :`
       +` déduits du reste à obtenir au prorata, faute de savoir quelle ligne ils couvrent. Le total est juste, mais renseignez la colonne`
       +` <em>Code comptable</em> ci-dessous (ou dans Airtable, 3.1 Suivi financeurs) pour que chaque ligne de budget soit exacte.`;
   });
