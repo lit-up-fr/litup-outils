@@ -26,7 +26,7 @@
   --border:#252d3f;--border-h:#3a4560;
   --text-1:#e8ecf4;--text-2:#a8b4c8;--text-3:#6b7a92;
   --accent:#6366f1;--accent-l:#818cf8;--accent-bg:rgba(99,102,241,.08);
-  --green:#34d399;--green-bg:rgba(52,211,153,.08);
+  --green:#34d399;--green-bg:rgba(52,211,153,.08);--split-ok:rgba(52,211,153,.34);--split-orph:rgba(251,191,36,.34);
   --red:#f87171;--red-bg:rgba(248,113,113,.08);
   --amber:#fbbf24;--amber-bg:rgba(251,191,36,.08);
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
@@ -39,7 +39,7 @@ html.light{
   --border:#e0e4ec;--border-h:#c8cdd8;
   --text-1:#1a202c;--text-2:#4a5568;--text-3:#8896a8;
   --accent:#5b63e0;--accent-l:#6366f1;--accent-bg:rgba(91,99,224,.06);
-  --green:#16a34a;--green-bg:rgba(22,163,74,.06);
+  --green:#16a34a;--green-bg:rgba(22,163,74,.06);--split-ok:rgba(22,163,74,.32);--split-orph:rgba(217,119,6,.32);
   --red:#dc2626;--red-bg:rgba(220,38,38,.06);
   --amber:#d97706;--amber-bg:rgba(217,119,6,.06);
   --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
@@ -117,6 +117,13 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 .ss-s{width:100%;padding:6px 10px;font-size:11px;background:var(--bg-1);color:var(--text-1);border:none;border-bottom:1px solid var(--border);outline:none;font-family:var(--sans)}
 .ss-i{padding:5px 10px;font-size:11px;cursor:pointer;transition:.1s}.ss-i:hover{background:var(--accent-bg)}.ss-i.sel{background:rgba(99,102,241,.12);color:var(--accent-l)}
 .ib{background:none;border:none;cursor:pointer;padding:3px;color:var(--text-3);font-size:13px;transition:.2s;border-radius:4px}.ib:hover{color:var(--text-1);background:var(--bg-3)}
+/* Case ⧉ : surlignée quand l'écriture est déjà répartie (vert) ou qu'elle en
+   porte la marque sans que l'outil en ait la mémoire (ambre). C'est le repère
+   qui permet de voir d'un coup d'œil ce qui est traité et ce qui reste à faire. */
+.cs-ok{background:var(--split-ok);box-shadow:inset 0 0 0 1px var(--green)}
+.cs-ok .ib{color:var(--green)}
+.cs-orph{background:var(--split-orph);box-shadow:inset 0 0 0 1px var(--amber)}
+.cs-orph .ib{color:var(--amber)}
 .deb{text-align:right;color:var(--red);font-weight:600;white-space:nowrap;font-family:var(--mono);font-size:11px}
 .cre{text-align:right;color:var(--green);font-weight:600;white-space:nowrap;font-family:var(--mono);font-size:11px}
 .att{display:inline-flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-3);text-decoration:none;transition:.2s}
@@ -177,7 +184,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31i <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31j <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4242,6 +4249,31 @@ function splitNouveauxProjets(labels){
     setTimeout(()=>openSplitNouveaux({faits,demandes:c.demandes}),60);
   }
   return {autos:faits.length,demandes:c.demandes.length};
+}
+// La case ⧉ dit d'un coup d'œil ce qui est traité et ce qui ne l'est pas :
+// verte quand l'écriture appartient à une répartition connue, ambre quand elle
+// en porte la marque sans que l'outil en ait la mémoire (données d'une version
+// antérieure), neutre quand rien n'a été réparti.
+function splitEtat(r){
+  const sid=r&&r.split;
+  if(!sid)return {etat:"non"};
+  const rec=splitsMap()[sid];
+  if(!rec)return {etat:"orphelin"};
+  const L=splitLignes(sid);
+  if(!L.length)return {etat:"orphelin"};
+  return {etat:"oui",n:L.length,lib:rec.lib||"",codes:L.map(x=>actCode(x.act)).filter(Boolean)};
+}
+function splitCellBtn(r){
+  const e=splitEtat(r);
+  const cl=e.etat==="oui"?" cs-ok":e.etat==="orphelin"?" cs-orph":"";
+  const ti=e.etat==="oui"
+      ?"Déjà réparti sur "+e.n+" projet(s) : "+e.codes.join(", ")
+        +(e.lib?" — "+String(e.lib).replace(/"/g,"'").substring(0,60):"")
+        +". Cliquez pour voir la répartition, la modifier ou la défaire."
+    :e.etat==="orphelin"
+      ?"Cette ligne porte la marque d'une répartition dont l'outil n'a plus la mémoire. Cliquez pour en savoir plus."
+      :"Répartir sur une famille de projets — l'écriture est éclatée en une sous-ligne par projet, pondérée par les heures d'action";
+  return `<td class="cs${cl}" style="text-align:center;min-width:30px"><button class="ib" style="font-size:12px" onclick="openFamSplit('${r.id}')" title="${ti}">⧉</button></td>`;
 }
 function openFamSplit(id){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
@@ -8776,14 +8808,18 @@ function renderCorps(){
   // Classement tab
   if(!D.rows.length){ct.innerHTML='<div class="empty"><div style="font-size:32px;opacity:.3">📂</div><h3>Importez vos fichiers</h3><p style="font-size:9px">Banque (.xlsx) / NDF (.xlsx)</p></div>';return}
   let h='<div style="overflow-x:auto"><table><thead><tr>';
-  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","Débit","Crédit","🔗 Airtable","📎","Mod.","Statut","Resp.","Just.","💬",""];
-  const colKeys=["dt","yr","lib","four","cat","act","deb","cre","","","modal","stat","resp","numj","comment",""];
+  // La colonne ⧉ est collée à « Action » : décider d'une répartition demande de
+  // voir le code projet en même temps que le bouton, et les deux étaient à
+  // deux bouts opposés d'un tableau qui défile.
+  const cols=["Date","An.","Libellé","Fournisseur","Catégorie","Action","⧉","Débit","Crédit","🔗 Airtable","📎","Mod.","Statut","Resp.","Just.","💬",""];
+  const colKeys=["dt","yr","lib","four","cat","act","","deb","cre","","","modal","stat","resp","numj","comment",""];
   cols.forEach((x,i)=>{
     const et=cfEtat(colKeys[i]);
     const st=et?' style="color:var(--accent);background:var(--accent-bg)"':"";
     const ti=et==="texte"?' title="Filtre actif : recherche de texte. Videz la case en dessous pour l\'enlever."'
             :et==="liste"?' title="Filtre actif : sélection de valeurs. Cliquez ▼ puis ✕ pour l\'enlever."':"";
-    h+=`<th${st}${ti}>${x}${et?' <span style="font-size:9px">▼</span>':""}<div class="col-resize" onmousedown="startResize(event,'class')" ondblclick="resetColWidth(event,'class')" title="Glisser pour redimensionner, double-clic pour réinitialiser"></div></th>`;
+    const tiCol=x==="⧉"?' title="Répartition sur une famille de projets. Vert = cette écriture est déjà répartie ; cliquez pour voir sur quoi."':"";
+    h+=`<th${st}${ti}${tiCol}>${x}${et?' <span style="font-size:9px">▼</span>':""}<div class="col-resize" onmousedown="startResize(event,'class')" ondblclick="resetColWidth(event,'class')" title="Glisser pour redimensionner, double-clic pour réinitialiser"></div></th>`;
   });
   h+="</tr><tr class='filter-row'>";
   colKeys.forEach((k,i)=>{
@@ -8809,6 +8845,7 @@ function renderCorps(){
     const orangeSi=v=>"max-width:160px"+(v?"":";border-color:#f97316;color:#f97316");
     h+=`<td style="min-width:150px">${selLazy("cat_"+r.id,r.id,"cat",r.cat,"cats",orangeSi(r.cat))}</td>`;
     h+=`<td style="min-width:150px">${selLazy("act_"+r.id,r.id,"act",r.act,"acts",orangeSi(r.act))}</td>`;
+    h+=splitCellBtn(r);
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=finCellBtn(r);
@@ -8823,10 +8860,10 @@ function renderCorps(){
     h+=`<td style="min-width:60px">${selLazy("",r.id,"resp",r.resp,"resps","")}</td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
-    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button><button class="ib" onclick="openFamSplit('${r.id}')" title="Répartir sur une famille de projets — l'écriture est éclatée en une sous-ligne par projet, pondérée par les heures d'action">⧉</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
-  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
+  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="7" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
   h+="</tbody></table></div>";ct.innerHTML=h;
   applyColWidths(ct.querySelector("table"),"class");
   // Autocomplétion fournisseur : UNE seule datalist pour tout le tableau.
@@ -9867,6 +9904,18 @@ window._colWidths=(()=>{
   let o={};try{o=JSON.parse(localStorage.getItem("litup_colw")||"{}")}catch(e){}
   // Migration de l'ancien format plat {0:120, 3:80} → {class:{...}}
   if(Object.keys(o).some(k=>/^\d+$/.test(k)))o={class:o};
+  // La colonne ⧉ s'insère en 7e position (index 6) du tableau de classement :
+  // les largeurs enregistrées avant elle désignaient d'autres colonnes. Sans ce
+  // décalage, une largeur réglée sur « Débit » se retrouvait sur ⧉ et tout le
+  // reste glissait d'un cran — un tableau soudain de travers, sans cause visible.
+  try{
+    if(localStorage.getItem("litup_colw_v6split")!=="1"){
+      if(o.class){const n={};Object.keys(o.class).forEach(k=>{
+        const i=parseInt(k,10);if(isNaN(i))return;n[i>=6?i+1:i]=o.class[k]});o.class=n}
+      localStorage.setItem("litup_colw_v6split","1");
+      localStorage.setItem("litup_colw",JSON.stringify(o));
+    }
+  }catch(e){}
   return o;
 })();
 function saveColWidths(){try{localStorage.setItem("litup_colw",JSON.stringify(window._colWidths))}catch(e){}}
