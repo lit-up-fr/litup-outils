@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31m <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31n <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3855,6 +3855,15 @@ const CPT_PAIE=/^(64|631|633)/;
 // les projets : c'est une dépense de l'action Service Civique elle-même. Elle
 // suit donc la famille SC, et rien d'autre.
 const CPT_REGLE_FAM=[{cpt:/^64160/, cle:"sc", lib:"Service Civique"}];
+// Un compte de RÉMUNÉRATION (641x) paie UNE personne. Son montant ne peut donc
+// pas suivre la clé de la masse salariale, qui est la clé des charges
+// MUTUALISÉES — cotisations, mutuelle, taxes sur salaires, médecine du travail.
+// Quand le poste n'est pas reconnu, l'envoyer sur cette clé revient à charger le
+// salaire de quelqu'un sur les projets d'un autre, en silence. Mesuré sur un jeu
+// d'essai : 9 600 € de charges, dont deux salaires entiers et l'URSSAF,
+// partaient intégralement sur un seul projet parce qu'un seul poste sur trois
+// portait un « Nom relevé ». On refuse donc, et on le dit.
+const CPT_NOMINATIF=/^641/;
 const regleFamDe=r=>CPT_REGLE_FAM.find(x=>x.cpt.test(catKey(r&&r.cat||"")))||null;
 // Un compte de personnel portant un code de FONCTIONNEMENT (FG/FP/FV) n'est pas
 // une affectation analytique fine — médecine du travail, formations : c'est un
@@ -4009,7 +4018,11 @@ function ventilRows(rows){
     const mt=posteMatch(r);
     if(mt.ambigu)return {r,type:"rate",why:"plusieurs postes portent ce nom et sont tous en contrat ce mois-là ("
       +(mt.homonymes||[]).join(", ")+") : distinguez leurs périodes de contrat, ou leurs « Nom relevé »"};
-    if(!mt.p)return {r,type:"coll"};
+    if(!mt.p){
+      if(CPT_NOMINATIF.test(catKey(r&&r.cat||"")))
+        return {r,type:"rate",why:"compte de rémunération : ce montant paie une personne, il ne peut pas suivre la clé de la masse salariale (réservée aux charges mutualisées). Renseignez « Nom relevé » sur le poste concerné, ou posez un code projet à la main sur l'écriture"};
+      return {r,type:"coll"};
+    }
     const v=ventilParts(r);
     if(v.err||!v.parts||!v.parts.length)return {r,type:"rate",why:v.err||"aucune part"};
     return {r,type:"poste",v};
@@ -4020,13 +4033,25 @@ function ventilRows(rows){
   // précédent, et c'est cet exercice-là dont la masse salariale fait la clé.
   const exoDe=r=>anStr(r&&r.yr)||String(moKey(r&&r.dt)||"").substring(0,4);
   const parMois={},parAn={};
+  // La clé doit représenter TOUTE la masse salariale du mois, pas seulement la
+  // part que l'outil sait ventiler. Sinon une URSSAF couvrant trois personnes
+  // partait en entier sur les projets de la seule dont le poste était reconnu :
+  // le montant était juste, sa destination inventée. Une paie non rattachable
+  // entre donc dans la clé comme part NON AFFECTÉE — elle pèse dans le
+  // denominateur, et la fraction correspondante des charges mutualisées reste
+  // sur le code d'origine.
+  // Les paies déjà posées à la main sur un vrai projet (« tel ») et les
+  // gratifications suivant une règle de compte (« regle ») restent hors clé :
+  // les premières ne passent pas par la ventilation, les secondes ne génèrent
+  // pas les cotisations que cette clé sert à répartir.
   plan.forEach(x=>{
-    if(x.type!=="poste")return;
+    if(x.type!=="poste"&&x.type!=="rate")return;
     const mk=moKey(x.r.dt)||"";if(!mk)return;
     const an=exoDe(x.r);
     const mt=Math.abs((x.r.deb||0)-(x.r.cre||0));if(mt<=0)return;
     [parMois[mk]||(parMois[mk]={p:{},reste:0,tot:0}),parAn[an]||(parAn[an]={p:{},reste:0,tot:0})]
       .forEach(acc=>{
+        if(x.type==="rate"){acc.reste+=mt;acc.tot+=mt;return}
         x.v.parts.forEach(pp=>{acc.p[pp.act]=(acc.p[pp.act]||0)+mt*pp.part});
         acc.reste+=mt*(x.v.reste||0);acc.tot+=mt;
       });
@@ -9422,7 +9447,7 @@ function rSuivi(el){
     const collVent=Math.round(_suiviColl.reduce((a,x)=>a+x.mtVent,0)*100)/100;
     if(_suiviColl.length)
       h+=`<div style="margin:8px 14px;padding:7px 11px;border-radius:8px;font-size:10px;line-height:1.7;background:var(--accent-bg);border:1px solid rgba(99,102,241,.2)">
-        <strong>${_suiviColl.length} charge(s) collective(s)</strong> — cotisations, mutuelle, taxes sur les salaires : aucun nom dans le libellé, donc aucun poste à qui les rattacher.
+        <strong>${_suiviColl.length} charge(s) collective(s)</strong> — cotisations, mutuelle, taxes sur les salaires, médecine du travail : des charges mutualisées, sans nom dans le libellé, donc sans poste à qui les rattacher. Les comptes de rémunération (641x) n'entrent jamais ici : un salaire paie une personne, il ne se répartit pas au prorata de la masse salariale.
         Elles sont réparties <strong>au prorata des salaires du même mois</strong> (${_suiviColl.filter(x=>x.base==="exercice").length?_suiviColl.filter(x=>x.base==="exercice").length+" au prorata de l'exercice, faute de salaire identifié ce mois-là. ":""}<strong>${fmt(collVent)}</strong> réparti).</div>`;
     if(_suiviRatees.length||_suiviPartiels.length||_suiviSurs.length)
       h+=`<div class="warn" style="margin:8px 14px;cursor:pointer;font-size:10px;line-height:1.7" onclick="openVentRatees()">
