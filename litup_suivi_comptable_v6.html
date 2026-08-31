@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31e <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31f <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3867,10 +3867,13 @@ function famSplitCalc(){
   // mois. Exercice ou famille entière : les heures totales de chaque parcours.
   const k=retenus.length?famParts(retenus,y,st.scope==="mois"):{mode:"egal",sans:[],parts:[]};
   let rd=0,rc=0;
+  // En modification, le total de référence est celui de l'écriture d'origine,
+  // mémorisé dans la répartition — la ligne cliquée n'en porte qu'une part.
+  const tD=st.sid?(st.refDeb||0):(r.deb||0), tC=st.sid?(st.refCre||0):(r.cre||0);
   const parts=retenus.map((l,i)=>{
     const dernier=i===retenus.length-1;
-    const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*k.parts[i]*100)/100;
-    const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*k.parts[i]*100)/100;
+    const d=dernier?Math.round((tD-rd)*100)/100:Math.round(tD*k.parts[i]*100)/100;
+    const c=dernier?Math.round((tC-rc)*100)/100:Math.round(tC*k.parts[i]*100)/100;
     rd+=d;rc+=c;
     return {act:l,part:k.parts[i],deb:d,cre:c};
   });
@@ -3922,6 +3925,7 @@ function famSplitCoche(i){
   _famSplit.sel=sel;
   famSplitDessine();
 }
+function famSplitAuto(v){if(!_famSplit)return;_famSplit.auto=!!v;famSplitDessine()}
 function famSplitTout(v){
   const c=famSplitCalc();if(!c)return;
   _famSplit.sel=v?c.tous.slice():[];
@@ -3947,14 +3951,18 @@ function splitFamLib(label){
 // sous-ligne : une ligne peut porter un justificatif et un numéro de pièce, et
 // les perdre en silence serait pire que la répartition inexacte. On réajuste les
 // montants et on ajoute les nouvelles lignes, en gardant le total au centime.
-function splitRecalc(sid,labels){
+// dejaVerifie : le contrôle « montants modifiés à la main » a déjà été fait par
+// l'appelant. Indispensable pour la modification explicite, qui retire des
+// sous-lignes — sans ce drapeau, c'est son propre retrait qui déclencherait le
+// refus, et le réajustement ne se faisait pas.
+function splitRecalc(sid,labels,dejaVerifie){
   const rec=splitsMap()[sid];if(!rec)return {err:"répartition inconnue"};
   const L=splitLignes(sid);if(!L.length)return {err:"sous-lignes introuvables"};
   if(!labels||!labels.length)return {err:"aucun code"};
   const act=splitSommeActuelle(sid);
   // Si les montants ont bougé depuis la répartition, quelqu'un les a corrigés à
   // la main : on ne les écrase pas.
-  if(Math.abs(act.deb-(rec.deb||0))>0.005||Math.abs(act.cre-(rec.cre||0))>0.005)
+  if(!dejaVerifie&&(Math.abs(act.deb-(rec.deb||0))>0.005||Math.abs(act.cre-(rec.cre||0))>0.005))
     return {err:"montants modifiés à la main depuis la répartition ("+fmt(act.deb-(rec.deb||0))+" / "+fmt(act.cre-(rec.cre||0))+" d'écart)"};
   const k=famParts(labels,rec.y,rec.scope==="mois");
   const modele=L[0], idx=D.rows.indexOf(L[L.length-1]);
@@ -4090,14 +4098,115 @@ function splitNouveauxProjets(labels){
 }
 function openFamSplit(id){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
-  _famSplit={id,cles:[],scope:"annee",sel:null};
+  // Cliquer ⧉ sur une ligne DÉJÀ issue d'une répartition ouvrait un nouvel
+  // éclatement de cette seule sous-ligne : on découpait un morceau au lieu de
+  // revoir l'ensemble. On montre d'abord ce qui existe.
+  if(r.split&&splitsMap()[r.split]&&splitLignes(r.split).length){openSplitVue(r.split);return}
+  _famSplit={id,cles:[],scope:"annee",sel:null,auto:true};
   famSplitDessine();
+}
+// Vue d'une répartition existante : d'où elle vient, sur quoi elle porte
+// aujourd'hui, et ce que l'outil fera d'un nouveau projet. Aucune modification
+// ici — c'est un état des lieux avant de proposer quoi que ce soit.
+function openSplitVue(sid){
+  const rec=splitsMap()[sid];if(!rec)return;
+  const L=splitLignes(sid).slice().sort((a,b)=>actCode(a.act).localeCompare(actCode(b.act),"fr",{numeric:true}));
+  const som=splitSommeActuelle(sid);
+  const totRef=(rec.cre||0)>0?(rec.cre||0):(rec.deb||0);
+  const ecartD=Math.round((som.deb-(rec.deb||0))*100)/100, ecartC=Math.round((som.cre-(rec.cre||0))*100)/100;
+  const touche=Math.abs(ecartD)>0.005||Math.abs(ecartC)>0.005;
+  const libScope=rec.scope==="mois"?"projets actifs le mois de l’écriture"
+    :rec.scope==="tous"?"tous les projets des familles retenues":"projets actifs sur l’exercice "+rec.y;
+  const lignes=L.map(r=>{
+    const mt=(r.cre||0)>0?r.cre:r.deb;
+    const pc=totRef>0?(mt/totRef*100):0;
+    const code=actCode(r.act);
+    return `<tr>
+      <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(code)}</td>
+      <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(r.act).substring(0,38))}</td>
+      <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(splitFamLib(r.act))}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right">${actHeures(code)||'<span style="color:var(--amber)">vide</span>'}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${pc.toFixed(2)} %</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${r.deb?fmt(r.deb):""}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${r.cre?fmt(r.cre):""}</td>
+      <td style="padding:3px 6px;font-size:9px">${r.driveUrl?'<span title="Un justificatif est rattaché à cette sous-ligne : elle ne sera pas supprimée." style="color:var(--green)">📄</span>':""}</td>
+    </tr>`;}).join("");
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:940px">
+    <h3>⧉ Répartition en place</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      <strong>${escHtml(String(rec.lib||"").substring(0,80))}</strong> — ${String(rec.dt||"").substring(0,10)} —
+      ${(rec.cre||0)>0?fmt(rec.cre)+" de crédit":fmt(rec.deb)+" de débit"}
+      <br>Répartie le ${escHtml(String(rec.cree||"?"))} sur <strong>${L.length} projet(s)</strong>, dans ${(rec.cles||[]).length} famille(s) :
+      ${escHtml((rec.cles||[]).map(k=>{const g=famGroupe(k);return g?g.zone+" — "+g.lib:k}).join(" · "))}
+      <br><span style="color:var(--text-3)">Périmètre retenu à l’époque : ${escHtml(libScope)}.
+      ${rec.complet
+        ? "Tous les projets proposés avaient été retenus : un <strong>nouveau</strong> parcours de ces familles rejoindra cette répartition automatiquement."
+        : "Des projets avaient été écartés : à l’arrivée d’un nouveau parcours, l’outil demandera s’il en fait partie."}</span>
+      ${touche?`<br><span style="color:var(--amber)">Les montants ont été corrigés à la main depuis (${fmt(ecartD)} / ${fmt(ecartC)} d’écart avec l’écriture d’origine). Tant que cet écart existe, l’outil ne réajustera pas cette répartition tout seul.</span>`:""}
+    </p>
+    <div style="overflow:auto;max-height:46vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
+        ${["Code","Projet","Famille","Heures","Part","Débit","Crédit",""].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=3&&j<=6?"right":"left"}">${x}</th>`).join("")}
+      </tr></thead><tbody>${lignes}
+      <tr style="border-top:2px solid var(--accent);font-weight:700">
+        <td colspan="4" style="padding:4px 6px;font-size:9px">${L.length} sous-ligne(s)</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">100,00 %</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(som.deb)}</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(som.cre)}</td><td></td></tr>
+      </tbody></table></div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bp" onclick="splitModifier('${sid}')">✏️ Modifier la répartition</button>
+      <button class="b bd" onclick="splitAnnulerRepart('${sid}')" title="Refusionner les sous-lignes en une seule écriture, comme avant la répartition">↩ Défaire la répartition</button>
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+// Rouvre l'éditeur pré-rempli avec les familles, le périmètre et la sélection
+// d'origine. La validation passe par splitRecalc : les sous-lignes existantes
+// sont réajustées, jamais recréées — un justificatif rattaché survit.
+function splitModifier(sid){
+  const rec=splitsMap()[sid];if(!rec)return;
+  const L=splitLignes(sid);if(!L.length)return;
+  _famSplit={id:L[0].id,sid,cles:(rec.cles||[]).slice(),scope:rec.scope||"annee",
+    sel:(rec.codes||[]).slice(),auto:rec.complet!==false,
+    refDeb:rec.deb||0,refCre:rec.cre||0,refLib:String(rec.lib||""),refDt:String(rec.dt||"")};
+  famSplitDessine();
+}
+// Défaire : les sous-lignes redeviennent l'écriture unique d'origine. Refusé si
+// l'une d'elles porte un justificatif ou un numéro de pièce — ce serait le
+// perdre, et c'est à elle de le détacher d'abord.
+function splitAnnulerRepart(sid){
+  const rec=splitsMap()[sid];if(!rec)return;
+  const L=splitLignes(sid);if(!L.length)return;
+  const avecPiece=L.filter(r=>r.driveUrl||String(r.numj||"").trim());
+  if(avecPiece.length){
+    alert("Impossible de défaire : "+avecPiece.length+" sous-ligne(s) portent un justificatif ou un numéro de pièce.\n\n"
+      +avecPiece.map(r=>"• "+actCode(r.act)+" — "+(r.numj||"pièce Drive")).join("\n")
+      +"\n\nDétachez-les depuis le classement, puis recommencez.");
+    return;
+  }
+  if(!confirm("Refusionner les "+L.length+" sous-lignes en une seule écriture ?\n\n"
+    +String(rec.lib||"").substring(0,60)+"\n"+((rec.cre||0)>0?fmt(rec.cre)+" de crédit":fmt(rec.deb)+" de débit")
+    +"\n\nLe code projet redevient celui d'avant la répartition. Annulable avec ↩."))return;
+  pushUndo();
+  const i=D.rows.indexOf(L[0]);
+  const base=Object.assign({},L[0],{id:"u"+Date.now().toString(36),
+    act:"",deb:rec.deb||0,cre:rec.cre||0,comment:String(rec.comment||"")});
+  delete base.split;delete base._vent;
+  D.rows=D.rows.filter(r=>r.split!==sid);
+  D.rows.splice(i<0?D.rows.length:i,0,base);
+  delete splitsMap()[sid];
+  closeM();autoSave();render();
+  toast("Répartition défaite — écriture rétablie");
 }
 function famSplitDessine(){
   const c=famSplitCalc();
   if(!c){$("modalC").innerHTML="";_famSplit=null;return}
   const r=c.r,st=_famSplit,cles=st.cles||[];
-  const mt=(r.deb||0)>0?fmt(r.deb)+" de débit":fmt(r.cre)+" de crédit";
+  // En modification, l'écriture d'origine n'existe plus : c'est le montant
+  // mémorisé qui fait référence, pas celui de la sous-ligne sur laquelle on a
+  // cliqué — sinon on afficherait un dixième du financement.
+  const refD=st.sid?(st.refDeb||0):(r.deb||0), refC=st.sid?(st.refCre||0):(r.cre||0);
+  const mt=refD>0?fmt(refD)+" de débit":fmt(refC)+" de crédit";
   const scrollAv=(document.getElementById("famSplitScroll")||{}).scrollTop||0;
   // Familles proposées, regroupées par zone, celles déjà retenues en moins.
   let opts='<option value="">+ Ajouter une famille…</option>';
@@ -4115,21 +4224,25 @@ function famSplitDessine(){
       +(tot?(n===tot?"":", "+n+" sur ce périmètre"):" : famille vide")+"</option>";
   });
   if(zone)opts+="</optgroup>";
+  const nTous=cles.reduce((a,k)=>a+famProjets(k).length,0);
   const scopes=[["mois","Projets actifs le mois de l’écriture"+(c.mk?" ("+c.mk+")":"")],
                 ["annee","Projets actifs sur l’exercice "+c.y],
-                ["tous","Tous les projets de la famille"]];
+                ["tous","Tous les projets des familles retenues"+(cles.length?" ("+nTous+")":"")]];
   let corps="";
   if(!cles.length){
     corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Ajoutez une ou plusieurs familles pour voir la répartition proposée. Un financement qui couvre le Service Civique et l’Impact uP, par exemple, se répartit sur les deux d’un coup.</div>';
   }else if(!c.tous.length){
-    const nTous=cles.reduce((a,k)=>a+famProjets(k).length,0);
-    corps=`<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de ces familles ne porte d'écriture sur ce périmètre.
-      ${nTous?`Ces familles comptent <strong>${nTous} projet(s)</strong> au total — c'est le cas quand l'écriture à répartir est justement la première qui les concerne.
-      <div style="margin-top:5px"><button class="b bb" style="font-size:9px" onclick="famSplitScope('tous')">Élargir à tous les projets de la famille</button></div>`
-      :"Ces familles sont vides : vérifiez que les projets portent bien un territoire."}</div>`;
+    // Nommer les projets, pas leur nombre : « élargir à toute la famille » se lit
+    // comme « arroser large », alors que la famille en question peut ne compter
+    // que les deux codes qu'on veut précisément servir.
+    const codes=[];cles.forEach(k=>famProjets(k).forEach(l=>codes.push(actCode(l))));
+    corps=`<div class="warn" style="font-size:10px;line-height:1.7">Aucun de ces projets ne porte encore d'écriture sur ce périmètre — c'est le cas quand l'écriture à répartir est justement la première qui les concerne.
+      ${codes.length?`<br>Les familles retenues contiennent <strong>${codes.length} projet(s)</strong>, et eux seuls : <strong>${escHtml(codes.join(", "))}</strong>.
+      <div style="margin-top:5px"><button class="b bb" style="font-size:9px" onclick="famSplitScope('tous')">Répartir sur ${codes.length===1?"ce projet":"ces "+codes.length+" projets"} : ${escHtml(codes.join(", ").substring(0,60))}</button></div>`
+      :"<br>Ces familles sont vides : vérifiez que les projets portent bien un territoire."}</div>`;
   }else{
     const sd=c.parts.reduce((a,x)=>a+x.deb,0),sc=c.parts.reduce((a,x)=>a+x.cre,0);
-    const ecart=Math.round((sd-(r.deb||0))*100)/100, ecartC=Math.round((sc-(r.cre||0))*100)/100;
+    const ecart=Math.round((sd-refD)*100)/100, ecartC=Math.round((sc-refC)*100)/100;
     const nCoch=c.retenus.length;
     let lignes="";
     c.groupes.forEach(g=>{
@@ -4167,6 +4280,13 @@ function famSplitDessine(){
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sd)}</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sc)}</td></tr>
       </tbody></table></div>
+      ${c.retenus.length===c.tous.length&&c.tous.length
+        ? `<label style="display:flex;gap:6px;align-items:flex-start;font-size:9px;color:var(--text-2);margin-top:8px;cursor:pointer">
+            <input type="checkbox"${st.auto!==false?" checked":""} onchange="famSplitAuto(this.checked)" style="margin-top:1px">
+            <span>Reprendre automatiquement les <strong>futurs</strong> projets de ces familles.
+            <span style="color:var(--text-3)">Tous les projets proposés sont retenus : si un nouveau parcours arrive d’Airtable dans une de ces familles, il sera ajouté à cette répartition et les montants réajustés. Décochez pour figer la répartition sur les projets d’aujourd’hui.</span></span>
+          </label>`
+        : c.tous.length?`<div style="font-size:9px;color:var(--text-3);margin-top:8px;line-height:1.7">Des projets ont été écartés : cette répartition ne reprendra pas les futurs projets d’office. À l’arrivée d’un nouveau parcours, l’outil demandera s’il en fait partie.</div>`:""}
       <p style="font-size:9px;color:var(--text-3);margin:8px 0 0;line-height:1.7">
         ${!nCoch?'<span style="color:var(--amber)">Aucun projet coché : rien à répartir.</span>'
         :nCoch===1?"Un seul projet retenu : il reçoit la totalité de l’écriture, les heures d’action n’entrent pas en jeu."
@@ -4178,10 +4298,12 @@ function famSplitDessine(){
   }
   const pret=c.parts.length>0;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:900px">
-    <h3>⧉ Répartir sur une ou plusieurs familles</h3>
+    <h3>⧉ ${st.sid?"Modifier la répartition":"Répartir sur une ou plusieurs familles"}</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
-      <strong>${escHtml(String(r.lib||"").substring(0,80))}</strong> — ${String(r.dt||"").substring(0,10)} — ${mt}
-      <br><span style="color:var(--text-3)">L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet : le FEC, les tris et le suivi analytique restent justes. Annulable avec ↩.</span>
+      <strong>${escHtml(String(st.sid?st.refLib:r.lib||"").substring(0,80))}</strong> — ${String((st.sid?st.refDt:r.dt)||"").substring(0,10)} — ${mt}
+      <br><span style="color:var(--text-3)">${st.sid
+        ? "Les sous-lignes existantes sont réajustées, jamais recréées : un justificatif déjà rattaché est conservé. Un projet décoché est retiré, sauf s’il porte une pièce."
+        : "L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet : le FEC, les tris et le suivi analytique restent justes."} Annulable avec ↩.</span>
     </p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:9px;color:var(--text-3)">Familles :</span>
@@ -4197,7 +4319,9 @@ function famSplitDessine(){
     }).join("")}</div>`:""}
     ${corps}
     <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
-      <button class="b bp"${pret?"":" disabled style=\"opacity:.4;cursor:not-allowed\""} onclick="famSplitValider()">⧉ Éclater en ${pret?c.parts.length:0} sous-ligne(s)</button>
+      <button class="b bp"${pret?"":" disabled style=\"opacity:.4;cursor:not-allowed\""} onclick="famSplitValider()">${
+        st.sid?"✏️ Appliquer sur "+(pret?c.parts.length:0)+" projet(s)":"⧉ Éclater en "+(pret?c.parts.length:0)+" sous-ligne(s)"}</button>
+      ${st.sid?`<button class="b bd" onclick="openSplitVue('${st.sid}')">← Revenir à l’état actuel</button>`:""}
       <button class="b bd" style="margin-left:auto" onclick="famSplitFermer()">Annuler</button>
     </div></div></div>`;
   // Cocher une case redessine la modale : sans cela la liste remonterait en
@@ -4206,8 +4330,49 @@ function famSplitDessine(){
   if(scEl&&scrollAv)scEl.scrollTop=scrollAv;
 }
 function famSplitFermer(){_famSplit=null;closeM()}
+// Applique une modification : réajuste les montants sur les projets retenus, et
+// retire ceux qui ont été décochés — sauf s'ils portent une pièce, auquel cas on
+// refuse et on le dit plutôt que de la perdre en silence.
+function famSplitAppliquerModif(c){
+  const sid=_famSplit.sid, rec=splitsMap()[sid];
+  if(!rec){alert("Répartition introuvable.");return}
+  const garde=c.retenus.map(l=>actCode(l));
+  const aRetirer=splitLignes(sid).filter(r=>garde.indexOf(actCode(r.act))<0);
+  const bloques=aRetirer.filter(r=>r.driveUrl||String(r.numj||"").trim());
+  if(bloques.length){
+    alert("Ces projets ne peuvent pas être retirés : leur sous-ligne porte un justificatif ou un numéro de pièce.\n\n"
+      +bloques.map(r=>"• "+actCode(r.act)+" — "+(r.numj||"pièce Drive")).join("\n")
+      +"\n\nDétachez la pièce depuis le classement, ou laissez ces projets cochés.");
+    return;
+  }
+  // Le contrôle des montants se fait AVANT toute modification : après avoir
+  // retiré une sous-ligne, la somme ne correspond plus et le garde-fou se
+  // serait déclenché contre nous.
+  const som=splitSommeActuelle(sid);
+  if(Math.abs(som.deb-(rec.deb||0))>0.005||Math.abs(som.cre-(rec.cre||0))>0.005){
+    alert("Les montants de cette répartition ont été corrigés à la main : "
+      +fmt(som.deb-(rec.deb||0))+" / "+fmt(som.cre-(rec.cre||0))+" d'écart avec l'écriture d'origine.\n\n"
+      +"Remettez-les d'accord avec l'écriture, ou défaites la répartition, avant de la modifier.");
+    return;
+  }
+  pushUndo();
+  rec.cles=(_famSplit.cles||[]).slice();
+  rec.scope=_famSplit.scope;
+  rec.complet=c.retenus.length===c.tous.length&&_famSplit.auto!==false;
+  // Réajuster d'abord — la ligne modèle et la position d'insertion doivent
+  // encore exister — puis retirer les décochés.
+  const res=splitRecalc(sid,c.retenus.slice(),true);
+  if(!res.err&&aRetirer.length)D.rows=D.rows.filter(r=>aRetirer.indexOf(r)<0);
+  const nf=(_famSplit.cles||[]).length;
+  _famSplit=null;closeM();autoSave();render();
+  if(res.err)alert("Réajustement impossible : "+res.err);
+  else toast(res.total+" projet(s) servis sur "+nf+" famille(s)"
+    +(res.ajoutees?" · "+res.ajoutees+" ajouté(s)":"")+(aRetirer.length?" · "+aRetirer.length+" retiré(s)":""));
+}
 function famSplitValider(){
   const c=famSplitCalc();if(!c||!c.parts.length)return;
+  // Modification d'une répartition existante : on réajuste, on ne recrée pas.
+  if(_famSplit.sid){famSplitAppliquerModif(c);return}
   const i=D.rows.findIndex(x=>x.id===c.r.id);if(i<0)return;
   pushUndo();
   const base=c.r;
@@ -4217,7 +4382,7 @@ function famSplitValider(){
   // ce qui décide entre reprise automatique et arbitrage.
   const sid="s"+Date.now().toString(36)+Math.random().toString(36).substr(2,3);
   splitsMap()[sid]={cles:(_famSplit.cles||[]).slice(),scope:_famSplit.scope,
-    complet:c.retenus.length===c.tous.length,
+    complet:c.retenus.length===c.tous.length&&_famSplit.auto!==false,
     codes:c.retenus.slice(),y:c.y,lib:String(base.lib||""),dt:String(base.dt||""),
     comment:String(base.comment||""),deb:base.deb||0,cre:base.cre||0,
     cree:new Date().toISOString().substring(0,10)};
