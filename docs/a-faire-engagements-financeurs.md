@@ -1,6 +1,7 @@
 # À faire — page « Engagements financeurs »
 
-*Note prise le 31/08/2026, à la demande de Laetitia. Rien n'est développé.*
+*Note prise le 31/08/2026, à la demande de Laetitia. Complétée le même jour avec la
+sélection d'indicateurs et la maille d'agrégation. Rien n'est développé.*
 
 ## Le besoin, tel qu'exprimé
 
@@ -59,6 +60,53 @@ rattachés à un engagement**. Le backend devra les demander dans
 `getAirtableData` (ou une action dédiée `getIndicateurs`), comme on l'a fait pour
 « Nb heures formation ».
 
+### La sélection retenue — 31/08/2026
+
+Un catalogue complet a été présenté en conversation (groupes A à G, construits
+depuis les 136 champs numériques de la base). Laetitia en a retenu **sept**, en
+posant explicitement : « on va garder uniquement la base, on verra après pour les
+bilans plus complets ».
+
+| Repère | Indicateur | Champ Airtable | Portée demandée |
+|---|---|---|---|
+| A1 | Nb jeunes | `fldkCI8uAlpfWT04G` | **BU** |
+| A5 | Nb jeunes ≥ 3 séances **ou** réalisation du projet | `fldDJjEJCqEnYNddu` | **BU** |
+| A10 | Nb professionnels formés | `fldamIUcuiv5UcRRJ` | **F2F** |
+| B1 | Nb heures formation | `fld8ZxcAC074NVHx3` | tous |
+| C1 | Nombre de séances prévues | `fldBNuqKffFQ6BbdS` | tous |
+| F1 | Note globale | `fld3esPRw1A4M8tov` | tous |
+| G1 | Coût réel programme | `fldauy8SrQZynRLuo` | tous |
+
+Les sept sont des **rollups déjà calculés** sur `4. Parcours` : rien à créer dans
+Airtable, seulement à demander côté backend. C'est le tri qui rend la première
+version faisable — les indicateurs par jeune (table `2. Jeunes`) auraient
+demandé une agrégation nouvelle.
+
+Deux d'entre eux ne sont pas des compteurs de volume et se comportent
+différemment dans un cumul :
+
+- **F1 — Note globale** est une *appréciation*, pas une quantité. On ne
+  l'additionne pas : sur plusieurs parcours elle se lit en **moyenne**, et il
+  faut afficher sur combien de parcours cette moyenne est calculée, sinon un
+  seul parcours noté fait illusion.
+- **G1 — Coût réel programme** est un montant qui **double la comptabilité** de
+  l'outil. Les deux chiffres n'ont pas la même source et n'ont aucune raison de
+  coïncider au centime. À afficher côte à côte, jamais l'un à la place de
+  l'autre.
+
+### Le filtre par famille — conséquence de « A1, A5 pour les BU, A10 pour les F2F »
+
+Un indicateur n'est donc pas une simple case à cocher : il porte un **filtre de
+projets**. Sur un engagement couvrant 8 BU et 3 F2F, « Nb jeunes » n'agrège que
+les 8 BU, et « Nb professionnels formés » que les 3 F2F. Sans ce filtre on
+additionnerait des cellules vides et le chiffre serait faux — silencieusement,
+ce qui est le pire cas.
+
+Chaque cible reçoit donc une **`portee`** : soit une liste de préfixes de code
+(`["BU"]`, `["F2F"]`), soit « tous les projets du périmètre qualitatif ». Elle
+est pré-remplie par défaut selon l'indicateur, et modifiable — un financeur peut
+demander « les jeunes des BU *et* des EXP ».
+
 ## Décisions — tranchées le 31/08/2026
 
 Les trois réponses vont toutes vers le cas général. Aucune simplification n'est
@@ -79,12 +127,31 @@ donc possible sur ces trois axes ; autant le savoir avant de commencer.
    compte sur tous les parcours du Var »). L'interface doit permettre de dire
    « le même que le financier » en un clic, sinon la saisie sera pénible.
 
-3. **Pluriannuel.** L'engagement porte une période qui peut couvrir plusieurs
-   exercices. Conséquence structurante : **les cibles doivent être ventilables
-   par exercice** — un financeur écrit « 300 jeunes sur trois ans, dont 100 en
-   2026 ». Il faut donc, pour chaque cible, une valeur totale *et* une valeur
-   par exercice, et un avancement lisible dans les deux vues. Le réalisé
-   financier suit la même règle : par exercice et cumulé.
+3. **Pluriannuel, et sur la période propre de l'engagement.** « Il faudra
+   agréger les programmes concernés sur la durée de l'engagement (parfois de
+   juin à juin, sur 2 années). »
+
+   Cette précision **remplace** la découpe par exercice esquissée d'abord ici.
+   L'axe d'agrégation est la période conventionnée (`du` → `au`), pas l'exercice
+   comptable. Une ventilation par exercice reste utile en second rideau quand le
+   financeur l'écrit (« 300 jeunes sur trois ans, dont 100 en 2026 »), mais ce
+   n'est plus la maille de référence.
+
+   Les deux moitiés ne sont pas de même difficulté :
+
+   - **Financier — direct.** Les écritures sont datées ; la coupe du 01/06/2026
+     au 31/05/2027 se fait sans détour. Réserve à écrire dans la page : ce total
+     traverse deux exercices, il ne se retrouvera donc dans **aucun** tableau
+     annuel de l'outil. C'est correct, mais ça se lit comme une incohérence si
+     on ne le dit pas.
+   - **Qualitatif — approximation assumée.** Les rollups Airtable **ne sont pas
+     datés** : « Nb jeunes » d'un parcours est son total, pas sa part de juin à
+     décembre. On ne peut donc pas découper *à l'intérieur* d'un parcours. La
+     règle retenue : retenir les parcours **dont les dates tombent dans la
+     période** (début `fldRc5jvycrucZGyY` / fin `fldx69vwn1zxoe5u0`) et prendre
+     leur total. Un parcours à cheval sur une borne est donc dedans ou dehors,
+     **en entier**. Si un financeur exige un prorata, il faudra le saisir à la
+     main sur ce parcours-là, et le marquer comme saisie manuelle.
 
 ### Le piège du périmètre dynamique
 
@@ -97,6 +164,20 @@ D'où la règle : **le suivi est vivant, le bilan est figé**. Un bilan produit
 enregistre la liste des projets retenus et les valeurs lues, avec sa date. Le
 suivi continue d'évoluer à côté, sans réécrire le bilan.
 
+Laetitia a confirmé et renforcé cette règle le 31/08 : « certains bilans sont
+demandés en avance. Il faut figer certains bilan, à savoir garder une copie de
+ce qui a été envoyé au financeur à la date défini, mais avoir la possibilité de
+continuer à faire vivre le projet avec d'autres éventuels financeurs, charges,
+etc. »
+
+Le fait que des bilans soient demandés **avant la fin de la période** est
+justement l'argument décisif : au moment de l'envoi, les chiffres sont
+provisoires *par construction*. Un bilan figé n'est donc pas une commodité
+d'archivage, c'est la seule façon de savoir plus tard ce qui a réellement été
+transmis. Conséquence d'interface : un bilan figé s'affiche en lecture seule,
+avec sa date bien visible, et l'écart avec le suivi courant est une information
+utile — pas une erreur à corriger.
+
 ## Esquisse de structure de données (à valider)
 
 ```javascript
@@ -108,7 +189,7 @@ D.engagements = [{
   // ── financier ──
   rids: ["rec…"],                      // financements Airtable rattachés (0..n)
   mtEngage,                            // montant total conventionné
-  parExercice: { "2026": 40000, "2027": 40000, "2028": 20000 },
+  parExercice: { "2026": 40000, "2027": 40000 },  // OPTIONNEL, second rideau
   perimFin:  { projets:[], familles:[] },
 
   // ── qualitatif ──
@@ -116,7 +197,9 @@ D.engagements = [{
   cibles: [{
     cle:"fldkCI8uAlpfWT04G",           // champ Airtable, ou "manuel"
     lib:"Nb jeunes", unite:"personnes",
-    total:300, parExercice:{ "2026":100, "2027":100, "2028":100 }
+    portee:{ pfx:["BU"] },             // filtre de projets — cf. « A1, A5 pour les BU »
+    cumul:"somme",                     // "somme" | "moyenne" (note globale) | "manuel"
+    total:300, parExercice:{ "2026":100, "2027":200 }   // total = la référence
   }],
 
   jalons: [{ date, libelle, fait:false }],
@@ -125,14 +208,16 @@ D.engagements = [{
 }]
 ```
 
-Le **réalisé courant** n'est jamais stocké : il se recalcule depuis les écritures
-(financier) et depuis Airtable (qualitatif). Seuls les **bilans** sont figés, et
-ils le sont explicitement, avec leur date et la liste des projets retenus.
+Le **réalisé courant** n'est jamais stocké : il se recalcule à la demande depuis
+les écritures (financier) et depuis Airtable (qualitatif). Même principe que
+partout ailleurs dans l'outil — une seule source de vérité, pas de chiffre
+recopié qui finit par diverger. Seuls les **bilans** sont figés, et ils le sont
+explicitement, avec leur date et la liste des projets retenus.
 
-Le **réalisé** ne serait jamais stocké : il se recalcule à la demande depuis les
-écritures (financier) et depuis Airtable (qualitatif). Même principe que partout
-ailleurs dans l'outil — une seule source de vérité, pas de chiffre recopié qui
-finit par diverger.
+`du`/`au` sont la maille d'agrégation ; `exercices` et les `parExercice` ne
+servent qu'à restituer une cible que le financeur a lui-même exprimée par année.
+Un engagement de juin à juin n'a donc **pas** besoin d'être découpé pour être
+suivi.
 
 ## Points de vigilance identifiés d'avance
 
@@ -146,3 +231,11 @@ finit par diverger.
 - **Un même parcours peut servir deux financeurs.** Le comptage qualitatif n'est
   alors pas additif entre engagements — il faudra le dire explicitement plutôt
   que de laisser croire à un total consolidé.
+- **Une cellule Airtable vide n'est pas un zéro.** Sur « Nb heures formation »,
+  on sait déjà que 14 parcours actifs sont à remplir. Un total qui agrège du
+  vide comme du zéro donne un chiffre plausible et faux — il faut afficher
+  « n parcours sur m renseignés » à côté de chaque cible, comme on l'a fait
+  pour les heures d'action.
+- **Vérifier le taux de remplissage des sept indicateurs retenus** sur les
+  parcours 2026 *avant* de construire la page. Si l'un d'eux est vide presque
+  partout, mieux vaut le savoir maintenant que le découvrir dans un bilan.
