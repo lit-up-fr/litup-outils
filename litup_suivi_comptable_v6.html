@@ -173,7 +173,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26c <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26d <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -7387,7 +7387,78 @@ function suiviCatOrdre(k){
 }
 function suiviSetCol(v){suiviFilt.col=v;try{localStorage.setItem("litup_suiviCol",v)}catch(e){}render()}
 
+// Registre des cellules cliquables du suivi analytique. Les critères ne
+// transitent pas par l'attribut onclick : un libellé de projet contient
+// apostrophes et guillemets, et c'est exactement ce qui avait rendu un bouton
+// inerte ailleurs. On enregistre le critère et on ne passe que son indice.
+let _suiviCells=[];
+function suiviCell(crit){return _suiviCells.push(crit)-1}
+// Filtre de base de l'onglet : exercice, territoire, projets choisis.
+function suiviBaseRows(){
+  return D.rows.filter(r=>{
+    if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
+    if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
+    if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
+    return true;
+  });
+}
+function suiviCleDe(r,mode){
+  return mode==="mois"?moKey(r.dt):mode==="cat"?actCat(r.act):(actCode(r.act)||"\u2014");
+}
+function openSuiviDetail(i){
+  const c=_suiviCells[i];if(!c)return;
+  let rows=suiviBaseRows();
+  if(c.sansVirInt)rows=rows.filter(r=>!isVirInterne(r));
+  if(c.cat)rows=rows.filter(r=>r.cat===c.cat);
+  if(c.fam)rows=rows.filter(r=>actCat(r.act)===c.fam);
+  if(c.col)rows=rows.filter(r=>suiviCleDe(r,c.mode)===c.col);
+  if(c.sens==="deb")rows=rows.filter(r=>(r.deb||0)>0);
+  if(c.sens==="cre")rows=rows.filter(r=>(r.cre||0)>0);
+  rows=rows.slice().sort((a,b)=>String(a.dt||"").localeCompare(String(b.dt||"")));
+  const td=rows.reduce((a,r)=>a+(r.deb||0),0),tc=rows.reduce((a,r)=>a+(r.cre||0),0);
+  const lignes=rows.length?rows.map(r=>`<tr>
+      <td style="padding:3px 6px;font-size:9px;font-family:var(--mono);white-space:nowrap">${String(r.dt||"").substring(0,10)}</td>
+      <td style="padding:3px 6px;font-size:9px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        title="${escHtml(r.lib||"")}">${escHtml(String(r.lib||"").substring(0,58))}</td>
+      <td style="padding:3px 6px;font-size:9px">${escHtml(String(r.four||"").substring(0,20))}</td>
+      <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.cat||"")}">${escHtml(String(r.cat||"\u2014").substring(0,30))}</td>
+      <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${r.deb?fmt(r.deb):""}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${r.cre?fmt(r.cre):""}</td>
+      <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(r.modal||"").substring(0,18))}</td>
+    </tr>`).join("")
+    :`<tr><td colspan="8" style="padding:14px;font-size:10px;color:var(--text-3)">Aucune écriture pour ce montant.</td></tr>`;
+  const ent=["Date","Libell\u00e9","Fournisseur","Compte comptable","Code projet","D\u00e9bit","Cr\u00e9dit","Modalit\u00e9"];
+  const filtres=[];
+  if(suiviFilt.yr)filtres.push("exercice "+escHtml(suiviFilt.yr));
+  if(suiviFilt.terr)filtres.push("territoire "+escHtml(suiviFilt.terr));
+  if(suiviFilt.codes.length)filtres.push("projets "+escHtml(suiviFilt.codes.join(", ")));
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1100px">
+    <h3>${escHtml(c.titre||"D\u00e9tail")}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      ${rows.length} écriture(s) · débit ${fmt(td)} · crédit ${fmt(tc)} · <strong>net ${fmt(tc-td)}</strong>
+      ${c.sansVirInt?'<br><span style="color:var(--text-3)">Virements entre vos comptes exclus : les cartes mesurent des charges et des produits réels.</span>':""}
+      ${filtres.length?'<br><span style="color:var(--text-3)">Filtres de l\u2019onglet appliqués : '+filtres.join(" · ")+'</span>':""}
+    </p>
+    <div style="overflow:auto;max-height:58vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
+        ${ent.map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j===5||j===6?"right":"left"}">${x}</th>`).join("")}
+      </tr></thead><tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+// Enveloppe un montant d'un lien cliquable vers son détail.
+function mtCliq(txt,crit,style){
+  if(txt===""||txt===undefined||txt===null)return "";
+  const i=suiviCell(crit);
+  return `<span class="tcell" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;${style||""}"
+    title="Voir les écritures — ${escHtml(crit.titre||"")}" onclick="openSuiviDetail(${i})">${txt}</span>`;
+}
+
 function rSuivi(el){
+  _suiviCells=[];
   const yrs=[...new Set(D.rows.map(r=>anStr(r.yr)))].filter(Boolean).sort();
   const ua=[...new Set(D.rows.map(r=>actCode(r.act)).filter(Boolean))].sort();
   const col=suiviFilt.col||"proj";
@@ -7425,16 +7496,18 @@ function rSuivi(el){
     h+='<div class="sg" style="padding:8px 14px 4px">';
     cartes.forEach(([k,d])=>{
       const solde=d.pr-d.ch;
-      h+=`<div class="scard" title="${escHtml(SUIVI_CAT_LIB[k]||k)} — ${d.n} écriture(s)&#10;Charges ${fmt(d.ch)}&#10;Produits ${fmt(d.pr)}&#10;Solde ${fmt(solde)}">
+      const nom=SUIVI_CAT_LIB[k]||k;
+      const cr=(sens,lib)=>({fam:k,sens,sansVirInt:true,mode:col,titre:nom+" — "+lib});
+      h+=`<div class="scard">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-          <span style="font-weight:700;font-size:11px">${escHtml(SUIVI_CAT_LIB[k]||k)}</span>
-          <span style="font-size:7px;color:var(--text-3)">${d.n}</span></div>
+          <span style="font-weight:700;font-size:11px">${escHtml(nom)}</span>
+          <span style="font-size:7px;color:var(--text-3)">${mtCliq(String(d.n),cr("","toutes les écritures"))}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-          <span style="color:var(--red);font-weight:600;font-size:10px">${fmt(d.ch)}</span>
-          ${d.pr>0?`<span style="color:var(--green);font-weight:600;font-size:10px">${fmt(d.pr)}</span>`:""}</div>
+          <span style="color:var(--red);font-weight:600;font-size:10px">${mtCliq(fmt(d.ch),cr("deb","charges"))}</span>
+          ${d.pr>0?`<span style="color:var(--green);font-weight:600;font-size:10px">${mtCliq(fmt(d.pr),cr("cre","produits"))}</span>`:""}</div>
         <div class="sbar"><div class="sbar-f" style="width:${(d.ch/mx*100).toFixed(1)}%;background:var(--red)"></div></div>
         <div class="sbar" style="margin-top:2px"><div class="sbar-f" style="width:${(d.pr/mx*100).toFixed(1)}%;background:var(--green)"></div></div>
-        <div style="font-size:9px;font-weight:700;margin-top:3px;color:${solde>=0?"var(--green)":"var(--red)"}">${fmt(solde)}</div>
+        <div style="font-size:9px;font-weight:700;margin-top:3px;color:${solde>=0?"var(--green)":"var(--red)"}">${mtCliq(fmt(solde),cr("","solde"))}</div>
       </div>`;
     });
     h+='</div>';
@@ -7494,30 +7567,40 @@ function rSuivi(el){
   h+='<th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th style="text-align:center">N</th>';
   cols.forEach(c=>h+=`<th style="text-align:right;min-width:96px;font-size:8px;line-height:1.3" title="${escHtml(c.sous?c.sous+" — "+c.nom:c.nom)}">${escHtml(c.nom).substring(0,26)}${c.sous?`<div style="font-weight:400;color:var(--text-3);font-size:7px">${escHtml(c.sous)}</div>`:""}<div class="col-resize" onmousedown="startResize(event,'suivi')" ondblclick="resetColWidth(event,'suivi')"></div></th>`);
   h+='<th style="text-align:right;min-width:90px">Solde ligne</th></tr></thead><tbody>';
+  const court=c=>String(c||"").substring(0,42);
   so.forEach(([c,d])=>{
     const solde=d.cre-d.deb;
-    h+=`<tr><td style="font-weight:600;font-size:9px" title="${escHtml(c)}">${escHtml(c).substring(0,42)}</td>`
-      +`<td class="deb">${d.deb?fmt(d.deb):""}</td><td class="cre">${d.cre?fmt(d.cre):""}</td>`
-      +`<td style="text-align:center;font-size:7px;color:var(--text-3)">${d.n}</td>`;
+    const cr=(o,lib)=>Object.assign({cat:c,mode:col,titre:court(c)+" — "+lib},o);
+    h+=`<tr><td style="font-weight:600;font-size:9px" title="${escHtml(c)}">${escHtml(court(c))}</td>`
+      +`<td class="deb">${mtCliq(d.deb?fmt(d.deb):"",cr({sens:"deb"},"débits"))}</td>`
+      +`<td class="cre">${mtCliq(d.cre?fmt(d.cre):"",cr({sens:"cre"},"crédits"))}</td>`
+      +`<td style="text-align:center;font-size:7px;color:var(--text-3)">${mtCliq(String(d.n),cr({},"toutes les écritures"))}</td>`;
     cols.forEach(x=>{const v=d.par[x.k];
       if(!v){h+='<td></td>';return}
       const net=v.cre-v.deb;
-      h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}" title="${escHtml(x.nom)}&#10;Débit ${fmt(v.deb)}&#10;Crédit ${fmt(v.cre)}">${fmt(net)}</td>`});
-    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);font-weight:700;color:${solde>=0?"var(--green)":"var(--red)"}">${fmt(solde)}</td></tr>`;
+      h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}"
+        title="${escHtml(x.nom)}&#10;Débit ${fmt(v.deb)}&#10;Crédit ${fmt(v.cre)}">${
+        mtCliq(fmt(net),cr({col:x.k},x.nom))}</td>`});
+    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);font-weight:700;color:${solde>=0?"var(--green)":"var(--red)"}">${
+      mtCliq(fmt(solde),cr({},"solde de la ligne"))}</td></tr>`;
   });
   h+=`<tr style="border-top:2px solid var(--accent);font-weight:700"><td>TOTAL — ${so.length} compte(s)</td>`
-    +`<td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
+    +`<td class="deb">${mtCliq(fmt(td),{sens:"deb",mode:col,titre:"Total — tous les débits"})}</td>`
+    +`<td class="cre">${mtCliq(fmt(tc),{sens:"cre",mode:col,titre:"Total — tous les crédits"})}</td><td></td>`;
   cols.forEach(x=>{
     let dd=0,cc=0;so.forEach(([,d])=>{const v=d.par[x.k];if(v){dd+=v.deb;cc+=v.cre}});
     const net=cc-dd;
-    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}">${(dd||cc)?fmt(net):""}</td>`});
-  h+=`<td style="text-align:right;font-family:var(--mono);color:${tc-td>=0?"var(--green)":"var(--red)"}">${fmt(tc-td)}</td></tr></tbody></table></div>`;
+    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}">${
+      (dd||cc)?mtCliq(fmt(net),{col:x.k,mode:col,titre:"Total — "+x.nom}):""}</td>`});
+  h+=`<td style="text-align:right;font-family:var(--mono);color:${tc-td>=0?"var(--green)":"var(--red)"}">${
+    mtCliq(fmt(tc-td),{mode:col,titre:"Total général"})}</td></tr></tbody></table></div>`;
   h+=`<div style="padding:6px 14px;font-size:9px;color:var(--text-3);line-height:1.7">
     Chaque cellule est le <strong>net du mois</strong> (crédit moins débit) du compte, pour ce projet.
     Vert = entrée nette, rouge = sortie nette. Les comptes sont dans l'ordre du plan comptable, les projets regroupés par famille.
     <br>« Colonnes : Familles » replie les projets en ${SUIVI_CATS.length} familles ; « Mois » retrouve la vue chronologique.
     Les virements internes sont comptés dans le tableau mais exclus des cartes, qui mesurent des charges et des produits réels.
-    <br>Les colonnes se redimensionnent en glissant leur bord droit ; double-clic pour revenir à la largeur d'origine.</div>`;
+    <br><strong>Tous les montants sont cliquables</strong> — cartes comprises : ils ouvrent la liste des écritures qui les composent.
+    Les colonnes se redimensionnent en glissant leur bord droit ; double-clic pour revenir à la largeur d'origine.</div>`;
   el.innerHTML=h;
   applyColWidths(el.querySelector("#tblSuivi"),"suivi");
 }
