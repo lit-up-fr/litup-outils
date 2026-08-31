@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26h <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26i <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -576,6 +576,7 @@ let D={
   soldeLivret:76500,
   soldeDate:"2025-01-01",
   soldesRef:[],
+  actHeures:{},   // code projet → heures d'action, pour pondérer la répartition RH
   // rhAlloc n'avait aucune valeur par défaut : « + Ajouter projet » appelait
   // .push sur undefined et échouait sans rien dire à l'écran.
   rhAlloc:[],
@@ -987,7 +988,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -1057,7 +1058,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -1077,7 +1078,7 @@ async function saveComptaToSheet(){
     normBudget();
     const qui=prompt("Votre nom (pour le suivi) :","Direction")||"?";
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
-      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
@@ -1175,7 +1176,7 @@ const FUS_REGLAGES=[
   ["soldeDate","Date du solde initial"],["soldeInitialCC","C/C initial"],["soldeInitialLivret","Livret initial"],
   ["soldeLivret","Solde du livret"],["soldeInitialCAT","Compte à terme initial"],
   ["ctr","Contrats"],["freedN","Numéros libérés"],["rhPostes","Postes RH"],["rhTx","Taux RH"],
-  ["rhAlloc","Affectations RH"],["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
+  ["rhAlloc","Affectations RH"],["actHeures","Heures d'action par projet"],["rhBulletins","Bulletins RH"],["rhDriveFolder","Dossier Drive RH"],
   ["airtableSubs","Subventions Airtable"],["airtablePrestas","Prestations Airtable"]
 ];
 const cloneP=v=>{try{return JSON.parse(JSON.stringify(v===undefined?null:v))}catch(e){return null}};
@@ -3348,7 +3349,11 @@ const RH_GROUPES=[
 // fonction employeur elle-même, pas une activité sur laquelle on passe des
 // heures. Ils restent utilisables partout ailleurs dans l'outil.
 const RH_EXCLUS=["RH"];
-const rhExclu=label=>RH_EXCLUS.some(x=>rhPfxMatch(actCode(label),x));
+// Un code dont le numéro vaut « XX » désigne un parcours prospecté, ni démarré ni
+// validé. Il n'y a pas encore de temps à y passer : on ne le propose pas, et il
+// ne compte pas dans la répartition d'une famille.
+const estProspect=label=>/XX$/.test(actCode(label));
+const rhExclu=label=>estProspect(label)||RH_EXCLUS.some(x=>rhPfxMatch(actCode(label),x));
 // « SU » ne doit pas happer un code « SUD… », et « ME » ni « BU » ne doivent
 // mordre sur un préfixe plus long : on exige que le préfixe soit suivi d'un
 // chiffre ou de la fin du code, ce qui est la forme de tous les codes existants.
@@ -3436,6 +3441,50 @@ function famActifsPeriode(cle,a,y){
   const out=new Set();
   allocCouv(a,y).forEach((cv,m)=>{if(cv>0)famActifs(cle,y,m).forEach(l=>out.add(l))});
   return [...out].sort((x,z)=>actCode(x).localeCompare(actCode(z),"fr",{numeric:true}));
+}
+// ─── PONDÉRATION PAR HEURES D'ACTION ───
+// À parts égales, un parcours de six heures pèse autant qu'un parcours de
+// soixante. Chaque projet peut donc porter un volume d'heures d'action, et le
+// coût du mois se répartit au prorata de ces heures ramenées au mois — un projet
+// actif six mois compte le sixième de ses heures chaque mois.
+// Règle de bascule, par mois : la pondération ne s'applique que si TOUS les
+// projets actifs du mois ont un volume renseigné. Sinon parts égales, et l'outil
+// dit lesquels manquent. Un projet réel ne doit jamais recevoir zéro parce qu'on
+// a oublié de saisir ses heures.
+function actHeuresMap(){if(!D.actHeures||typeof D.actHeures!=="object")D.actHeures={};return D.actHeures}
+const actHeures=code=>{const v=parseFloat(actHeuresMap()[String(code||"").toUpperCase()]);return isNaN(v)||v<0?0:v};
+function setActHeures(code,v){
+  const k=String(code||"").toUpperCase();if(!k)return;
+  const n=parseFloat(String(v).replace(",","."));
+  if(!v||isNaN(n)||n<=0)delete actHeuresMap()[k];else actHeuresMap()[k]=n;
+  autoSave();render();
+}
+// Nombre de mois de l'exercice où le projet porte au moins une écriture.
+function projMoisActifs(label,y){
+  const code=actCode(label);let n=0;
+  for(let m=0;m<12;m++){
+    const mk=y+"-"+String(m+1).padStart(2,"0");
+    if((D.rows||[]).some(r=>r.act&&actCode(r.act)===code&&moKey(r.dt)===mk))n++;
+  }
+  return n;
+}
+// Poids d'un projet sur un mois : ses heures ramenées au mois d'activité.
+function projPoidsMois(label,y){
+  const h=actHeures(actCode(label));
+  if(h<=0)return 0;
+  const nm=projMoisActifs(label,y);
+  return nm>0?h/nm:0;
+}
+// Clé de répartition d'un mois : rend les parts, et dit si elles viennent des
+// heures ou d'un partage égal.
+function famParts(actifs,y){
+  const sans=actifs.filter(l=>actHeures(actCode(l))<=0);
+  if(sans.length||!actifs.length)
+    return {mode:"egal",sans,parts:actifs.map(()=>actifs.length?1/actifs.length:0)};
+  const poids=actifs.map(l=>projPoidsMois(l,y));
+  const tot=poids.reduce((a,x)=>a+x,0);
+  if(tot<=0)return {mode:"egal",sans:[],parts:actifs.map(()=>1/actifs.length)};
+  return {mode:"heures",sans:[],parts:poids.map(x=>x/tot)};
 }
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
@@ -3831,12 +3880,28 @@ function rRH(el){
         if(estFam(a.act)){
           const act=famActifsPeriode(famCle(a.act),a,rhYear);
           const tous=famProjets(famCle(a.act));
-          h+=`<div style="font-size:9px;color:var(--text-3);margin:-1px 0 5px 224px;line-height:1.6">
-            ${act.length
-              ? "se partage à parts égales, mois par mois, entre les projets de la famille qui ont une écriture ce mois-là — sur cette période : <strong>"
-                +act.map(l=>escHtml(actCode(l))).join(", ")+"</strong> ("+act.length+" sur "+tous.length+")"
-              : `<span style="color:var(--amber)">⚠️ aucun projet de cette famille n'a d'écriture sur la période : le coût resterait non réparti. Choisissez un projet précis, ou attendez que des écritures existent.</span>`}
-          </div>`;
+          const sans=act.filter(l=>actHeures(actCode(l))<=0);
+          h+=`<div style="font-size:9px;color:var(--text-3);margin:-1px 0 5px 224px;line-height:1.7">`;
+          if(!act.length){
+            h+=`<span style="color:var(--amber)">⚠️ aucun projet de cette famille n'a d'écriture sur la période : le coût resterait non réparti. Choisissez un projet précis, ou attendez que des écritures existent.</span>`;
+          }else{
+            h+=`se répartit mois par mois entre les projets de la famille qui ont une écriture ce mois-là
+              — ${act.length} sur ${tous.length} sur cette période.
+              ${sans.length
+                ? `<span style="color:var(--amber)">Parts égales</span> : ${sans.length} projet(s) sans volume d'heures. Renseignez-les tous pour passer au prorata des heures.`
+                : `<span style="color:var(--green)">Au prorata des heures d'action.</span>`}
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">${act.map(l=>{
+                const c=actCode(l),hh=actHeures(c);
+                return `<span style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap"
+                  title="${escHtml(l)}${projMoisActifs(l,rhYear)?" · actif "+projMoisActifs(l,rhYear)+" mois":""}">
+                  <strong style="color:${hh>0?"var(--text-2)":"var(--amber)"}">${escHtml(c)}</strong>
+                  <input class="cj" style="width:52px;text-align:center;font-size:9px${hh>0?"":";border-color:var(--amber)"}"
+                    value="${hh||""}" placeholder="h" data-c="${escHtml(c)}"
+                    onchange="setActHeures(this.dataset.c,this.value)"
+                    title="Heures d'action de ce projet sur l'exercice. Réparties sur ses mois d'activité pour pondérer le coût.">
+                </span>`}).join("")}</div>`;
+          }
+          h+=`</div>`;
         }
       });
       h+=`<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
@@ -3896,8 +3961,9 @@ function rRH(el){
           pose("\u26a0\ufe0f "+famLib(a.act)+" \u2014 aucun projet en cours",coutMois,qui+" \u00b7 "+MONAMES[m]);
           return;
         }
-        const part=coutMois/actifs.length;
-        actifs.forEach(l=>pose(l,part,qui+" \u00b7 via "+famLib(a.act)));
+        const K=famParts(actifs,rhYear);
+        const suffixe=qui+" \u00b7 via "+famLib(a.act)+(K.mode==="heures"?" \u00b7 au prorata des heures":" \u00b7 \u00e0 parts \u00e9gales");
+        actifs.forEach((l,j)=>pose(l,coutMois*K.parts[j],suffixe));
       });
     });
     if(Object.keys(byP).length){
