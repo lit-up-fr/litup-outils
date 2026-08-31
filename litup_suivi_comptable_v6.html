@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31g <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31h <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -2784,7 +2784,13 @@ function editCell(id,f){
     toast("Ligne modifiée et enregistrée, mais elle ne correspond plus aux filtres affichés : elle est masquée, pas supprimée.","var(--amber)");
 }
 function del(id){pushUndo();D.rows=D.rows.filter(r=>r.id!==id);delete D.att[id];autoSave();render()}
-function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){D.rows.splice(i+1,0,{...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0});autoSave();render()}}
+// La copie ne reprend pas l'appartenance a une repartition : sinon elle entrait
+// en silence dans le total memorise, qui ne collait plus, et tout reajustement
+// ulterieur etait refuse sans raison visible.
+function dup(id){pushUndo();const i=D.rows.findIndex(r=>r.id===id);if(i>=0){
+  const c={...D.rows[i],id:"d"+Date.now()+"_"+Math.random(),deb:0};
+  delete c.split;delete c._vent;
+  D.rows.splice(i+1,0,c);autoSave();render()}}
 
 // ─── NDF SPLIT: replace bank NDF line with sub-lines from NDF import ───
 async function splitNDF(bankId){
@@ -3571,9 +3577,19 @@ function setActHeures(code,v){
 function actHeuresDepuisAirtable(acts){
   const H=actHeuresMap(),S=actHeuresSrc(),R=actRidMap();
   let maj=0,inchange=0;const vides=[],gardes=[];
+  // Deux parcours Airtable sous le même code : le second écrasait les heures du
+  // premier sans un mot. On le signale, parce que le chiffre retenu est alors
+  // arbitraire et qu'il faut corriger le libellé dans la base.
+  const vus={},doublons=[];
   (acts||[]).forEach(a=>{
     if(!a||typeof a!=="object")return;
     const code=actCode(a.l);if(!code)return;
+    if(vus[code]&&vus[code]!==String(a.l)){
+      if(!doublons.some(d=>d.code===code))doublons.push({code,libs:[vus[code]]});
+      const d=doublons.find(d=>d.code===code);
+      if(d.libs.indexOf(String(a.l))<0)d.libs.push(String(a.l));
+    }
+    vus[code]=String(a.l);
     if(a.rid)R[code]=a.rid;
     const h=(a.h===null||a.h===undefined||a.h==="")?null:Number(a.h);
     if(h===null||isNaN(h)||h<=0){
@@ -3585,7 +3601,7 @@ function actHeuresDepuisAirtable(acts){
     H[code]=h;S[code]="airtable";
   });
   if(maj)invalidateActCache();
-  return {maj,inchange,vides,gardes};
+  return {maj,inchange,vides,gardes,doublons};
 }
 // Codes projets qui servent de cle de repartition et n'ont aucun volume
 // d'heures : ceux-la font basculer un partage en parts egales.
@@ -3709,18 +3725,43 @@ function posteMotifs(p){
 // Poste porte par une ecriture. Le motif le plus long gagne : MARTINEZ n'est
 // pas MARTIN. Deux postes differents reconnus par un motif de meme longueur
 // sont une ambiguite - l'outil ne tranche pas, il le signale.
+// Le motif doit former un MOT entier. En simple sous-chaîne, « LEA » s'accrochait
+// à GALEA et à CLEA, et « MARTIN » à MARTINEZ : une paie partait alors sur le
+// poste de quelqu'un d'autre, sans que rien ne le signale.
+const _ECHAP=x=>String(x).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function motifTrouve(txt,m){
+  return new RegExp("(^|[^A-Z0-9])"+_ECHAP(m)+"($|[^A-Z0-9])").test(txt);
+}
+function posteEnContrat(p,mk){
+  if(!mk)return true;
+  const du=String(p&&p.debut||"").substring(0,7),au=String(p&&p.fin||"").substring(0,7);
+  if(du&&mk<du)return false;
+  if(au&&mk>au)return false;
+  return true;
+}
 function posteMatch(r){
   const txt=_NOACC((r&&r.lib||"")+" "+(r&&r.four||""));
   if(!txt.trim())return {p:null,ambigu:false};
-  let best=null,bestLen=0,ambigu=false;
+  // Un poste est candidat s'il est reconnu ; on retient la longueur de son plus
+  // long motif reconnu, car le plus long l'emporte.
+  const cands=[];
   (D.rhPostes||[]).forEach(p=>{
-    posteMotifs(p).forEach(m=>{
-      if(txt.indexOf(m)<0)return;
-      if(m.length>bestLen){best=p;bestLen=m.length;ambigu=false}
-      else if(m.length===bestLen&&best&&best!==p)ambigu=true;
-    });
+    let len=0;
+    posteMotifs(p).forEach(m=>{if(motifTrouve(txt,m)&&m.length>len)len=m.length});
+    if(len>0)cands.push({p,len});
   });
-  return {p:ambigu?null:best,ambigu};
+  if(!cands.length)return {p:null,ambigu:false};
+  const bestLen=cands.reduce((a,c)=>c.len>a?c.len:a,0);
+  const tete=cands.filter(c=>c.len===bestLen);
+  if(tete.length===1)return {p:tete[0].p,ambigu:false};
+  // Plusieurs postes portent le même nom — un CDD devenu CDI, typiquement. La
+  // DATE de la paie les départage : un seul est en contrat ce mois-là. Sans ce
+  // départage, la même personne sur deux contrats successifs ne se ventilait
+  // jamais, ce qui est le cas le plus courant après une embauche définitive.
+  const mk=moKey(r&&r.dt)||"";
+  const enContrat=tete.filter(c=>posteEnContrat(c.p,mk));
+  if(enContrat.length===1)return {p:enContrat[0].p,ambigu:false,parDate:true};
+  return {p:null,ambigu:true,homonymes:tete.map(c=>String(c.p.lib||"sans intitulé"))};
 }
 // Une ecriture de paie : soit elle porte un code de la famille RH, soit elle est
 // sur un compte de personnel (64x) sans code projet. Une ecriture 64x DEJA
@@ -3755,7 +3796,8 @@ function ventilParts(r){
   if(!mk)return {err:"pas de date exploitable"};
   const y=Number(mk.substring(0,4)),m=Number(mk.substring(5,7))-1;
   const mt=posteMatch(r);
-  if(mt.ambigu)return {err:"plusieurs postes reconnus dans le libellé"};
+  if(mt.ambigu)return {err:"plusieurs postes portent ce nom et sont tous en contrat ce mois-là ("
+    +(mt.homonymes||[]).join(", ")+") : distinguez leurs périodes de contrat, ou leurs « Nom relevé »"};
   if(!mt.p)return {err:"aucun poste reconnu — renseignez « Nom relevé » sur le poste"};
   const p=mt.p,poids={};
   let tot=0;
@@ -3828,7 +3870,8 @@ function ventilRows(rows){
   const plan=src.map(r=>{
     if(!estLignePaie(r))return {r,type:"tel"};
     const mt=posteMatch(r);
-    if(mt.ambigu)return {r,type:"rate",why:"plusieurs postes reconnus dans le libellé"};
+    if(mt.ambigu)return {r,type:"rate",why:"plusieurs postes portent ce nom et sont tous en contrat ce mois-là ("
+      +(mt.homonymes||[]).join(", ")+") : distinguez leurs périodes de contrat, ou leurs « Nom relevé »"};
     if(!mt.p)return {r,type:"coll"};
     const v=ventilParts(r);
     if(v.err||!v.parts||!v.parts.length)return {r,type:"rate",why:v.err||"aucune part"};
@@ -4163,7 +4206,12 @@ function openFamSplit(id){
   // éclatement de cette seule sous-ligne : on découpait un morceau au lieu de
   // revoir l'ensemble. On montre d'abord ce qui existe.
   if(r.split&&splitsMap()[r.split]&&splitLignes(r.split).length){openSplitVue(r.split);return}
-  _famSplit={id,cles:[],scope:"annee",sel:null,auto:true};
+  // r.split pointe sur une répartition dont l'outil n'a plus la mémoire : des
+  // données enregistrées avant cette version, ou un enregistrement perdu. Sans
+  // ce garde-fou on repartait d'un éclatement de la seule sous-ligne, en
+  // affichant son montant comme s'il était celui du financement entier.
+  const orphelin=!!(r.split&&!splitsMap()[r.split]);
+  _famSplit={id,cles:[],scope:"annee",sel:null,auto:true,orphelin};
   famSplitDessine();
 }
 // Vue d'une répartition existante : d'où elle vient, sur quoi elle porte
@@ -4367,6 +4415,7 @@ function famSplitDessine(){
         ? `<strong>${escHtml(actCode(r.act))}</strong> <span style="color:var(--text-3)">${escHtml(actNom(r.act).substring(0,30))}</span>`
         : '<strong style="color:var(--amber)">aucun</strong>'}
       ${r.four?`<br>Fournisseur : ${escHtml(String(r.four).substring(0,40))}`:""}`:""}
+      ${st.orphelin?`<br><span style="color:var(--amber)">⚠️ Cette ligne vient d’une répartition dont l’outil n’a plus la mémoire (données enregistrées avant cette version). Le montant ci-dessus est celui de <strong>cette sous-ligne seule</strong>, pas du financement entier. Répartir ici n’éclatera que cette ligne — pour reprendre l’ensemble, réunissez d’abord les sous-lignes à la main.</span>`:""}
       <br><span style="color:var(--text-3)">${st.sid
         ? "Les sous-lignes existantes sont réajustées, jamais recréées : un justificatif déjà rattaché est conservé. Un projet décoché est retiré, sauf s’il porte une pièce."
         : (r.act?"Ce code projet unique sera <strong>remplacé</strong> par une sous-ligne par projet retenu. "
@@ -8144,7 +8193,8 @@ async function autoSyncAirtable(){
     atStatSet("✅ Airtable","#16a34a",
       (res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s) · "+
       (res.acts?.length||0)+" code(s) projet"+(added?" dont "+added+" nouveau(x)":"")+
-      (heu?" · heures d'action : "+heu.maj+" reprise(s)"+(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":""):"")+
+      (heu?" · heures d'action : "+heu.maj+" reprise(s)"+(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":"")
+        +(heu.doublons.length?", "+heu.doublons.length+" code(s) en doublon":""):"")+
       " — sync "+D.airtableSync);
     setTimeout(()=>atStatSet(""),8000);
     if(nouveaux.length)splitNouveauxProjets(nouveaux);
@@ -8185,7 +8235,9 @@ async function syncAirtable(){
     if(confirm("✅ Airtable actualisé !\n\n"+(res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s)\n"+(res.acts?.length||0)+" code(s) projet lus, "+actsAdded+" nouveau(x) ajouté(s)"
       +(heu?"\n⏱ Heures d'action : "+heu.maj+" reprise(s) depuis « Nb heures formation »"
           +(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":"")
-          +(heu.gardes.length?"\n   "+heu.gardes.length+" saisie(s) manuelle(s) conservée(s) là où Airtable est vide":""):"")
+          +(heu.gardes.length?"\n   "+heu.gardes.length+" saisie(s) manuelle(s) conservée(s) là où Airtable est vide":"")
+          +(heu.doublons.length?"\n⚠️ "+heu.doublons.length+" code(s) porté(s) par plusieurs parcours — les heures retenues sont celles du dernier lu :\n   "
+             +heu.doublons.map(d=>d.code+" : "+d.libs.map(l=>String(l).substring(0,38)).join(" | ")).join("\n   "):""):"")
       +(gardes?"\n"+gardes+" saisie(s) manuelle(s) conservée(s) : compte, année, mois de trésorerie":"")
       +(bf.maj?"\n🔗 "+bf.maj+" rapprochement(s) bancaire(s) consolidé(s) sur l'identifiant Airtable (ils ne dépendent plus du nom)":"")
       +(bf.ambigus?"\n⚠️ "+bf.ambigus+" rapprochement(s) sur un nom porté par plusieurs financements : à revoir à la main":"")
