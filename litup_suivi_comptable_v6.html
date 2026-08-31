@@ -158,7 +158,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25w <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25x <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
   <div style="flex:1"></div>
@@ -549,6 +549,7 @@ let D={
   soldeLivret:76500,
   soldeDate:"2025-01-01",
   soldesRef:[],
+  detIgnore:{vi:{},dbl:{}},   // décisions prises sur les détecteurs, pour ne plus reposer la question
   airtableSync:"2026-04-21",
   airtableSubs:[
     {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
@@ -614,6 +615,29 @@ const MODS=["Carte bancaire","Chèque","Prélèvement","Virement reçu","Viremen
 const STS=["Classé - Facture","Classé - Convention","Classé - Bulletin de salaire","Classé - Reçu fiscal","Classé - Virement interne","Justificatif manquant","En attente","À créer","À demander","Absence"];
 // Virement interne (CC↔Livret, CC↔Cpte à terme) : ni charge ni produit
 const isVirInterne=r=>(r.modal||"").startsWith("Virement interne");
+// Le nom de l'association figure dans le libellé de TOUS les virements reçus :
+// la banque y met le bénéficiaire. Chercher « ASSOCIATION LIT UP » désignait donc
+// chaque subvention comme un mouvement interne — quatorze faux positifs.
+// Un vrai mouvement entre comptes propres se reconnaît autrement :
+//   • il nomme l'autre compte (livret, Eurocompte, compte à terme) ; ou
+//   • son libellé ne contient QUE le nom de l'association, sans tiers.
+const CPT_PROPRE=/LIVRET|EUROCOMPTE|C(OM)?PTE\s*A\s*TERME/i;
+function libSansSoi(lib){
+  return String(lib||"").toUpperCase()
+    .replace(/\bASSOCIATION\s+LIT\s?UP\b/g," ").replace(/\bLIT\s?UP\b/g," ")
+    .replace(/\bVIR(EMENT)?\b|\bDE\b|\bDU\b|\bPOUR\b|\bC\/C\b/g," ")
+    .replace(/[^A-Z]+/g," ").trim();
+}
+// Vrai candidat : l'autre compte est nommé, ou il ne reste rien d'un tiers.
+const candidatInterne=r=>!isVirInterne(r)&&estCC(r)&&toucheBanque(r)
+  &&(CPT_PROPRE.test(String(r.lib||""))||libSansSoi(r.lib).length<=3);
+// Décisions prises par l'utilisateur sur les détecteurs, pour ne plus reposer
+// la question : { vi:{idLigne:1}, dbl:{clePaire:1} }.
+function detIgn(){if(!D.detIgnore||typeof D.detIgnore!=="object")D.detIgnore={};
+  if(!D.detIgnore.vi)D.detIgnore.vi={};if(!D.detIgnore.dbl)D.detIgnore.dbl={};return D.detIgnore}
+function detEcarter(kind,cle){detIgn()[kind][cle]=1;autoSave();render()}
+function detReprendre(kind){detIgn()[kind]={};autoSave();render()}
+const dblCle=(a,b)=>[String(a.id),String(b.id)].sort().join("|");
 // Compte porteur d'une écriture. L'import écrit "cc"/"livret" en minuscules ;
 // une écriture sans compte est du compte courant (format de relevé mono-compte).
 const estLivret=r=>String(r.compte||"").toLowerCase()==="livret";
@@ -877,7 +901,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -945,7 +969,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -965,7 +989,7 @@ async function saveComptaToSheet(){
     normBudget();
     const qui=prompt("Votre nom (pour le suivi) :","Direction")||"?";
     const meta={ctr:D.ctr,freedN:D.freedN||{},ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,
-      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,
+      soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldesRef:D.soldesRef,detIgnore:D.detIgnore,
       soldeInitialLivret:D.soldeInitialLivret,soldeLivret:D.soldeLivret,soldeInitialCAT:D.soldeInitialCAT,
       airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,
       // Le budget prévisionnel et ses versions ne partaient pas vers le Sheet :
@@ -4836,9 +4860,174 @@ function srAncrer(i){
 }
 // Étiquette en bloc les virements entre comptes propres repérés en trésorerie.
 // La colonne « Mod. » reste modifiable ligne par ligne dans le Classement.
+// Étiquette une écriture, une seule. Le geste par lot reste possible mais il ne
+// doit plus être le seul : quatorze propositions dont aucune n'était juste ont
+// montré qu'un « tout étiqueter » est un piège.
+function virInterneUn(id){
+  const r=(D.rows||[]).find(x=>String(x.id)===String(id));if(!r)return;
+  pushUndo();
+  const versLivret=(r.deb||0)>0;
+  r.modal=/C(OM)?PTE\s*A\s*TERME/i.test(String(r.lib||""))?"Virement interne Cpte à terme"
+         :("Virement interne C/C"+(versLivret?"→":"←")+"Livret");
+  if(!r.stat||String(r.stat).includes("manquant"))r.stat="Classé - Virement interne";
+  autoSave();render();
+  toast("Étiquetée « "+r.modal+" ». Elle sort des charges et des produits, reste dans le solde bancaire.","var(--green)");
+}
+// Compare les deux écritures d'un doublon présumé côte à côte, tous champs
+// visibles, et permet de supprimer celle qui est en trop. Trancher au vu du
+// seul libellé tronqué de l'encart n'était pas raisonnable.
+// Détail du solde reconstitué à une date de contrôle : chaque écriture retenue,
+// dans l'ordre, avec le solde courant après elle. C'est le seul moyen de trouver
+// l'origine d'un écart — on le lit en suivant le relevé ligne à ligne.
+function openSrDetail(i){
+  srNorm();const x=D.soldesRef[i];if(!x)return;
+  const ref=String(D.soldeDate||"").substring(0,10);
+  const jour=r=>String(r.dt||"").substring(0,10);
+  const prises=(D.rows||[]).filter(r=>!estLivret(r)&&toucheBanque(r)
+    &&/^\d{4}-\d{2}-\d{2}$/.test(jour(r))&&(!ref||jour(r)>=ref)&&jour(r)<=x.d)
+    .sort((a,b)=>jour(a).localeCompare(jour(b)));
+  const ec=Math.round((soldeReconstitue(x.d).s-x.mt)*100)/100;
+  let cum=D.soldeInitial||0;
+  const lignes=prises.map(r=>{
+    const mt=(r.cre||0)-(r.deb||0);cum+=mt;
+    const frontiere=jour(r)===x.d;   // même jour que le relevé : inclus ici, pas toujours là-bas
+    return `<tr${frontiere?' style="background:var(--amber-bg)"':''}>
+      <td style="padding:2px 6px;font-size:9px;font-family:var(--mono);white-space:nowrap">${jour(r)}</td>
+      <td style="padding:2px 6px;font-size:9px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        title="${String(r.lib||"").replace(/"/g,"&quot;")}">${String(r.lib||"").substring(0,60)}</td>
+      <td style="padding:2px 6px;font-size:9px">${String(r.modal||"")}</td>
+      <td style="padding:2px 6px;font-size:9px;color:${(()=>{const c=String(r.compte||"").trim().toLowerCase();return c&&c!=="cc"?"var(--amber)":"var(--text-3)"})()}">${String(r.compte||"—")}</td>
+      <td style="padding:2px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:${mt<0?"var(--red)":"var(--green)"}">${fmt(mt)}</td>
+      <td style="padding:2px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(cum)}</td>
+    </tr>`;
+  }).join("");
+  // Pistes ciblées sur la valeur exacte de l'écart : c'est presque toujours une
+  // seule écriture, soit absente, soit en trop, soit du mauvais côté.
+  const cible=Math.abs(ec);
+  const memeMt=(D.rows||[]).filter(r=>Math.abs(Math.abs((r.cre||0)-(r.deb||0))-cible)<0.01);
+  const surFrontiere=prises.filter(r=>jour(r)===x.d);
+  const netFrontiere=surFrontiere.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
+  let pistes="";
+  if(Math.abs(ec)>=0.5){
+    pistes=`<div style="font-size:10px;color:var(--text-2);line-height:1.8;margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--bg-2);border:1px solid var(--border)">
+      <strong>L'outil reconstitue ${fmt(soldeReconstitue(x.d).s)}, votre relevé dit ${fmt(x.mt)} : ${fmt(ec)}.</strong>
+      ${ec<0?"L'outil est en dessous : il manque un encaissement, ou une dépense est comptée en trop."
+            :"L'outil est au-dessus : il manque une dépense, ou un encaissement est compté en trop."}
+      ${surFrontiere.length?`<br>① <strong>${surFrontiere.length} écriture(s) datée(s) du ${x.d} même</strong> (net ${fmt(netFrontiere)}) sont incluses ici.
+        Un relevé arrêté au ${x.d} au matin ne les contient pas forcément.
+        ${Math.abs(netFrontiere-ec)<0.5?"<strong style=\"color:var(--amber)\"> C'est exactement l'écart : votre solde est celui d'avant ces écritures. Datez le point de contrôle de la veille, ou retirez ces écritures si elles n'existent pas.</strong>":""}`:""}
+      ${memeMt.length?`<br>② <strong>${memeMt.length} écriture(s) d'un montant de ${fmt(cible)}</strong> existent dans vos données :
+        ${memeMt.slice(0,4).map(r=>jour(r)+" « "+String(r.lib||"").substring(0,38)+" »"+(estLivret(r)?" <em>(livret, donc exclue)</em>":"")+(!toucheBanque(r)?" <em>(hors banque, donc exclue)</em>":"")).join(" · ")}
+        ${memeMt.length>4?" …":""}`
+       :`<br>② Aucune écriture de ${fmt(cible)} dans vos données : l'écart vient donc d'une écriture absente, ou de la somme de plusieurs.`}
+      ${(()=>{
+        // estLivret compare à « livret » exactement. « Livret A », « Livret bleu »
+        // ou une majuscule de trop passent donc pour du compte courant et gonflent
+        // le solde reconstitué sans que rien ne le dise.
+        const douteux=prises.filter(r=>{const c=String(r.compte||"").trim().toLowerCase();return c&&c!=="cc"&&c!=="livret"});
+        if(!douteux.length)return "";
+        const val=[...new Set(douteux.map(r=>String(r.compte)))];
+        return `<br>③ <strong style="color:var(--amber)">${douteux.length} écriture(s) portent un compte bancaire que l'outil ne reconnaît pas</strong>
+          (${val.slice(0,4).map(v=>"« "+v+" »").join(", ")}${val.length>4?" …":""}) : elles sont donc comptées dans le compte courant.
+          Seul le mot <code>livret</code>, exactement, fait sortir une écriture du périmètre.`;
+      })()}
+      <br>${prises.some(r=>{const c=String(r.compte||"").trim().toLowerCase();return c&&c!=="cc"&&c!=="livret"})?"④":"③"} Suivez la colonne « Solde après » en regard de votre relevé : le premier écart de solde désigne la ligne fautive.
+    </div>`;
+  }
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:960px">
+    <h3>📍 Comment l'outil arrive à ${fmt(soldeReconstitue(x.d).s)} au ${x.d}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Solde initial <strong>${fmt(D.soldeInitial)}</strong> au <strong>${D.soldeDate||"?"}</strong>,
+      puis les <strong>${prises.length}</strong> écriture(s) du compte courant jusqu'au ${x.d} inclus.
+      Livret et écritures hors banque exclus ; virements internes inclus, ils bougent bien le compte.
+    </p>
+    ${pistes}
+    <div style="overflow:auto;max-height:52vh;margin-top:10px;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg-2);position:sticky;top:0">
+          <th style="padding:5px 6px;font-size:9px;text-align:left">Date</th>
+          <th style="padding:5px 6px;font-size:9px;text-align:left">Libellé</th>
+          <th style="padding:5px 6px;font-size:9px;text-align:left">Modalité</th>
+          <th style="padding:5px 6px;font-size:9px;text-align:left">Compte</th>
+          <th style="padding:5px 6px;font-size:9px;text-align:right">Mouvement</th>
+          <th style="padding:5px 6px;font-size:9px;text-align:right">Solde après</th>
+        </tr></thead>
+        <tbody><tr style="background:var(--bg-2)"><td colspan="5" style="padding:3px 6px;font-size:9px;font-weight:600">Solde initial au ${D.soldeDate||"?"}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);font-weight:700">${fmt(D.soldeInitial)}</td></tr>
+        ${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+function openDblPaire(idA,idB){
+  const a=(D.rows||[]).find(x=>String(x.id)===String(idA));
+  const b=(D.rows||[]).find(x=>String(x.id)===String(idB));
+  if(!a||!b){toast("Une des deux écritures n'existe plus.","var(--amber)");render();return}
+  const CH=[["dt","Date"],["yr","Exercice"],["lib","Libellé"],["four","Fournisseur"],
+            ["cat","Compte comptable"],["act","Code projet"],["deb","Débit"],["cre","Crédit"],
+            ["modal","Modalité"],["stat","Statut"],["compte","Compte bancaire"],
+            ["numj","N° justif."],["src","Origine"]];
+  const cell=(r,k)=>{
+    const v=r[k];
+    if(k==="deb"||k==="cre")return v?fmt(v):"—";
+    return v===undefined||v===null||v===""?"—":String(v);
+  };
+  const diff=k=>String(a[k]===undefined?"":a[k])!==String(b[k]===undefined?"":b[k]);
+  const lignes=CH.map(([k,lab])=>`<tr${diff(k)?' style="background:var(--amber-bg)"':''}>
+      <td style="padding:3px 8px;font-size:9px;color:var(--text-3);white-space:nowrap">${lab}</td>
+      <td style="padding:3px 8px;font-size:10px">${cell(a,k).replace(/[<>]/g,"")}</td>
+      <td style="padding:3px 8px;font-size:10px">${cell(b,k).replace(/[<>]/g,"")}</td>
+    </tr>`).join("");
+  const memeMontant=Math.abs((a.cre||0)-(b.cre||0))<0.01;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:820px">
+    <h3>👁 Deux encaissements de ${fmt(a.cre||b.cre)} — le même, ou deux ?</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Les lignes surlignées sont celles où les deux écritures diffèrent. La question à trancher est simple :
+      <strong>votre relevé porte-t-il un encaissement de ce montant, ou deux ?</strong>
+      ${memeMontant?"":"<br><span style=\"color:var(--amber)\">Attention : les montants ne sont pas identiques, ce rapprochement est probablement fortuit.</span>"}
+    </p>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg-2)">
+          <th style="padding:5px 8px;font-size:9px;text-align:left">Champ</th>
+          <th style="padding:5px 8px;font-size:9px;text-align:left">Écriture A</th>
+          <th style="padding:5px 8px;font-size:9px;text-align:left">Écriture B</th>
+        </tr></thead><tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="color:var(--red)" onclick="dblSupprimer('${a.id}','${b.id}')">🗑 Supprimer A</button>
+      <button class="b bd" style="color:var(--red)" onclick="dblSupprimer('${b.id}','${a.id}')">🗑 Supprimer B</button>
+      <button class="b bd" onclick="closeM();detEcarter('dbl','${[String(a.id),String(b.id)].sort().join("|")}')">✓ Deux versements distincts</button>
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+function dblSupprimer(idSupp,idGarde){
+  const r=(D.rows||[]).find(x=>String(x.id)===String(idSupp));if(!r)return;
+  if(!confirm("Supprimer définitivement cette écriture ?\n\n"
+    +"  "+String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,60)+"\n"
+    +"  "+fmt((r.cre||0)-(r.deb||0))+"\n\n"
+    +"L'autre écriture est conservée. Annulable avec ↩️."))return;
+  pushUndo();
+  D.rows=(D.rows||[]).filter(x=>String(x.id)!==String(idSupp));
+  if(D.att&&D.att[idSupp])delete D.att[idSupp];
+  detIgn().dbl[[String(idSupp),String(idGarde)].sort().join("|")]=1;
+  closeM();autoSave();render();
+  toast("Écriture supprimée. Pensez à ☁️ Sauvegarder.","var(--green)");
+}
+function detEcarterToutVi(){
+  const suspects=(D.rows||[]).filter(r=>candidatInterne(r)&&!detIgn().vi[r.id]);
+  if(!suspects.length)return;
+  if(!confirm("Déclarer que ces "+suspects.length+" écriture(s) ne sont PAS des virements internes ?\n\n"
+    +"Aucune écriture n'est modifiée : elles restent comptées comme de vraies charges ou de vrais\n"
+    +"produits, l'outil arrête simplement de les signaler.\n\n"
+    +"Réversible : « Tout revoir » sous l'encart les fait réapparaître."))return;
+  suspects.forEach(r=>detIgn().vi[r.id]=1);
+  autoSave();render();
+  toast(suspects.length+" écriture(s) écartée(s) du détecteur. Rien n'a été modifié dans vos données.","var(--green)");
+}
 function tagVirInternes(){
-  const suspects=(D.rows||[]).filter(r=>!isVirInterne(r)&&estCC(r)
-    &&/LIVRET|EUROCOMPTE|ASSOCIATION LIT ?UP|COMPTE A TERME|CPTE A TERME/i.test(String(r.lib||"")));
+  const suspects=(D.rows||[]).filter(r=>candidatInterne(r)&&!detIgn().vi[r.id]);
   if(!suspects.length)return;
   if(!confirm("Étiqueter "+suspects.length+" écriture(s) comme « Virement interne » ?\n\n"
     +suspects.slice(0,10).map(r=>"  "+String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,52)).join("\n")
@@ -4932,8 +5121,10 @@ function srBloc(){
       h+=`<tr><td><input class="cj" style="width:96px;font-size:9px" value="${x.d}" onchange="srSet(${i},'d',this.value)"></td>
         <td><input class="cj" style="width:130px;font-size:9px" value="${(x.n||"").replace(/"/g,"&quot;")}" onchange="srSet(${i},'n',this.value)"></td>
         <td><input class="ni" style="width:100px" value="${x.mt}" onchange="srSet(${i},'mt',this.value)"></td>
-        <td style="text-align:right;font-family:var(--mono);font-size:9px" title="${rec.n} écriture(s) du compte courant prises en compte">${fmt(rec.s)}</td>
-        <td style="text-align:right;font-family:var(--mono);font-size:9px;font-weight:700;color:${ok?"var(--green)":"var(--red)"}">${ok?"✓ 0,00 €":fmt(ec)}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px"><span class="tcell" style="text-decoration:underline dotted;cursor:pointer"
+          title="${rec.n} écriture(s) du compte courant prises en compte — cliquer pour les voir une à une" onclick="openSrDetail(${i})">${fmt(rec.s)}</span></td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px;font-weight:700;color:${ok?"var(--green)":"var(--red)"}">${ok?"✓ 0,00 €"
+          :`<span class="tcell" style="text-decoration:underline dotted;cursor:pointer" title="Cliquer pour chercher l'origine de l'écart" onclick="openSrDetail(${i})">${fmt(ec)}</span>`}</td>
         <td style="white-space:nowrap">
           <button class="b bd" style="font-size:8px;padding:2px 5px" title="Faire de ce solde le point de départ de la trésorerie : les écritures antérieures sortent du calcul"
             onclick="srAncrer(${i})">⚓ Ancrer ici</button>
@@ -5284,8 +5475,8 @@ function rTreasury(el){
   // « VIR C/C EUROCOMPTE ») est donc compté comme un vrai produit : il gonfle
   // les recettes de l'exercice alors qu'il ne fait que déplacer de l'argent.
   {
-    const suspects=(D.rows||[]).filter(r=>!isVirInterne(r)&&estCC(r)
-      &&/LIVRET|EUROCOMPTE|ASSOCIATION LIT ?UP|COMPTE A TERME|CPTE A TERME/i.test(String(r.lib||"")));
+    const ecartes=Object.keys(detIgn().vi).length;
+    const suspects=(D.rows||[]).filter(r=>candidatInterne(r)&&!detIgn().vi[r.id]);
     if(suspects.length){
       const net=suspects.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0);
       h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:7px 9px;margin-bottom:8px;line-height:1.7">
@@ -5293,10 +5484,28 @@ function rTreasury(el){
         sans être étiquetées « Virement interne » (${fmt(net)} net).
         Elles sont donc comptées comme de vraies charges ou de vrais produits, ici comme dans ⚖️ Prévi. vs Réalisé,
         alors qu'elles ne font que déplacer de l'argent.
-        <br>${suspects.slice(0,6).map(r=>String(r.dt||"").substring(0,10)+" · "+String(r.lib||"").substring(0,52)+" · "+fmt((r.cre||0)-(r.deb||0))).join("<br>")}
-        ${suspects.length>6?"<br>… et "+(suspects.length-6)+" autre(s)":""}
-        <br><button class="b bd" style="font-size:8px;margin-top:5px" onclick="tagVirInternes()">🏷️ Étiqueter comme virements internes</button>
-        <span style="color:var(--text-3)"> — à ne faire que si ce sont bien des mouvements entre vos comptes. Annulable avec ↩️.</span>
+        <div style="margin-top:5px">${suspects.slice(0,25).map(r=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0;border-top:1px solid var(--amber-bg)">
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${String(r.lib||"").replace(/"/g,"&quot;")}">${String(r.dt||"").substring(0,10)} · ${String(r.lib||"").substring(0,70)}</span>
+          <span style="font-family:var(--mono);white-space:nowrap">${fmt((r.cre||0)-(r.deb||0))}</span>
+          <button class="b bd" style="font-size:8px;padding:1px 5px" title="Oui : c'est un mouvement entre vos comptes. L'écriture sort des charges et des produits."
+            onclick="virInterneUn('${r.id}')">✓ interne</button>
+          <button class="b bd" style="font-size:8px;padding:1px 5px" title="Non : c'est une vraie recette ou une vraie dépense. On ne vous le redemandera plus."
+            onclick="detEcarter('vi','${r.id}')">✗ non</button>
+        </div>`).join("")}</div>
+        ${suspects.length>25?"<div style=\"margin-top:3px\">… et "+(suspects.length-25)+" autre(s), traitées au fur et à mesure</div>":""}
+        <div style="margin-top:6px">
+          <button class="b bd" style="font-size:8px" onclick="tagVirInternes()">🏷️ Toutes internes</button>
+          <button class="b bd" style="font-size:8px" onclick="detEcarterToutVi()">✗ Aucune n'est interne</button>
+          <span style="color:var(--text-3)"> — le nom de l'association figure dans le libellé de tous les virements reçus,
+          d'où des propositions à écarter. Annulable avec ↩️ pour l'étiquetage.</span>
+        </div>
+      </div>`;
+    }
+    if(ecartes){
+      h+=`<div style="font-size:9px;color:var(--text-3);margin-bottom:8px">
+        ${ecartes} écriture(s) que vous avez déclarée(s) « pas un virement interne » ne sont plus signalées.
+        <span class="tcell" style="text-decoration:underline dotted;cursor:pointer" onclick="detReprendre('vi')">Tout revoir</span>
       </div>`;
     }
   }
@@ -5317,8 +5526,10 @@ function rTreasury(el){
       if(d>20)continue;
       if(String(cr[i].dt).substring(0,10)===String(cr[j].dt).substring(0,10)
          &&String(cr[i].lib||"")===String(cr[j].lib||""))continue;   // vrai doublon exact : déjà traité à l'import
+      if(detIgn().dbl[dblCle(cr[i],cr[j])])continue;                 // paire déjà tranchée
       paires.push({a:cr[i],b:cr[j],d});
     }
+    const dblEcartes=Object.keys(detIgn().dbl).length;
     if(paires.length){
       const t=paires.reduce((s,x)=>s+(x.a.cre||0),0);
       h+=`<div style="font-size:9px;color:var(--amber);background:var(--amber-bg);border-radius:5px;padding:7px 9px;margin-bottom:8px;line-height:1.7">
@@ -5326,11 +5537,23 @@ function rTreasury(el){
         Même montant, à moins de 3 semaines d'écart, mais date ou libellé différents : le dédoublonnage de l'import
         ne les voit pas. C'est le cas typique d'une recette saisie à la main puis réimportée depuis le relevé,
         ou datée de la convention d'un côté et du virement de l'autre.
-        <br>${paires.slice(0,6).map(x=>`<strong>${fmt(x.a.cre)}</strong> — ${String(x.a.dt).substring(0,10)} « ${String(x.a.lib||"").substring(0,34)} »
-          <span style="color:var(--text-3)">et</span> ${String(x.b.dt).substring(0,10)} « ${String(x.b.lib||"").substring(0,34)} » <span style="color:var(--text-3)">(${x.d} j)</span>`).join("<br>")}
-        ${paires.length>6?"<br>… et "+(paires.length-6)+" autre(s)":""}
-        <br>Vérifiez sur votre relevé : si l'encaissement est unique, supprimez la ligne en trop dans 📋 Classement.
-        Si ce sont bien deux versements distincts du même montant, ignorez ce message.
+        <div style="margin-top:5px">${paires.slice(0,25).map(x=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0;border-top:1px solid var(--amber-bg)">
+          <span style="font-family:var(--mono);white-space:nowrap"><strong>${fmt(x.a.cre)}</strong></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${String(x.a.dt).substring(0,10)} « ${String(x.a.lib||"").substring(0,40)} »
+            <span style="color:var(--text-3)">et</span> ${String(x.b.dt).substring(0,10)} « ${String(x.b.lib||"").substring(0,40)} »
+            <span style="color:var(--text-3)">(${x.d} j)</span></span>
+          <button class="b bd" style="font-size:8px;padding:1px 5px" title="Comparer les deux écritures et supprimer celle en trop"
+            onclick="openDblPaire('${x.a.id}','${x.b.id}')">👁 comparer</button>
+          <button class="b bd" style="font-size:8px;padding:1px 5px" title="Deux versements distincts du même montant. On ne vous le redemandera plus."
+            onclick="detEcarter('dbl','${dblCle(x.a,x.b)}')">✗ distincts</button>
+        </div>`).join("")}</div>
+        ${paires.length>25?"<div style=\"margin-top:3px\">… et "+(paires.length-25)+" autre(s)</div>":""}
+      </div>`;
+    }
+    if(dblEcartes){
+      h+=`<div style="font-size:9px;color:var(--text-3);margin-bottom:8px">
+        ${dblEcartes} rapprochement(s) que vous avez déclaré(s) « deux versements distincts » ne sont plus signalés.
+        <span class="tcell" style="text-decoration:underline dotted;cursor:pointer" onclick="detReprendre('dbl')">Tout revoir</span>
       </div>`;
     }
   }
