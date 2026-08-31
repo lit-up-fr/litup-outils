@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31q <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31r <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -793,7 +793,8 @@ let curTab="class",curFilt="",compYear="2026";
 // colonnes choisie (projets, familles, mois) d'une session à l'autre.
 let suiviFilt={codes:[],yr:"",terr:"",
   col:(()=>{try{return localStorage.getItem("litup_suiviCol")||"proj"}catch(e){return "proj"}})(),
-  vent:(()=>{try{return localStorage.getItem("litup_suiviVent")==="1"}catch(e){return false}})()};
+  vent:(()=>{try{return localStorage.getItem("litup_suiviVent")==="1"}catch(e){return false}})(),
+  fg:(()=>{try{return localStorage.getItem("litup_suiviFG")==="1"}catch(e){return false}})()};
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
 // Version du budget affichée (null = la plus récente). Préférence locale, pas une donnée partagée.
@@ -809,7 +810,7 @@ let openDD=null;
 // Codes projets triés dans l'ordre alphanumérique attendu par l'œil : BU9 avant BU85,
 // et non l'ordre de saisie. Le tri numérique de localeCompare s'en charge.
 // Résultat mis en cache : sans lui, la liste serait retriée deux fois par ligne du tableau.
-let _actCache=null,_actPart=null,_famMigreFait=false;
+let _actCache=null,_actPart=null,_famMigreFait=false,_fgMemo=null;
 // Majuscules sans accents. Declare ici : terrNorm et le rattachement des paies
 // l'utilisent, tous deux definis plus haut dans le fichier que son ancien
 // emplacement — une const plus bas serait hors de portee au moment de l'appel.
@@ -817,7 +818,7 @@ const _NOACC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,
 // Mémo de la ventilation des salaires, déclaré ici : invalidateActCache le vide,
 // et une déclaration plus bas serait hors de portée à cet instant.
 let _ventMemo=null;
-function invalidateActCache(){_actCache=null;_actPart=null;_ventMemo=null;_famMigreFait=false}
+function invalidateActCache(){_actCache=null;_actPart=null;_ventMemo=null;_fgMemo=null;_famMigreFait=false}
 function actLabels(){
   if(_actCache)return _actCache;
   _actCache=D.acts.map(a=>typeof a==="string"?a:a.l)
@@ -3869,14 +3870,31 @@ function projPoidsMois(label,y){
 // sixième de ses heures. Sinon les heures brutes, pour répartir un financement
 // sur un exercice : un parcours de 60 h y pèse deux fois un parcours de 30 h,
 // quelle que soit sa durée.
+// Un projet sans heures renseignées ne doit plus faire retomber TOUT LE MONDE à
+// parts égales. C'était le comportement d'avant : sur huit projets cochés dont
+// trois sans heures, les huit recevaient 12,50 % — et l'information réelle des
+// cinq autres (36 h contre 24 h, par exemple) était jetée.
+// On lui attribue désormais la MOYENNE des projets renseignés. C'est une
+// hypothèse explicite, pas une vérité : « on ne sait pas, on suppose la
+// moyenne ». Elle conserve les écarts connus entre les projets renseignés, ce
+// que les parts égales détruisaient. Un code de fonctionnement (FV2026) n'aura
+// jamais d'heures de formation par nature : c'est le cas où cette hypothèse est
+// la seule possible.
+// Parts égales seulement si AUCUN projet n'a d'heures — là il n'y a rien à
+// conserver.
 function famParts(actifs,y,parMois){
-  const sans=actifs.filter(l=>actHeures(actCode(l))<=0);
-  if(sans.length||!actifs.length)
-    return {mode:"egal",sans,parts:actifs.map(()=>actifs.length?1/actifs.length:0)};
-  const poids=actifs.map(l=>parMois?projPoidsMois(l,y):actHeures(actCode(l)));
+  if(!actifs.length)return {mode:"egal",sans:[],parts:[]};
+  const brut=actifs.map(l=>parMois?projPoidsMois(l,y):actHeures(actCode(l)));
+  const sans=actifs.filter((l,i)=>!(brut[i]>0));
+  const avec=brut.filter(x=>x>0);
+  if(!avec.length)
+    return {mode:"egal",sans,parts:actifs.map(()=>1/actifs.length)};
+  const moy=avec.reduce((a,x)=>a+x,0)/avec.length;
+  const poids=brut.map(x=>x>0?x:moy);
   const tot=poids.reduce((a,x)=>a+x,0);
-  if(tot<=0)return {mode:"egal",sans:[],parts:actifs.map(()=>1/actifs.length)};
-  return {mode:"heures",sans:[],parts:poids.map(x=>x/tot)};
+  if(tot<=0)return {mode:"egal",sans,parts:actifs.map(()=>1/actifs.length)};
+  return {mode:sans.length?"moyenne":"heures",sans,moy:Math.round(moy*10)/10,
+    parts:poids.map(x=>x/tot)};
 }
 // --- VENTILATION DES SALAIRES SUR LES PROJETS ---
 // Les ecritures de paie arrivent de la banque sous un code RH global : elles ne
@@ -4184,6 +4202,89 @@ function ventilRows(rows){
   });
   return {rows:out,ratees,partiels,surs,collectives,regles,elargies};
 }
+// ═══ FRAIS GÉNÉRAUX RÉPARTIS SUR LES PROJETS ═══
+// Un loyer, une assurance, un logiciel ne sont pas des dépenses « de
+// fonctionnement » : ce sont des dépenses de l'activité, portées par un code de
+// fonctionnement faute de mieux. En laisser le total sur FG / FV / FP fait
+// paraître chaque projet moins cher qu'il ne l'est — et un financeur qui demande
+// le coût réel d'un programme se verrait présenter un coût amputé.
+// La règle, telle que Laetitia l'a posée : FG sur TOUS les projets, FV sur les
+// projets du Sud, FP sur ceux d'Île-de-France, au prorata des heures d'action.
+// Les produits suivent la même règle que les charges : une subvention de
+// fonctionnement finance bien de l'activité.
+//
+// C'est un AFFICHAGE, comme la ventilation des salaires : les écritures ne sont
+// pas modifiées, le classement et le FEC ne bougent pas. Le fonctionnement reste
+// une réalité comptable ; ce qu'on répartit, c'est sa LECTURE analytique.
+const FG_REGLES=[
+  {pfx:"FG",terr:null, lib:"Fonctionnement National", ou:"tous les projets"},
+  {pfx:"FV",terr:"SUD",lib:"Fonctionnement Sud",      ou:"les projets du Sud"},
+  {pfx:"FP",terr:"IDF",lib:"Fonctionnement IDF",      ou:"les projets d'Île-de-France"}
+];
+const fgRegleDe=label=>{
+  if(actCat(label)!=="FONC")return null;
+  const c=actCode(label);
+  return FG_REGLES.find(r=>rhPfxMatch(c,r.pfx))||null;
+};
+// Projets destinataires : de VRAIS projets. Un code de fonctionnement ne peut
+// pas être sa propre destination, et RH est un code de transit qui se répartit
+// par la clé des salaires, pas par les heures d'action.
+function fgCibles(regle){
+  return actLabels().filter(l=>{
+    if(rhExclu(l))return false;
+    const cat=actCat(l);
+    if(cat==="FONC"||cat==="RH"||cat==="SANS")return false;
+    if(regle.terr&&terrNorm(actTerr(l))!==regle.terr)return false;
+    return true;
+  });
+}
+// Les cibles SANS heures sont écartées, elles ne font pas retomber tout le monde
+// à parts égales : un code de fonctionnement n'aura jamais d'heures de formation
+// par nature, et deux parcours mal renseignés ne doivent pas annuler le prorata
+// des huit autres. On dit ce qui a été écarté.
+function fgParts(regle){
+  const tous=fgCibles(regle);
+  const avec=tous.filter(l=>actHeures(actCode(l))>0);
+  const sans=tous.filter(l=>actHeures(actCode(l))<=0);
+  if(!avec.length){
+    if(!tous.length)return {cibles:[],parts:[],mode:"aucune",sans};
+    return {cibles:tous,parts:tous.map(()=>1/tous.length),mode:"egal",sans};
+  }
+  const poids=avec.map(l=>actHeures(actCode(l)));
+  const tot=poids.reduce((a,x)=>a+x,0);
+  return {cibles:avec,parts:poids.map(x=>x/tot),mode:"heures",sans};
+}
+// _fgMemo est déclaré tout en haut, à côté de _actCache : le déclarer ici le
+// rendait inaccessible à invalidateActCache, défini plus haut dans le fichier.
+function fgMemo(){if(!_fgMemo)_fgMemo={};return _fgMemo}
+function fgPartsMemo(regle){
+  const c=fgMemo();
+  if(!(regle.pfx in c))c[regle.pfx]=fgParts(regle);
+  return c[regle.pfx];
+}
+// Deuxième passe d'affichage, après la ventilation des salaires : ce qui reste
+// sur un code de fonctionnement part sur les projets. L'ordre compte — la part
+// de charges collectives que la masse salariale n'affecte à aucun projet atterrit
+// sur le fonctionnement, et c'est bien celle-là qu'on veut voir repartir ensuite.
+function fgRows(rows){
+  const src=rows||[];
+  const out=[],reparties=[],ratees=[];
+  src.forEach(r=>{
+    const rg=fgRegleDe(r.act);
+    if(!rg){out.push(r);return}
+    const mt=(r.deb||0)-(r.cre||0);
+    if(Math.abs(mt)<0.005){out.push(r);return}
+    const k=fgPartsMemo(rg);
+    if(!k.cibles.length){out.push(r);ratees.push({r,lib:rg.lib,why:"aucun projet destinataire pour "+rg.ou});return}
+    out.push(...ventilEclate(r,k.cibles.map((l,i)=>({act:l,part:k.parts[i]})),0,
+      {fg:rg.lib,mode:k.mode,ou:rg.ou}));
+    reparties.push({r,lib:rg.lib,ou:rg.ou,mode:k.mode,n:k.cibles.length,
+      sans:k.sans.length,mt:Math.round(mt*100)/100});
+  });
+  return {rows:out,reparties,ratees};
+}
+function suiviSetFG(v){suiviFilt.fg=!!v;try{localStorage.setItem("litup_suiviFG",v?"1":"0")}catch(e){}render()}
+
 // --- REPARTIR UNE ECRITURE SUR UNE FAMILLE DE PROJETS ---
 // Une subvention « Action Jeunes Sud » ne porte pas un code projet : elle porte
 // une famille. Mettre @FAM:sud-jeunes dans le code projet de l'ecriture aurait
@@ -4708,7 +4809,9 @@ function famSplitDessine(){
         :nCoch===1?"Un seul projet retenu : il reçoit la totalité de l’écriture, les heures d’action n’entrent pas en jeu."
         :c.mode==="heures"
           ?"Pondération par les <strong>heures d’action</strong> (« Nb heures formation » d’Airtable), ramenées au nombre de mois d’activité de chaque projet. Les familles ne sont pas égalisées entre elles : c’est le volume d’heures de chaque projet qui décide, quelle que soit sa famille."
-          :"Parts <strong>égales</strong>"+(c.sans.length?' : '+c.sans.length+" projet(s) sans heures ("+escHtml(c.sans.map(actCode).join(", "))+"). Remplissez « Nb heures formation » dans Airtable puis ☁️ Charger → Airtable, ou saisissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>.":" — aucune heure d’action renseignée.")}
+        :c.mode==="moyenne"
+          ?"Pondération par les <strong>heures d’action</strong>, sauf pour "+c.sans.length+" projet(s) sans heures renseignées ("+escHtml(c.sans.map(actCode).join(", "))+") : on leur attribue la <strong>moyenne</strong> des projets renseignés"+(c.moy?" ("+c.moy+" h)":"")+". C’est une hypothèse explicite — elle conserve les écarts réels entre les autres projets, ce que des parts égales détruiraient. Pour la lever : remplissez « Nb heures formation » dans Airtable puis ☁️ Charger → Airtable, ou saisissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>. Un code de <em>fonctionnement</em> n’aura jamais d’heures de formation par nature : pour lui, la moyenne est la seule hypothèse possible."
+          :"Parts <strong>égales</strong> — aucun des projets retenus n’a d’heures d’action renseignées, il n’y a rien à conserver. Remplissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>."}
         ${nCoch&&(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":nCoch?"<br>La somme des sous-lignes égale l’écriture d’origine, au centime.":""}
       </p>`;
   }
@@ -9207,10 +9310,17 @@ function engEcoule(e,auJour){
 // familles retenues. Une famille est un périmètre VIVANT — un parcours qui la
 // rejoint entre dans le suivi. C'est voulu pour le suivi courant, et c'est
 // exactement pourquoi un bilan doit figer la liste.
+// Trois leviers, pour couvrir les vrais cas :
+//   • familles    — le périmètre vivant, un parcours qui rejoint la famille entre ;
+//   • exclus      — un code de la famille qu'on retire (« toute la famille SAUF ») ;
+//   • codes       — un code ajouté à l'unité, hors de toute famille retenue.
+// Sans les exclus, dire « les BU du Var sauf BU99 » obligeait à cocher onze codes
+// un par un et à recommencer à chaque nouveau parcours.
 function engCodes(perim){
-  const out=new Set();
+  const out=new Set(),ex=new Set((perim&&perim.exclus||[]).map(c=>actCode(c)));
+  (perim&&perim.familles||[]).forEach(k=>famProjets(k).forEach(l=>{
+    const c=actCode(l);if(!ex.has(c))out.add(c)}));
   (perim&&perim.codes||[]).forEach(c=>{if(c)out.add(actCode(c))});
-  (perim&&perim.familles||[]).forEach(k=>famProjets(k).forEach(l=>out.add(actCode(l))));
   return [...out];
 }
 function engPerimQual(e){
@@ -9310,13 +9420,42 @@ function engFamToggle(i,quoi,k){
   if(j>=0)p.familles.splice(j,1);else p.familles.push(k);
   autoSave();render();
 }
+function engPerimDe(e,quoi){
+  const p=quoi==="fin"?(e.perimFin=e.perimFin||{}):(e.perimQual=e.perimQual||{});
+  p.codes=p.codes||[];p.familles=p.familles||[];p.exclus=p.exclus||[];
+  return p;
+}
+// Un code appartenant à une famille retenue se décoche par la liste des exclus ;
+// un code hors famille s'ajoute à la liste des codes. Une seule case à cocher
+// pour l'utilisateur, deux listes derrière — c'est ce qui permet de garder le
+// périmètre vivant tout en écartant un parcours nommément.
 function engCodeToggle(i,quoi,ci){
   const e=engArr()[i];if(!e)return;
-  const code=actCode(actLabels()[ci]||"");if(!code)return;
-  const p=quoi==="fin"?(e.perimFin=e.perimFin||{codes:[],familles:[]}):(e.perimQual=e.perimQual||{codes:[],familles:[]});
-  p.codes=p.codes||[];
-  const j=p.codes.indexOf(code);
-  if(j>=0)p.codes.splice(j,1);else p.codes.push(code);
+  const code=actCode(engCodesTous()[ci]||"");if(!code)return;
+  const p=engPerimDe(e,quoi);
+  const dansFam=p.familles.some(k=>famProjets(k).some(l=>actCode(l)===code));
+  if(dansFam){
+    const j=p.exclus.indexOf(code);
+    if(j>=0)p.exclus.splice(j,1);else p.exclus.push(code);
+  }else{
+    const j=p.codes.indexOf(code);
+    if(j>=0)p.codes.splice(j,1);else p.codes.push(code);
+  }
+  autoSave();render();
+}
+// Liste stable des codes, pour passer un INDICE dans onclick : un code projet
+// contient des espaces et des apostrophes, qui referment l'attribut.
+function engCodesTous(){
+  return actLabels().filter(l=>!rhExclu(l)&&actCat(l)!=="SANS");
+}
+function engCodesFamille(i,quoi,k,tout){
+  const e=engArr()[i];if(!e)return;
+  const p=engPerimDe(e,quoi);
+  famProjets(k).forEach(l=>{
+    const c=actCode(l),j=p.exclus.indexOf(c);
+    if(tout&&j>=0)p.exclus.splice(j,1);
+    if(!tout&&j<0)p.exclus.push(c);
+  });
   autoSave();render();
 }
 function engQualMeme(i,v){const e=engArr()[i];if(!e)return;
@@ -9434,9 +9573,43 @@ function engListeFamilles(i,quoi,perim){
       return `<button class="fb${on?" on":""}" style="${on?"color:var(--accent);border-color:var(--accent)":""}" onclick="engFamToggle(${i},'${quoi}','${g.k}')" title="${famProjets(g.k).length} projet(s)">${on?"✓ ":""}${escHtml(g.lib)} <span style="opacity:.6">${famProjets(g.k).length}</span></button>`;
     }).join(" ")+`</div>`).join("");
 }
+// Liste des codes, cochables un par un. Les codes des familles retenues sont
+// cochés par défaut : on décoche pour écarter. Les autres sont proposés en bas,
+// pour ajouter un parcours qui ne relève d'aucune famille du périmètre.
+function engListeCodes(i,quoi,perim){
+  const tous=engCodesTous();
+  const idx=new Map(tous.map((l,j)=>[actCode(l),j]));
+  const ex=new Set((perim.exclus||[]).map(c=>actCode(c)));
+  const enPlus=new Set((perim.codes||[]).map(c=>actCode(c)));
+  const case1=(l,on)=>{
+    const c=actCode(l),j=idx.get(c);
+    return `<button class="fb${on?" on":""}" style="font-size:9px;${on?"color:var(--accent);border-color:var(--accent)":"opacity:.7"}"
+      onclick="engCodeToggle(${i},'${quoi}',${j})" title="${escHtml(l)}${actHeures(c)?" · "+actHeures(c)+" h":" · aucune heure renseignée"}">${on?"✓":"○"} ${escHtml(c)}</button>`;
+  };
+  let h="";
+  (perim.familles||[]).forEach(k=>{
+    const proj=famProjets(k),g=famGroupe(k);
+    const gardes=proj.filter(l=>!ex.has(actCode(l))).length;
+    h+=`<div style="margin:5px 0 2px">
+      <span style="font-size:9px;font-weight:700">${escHtml(g?g.zone+" — "+g.lib:k)}</span>
+      <span style="font-size:9px;color:${gardes<proj.length?"var(--amber)":"var(--text-3)"}"> · ${gardes} sur ${proj.length}</span>
+      <button class="fb" style="font-size:8px" onclick="engCodesFamille(${i},'${quoi}','${k}',true)">tout cocher</button>
+      <button class="fb" style="font-size:8px" onclick="engCodesFamille(${i},'${quoi}','${k}',false)">tout décocher</button>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">${proj.map(l=>case1(l,!ex.has(actCode(l)))).join("")}</div></div>`;
+  });
+  const dansFam=new Set();
+  (perim.familles||[]).forEach(k=>famProjets(k).forEach(l=>dansFam.add(actCode(l))));
+  const autres=tous.filter(l=>!dansFam.has(actCode(l)));
+  if(autres.length){
+    h+=`<details style="margin-top:5px"${enPlus.size?" open":""}>
+      <summary style="font-size:9px;color:var(--text-3);cursor:pointer">Ajouter des codes hors de ces familles (${enPlus.size} retenu${enPlus.size>1?"s":""} sur ${autres.length})</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">${autres.map(l=>case1(l,enPlus.has(actCode(l)))).join("")}</div></details>`;
+  }
+  return h||`<div style="font-size:9px;color:var(--text-3)">Ajoutez d'abord une famille, ou choisissez des codes ci-dessous.</div>`;
+}
 function engPartDef(e,i){
   const inp="width:100%;padding:4px 6px;background:var(--bg-1);border:1px solid var(--border);border-radius:5px;color:var(--text-1);font-size:11px;font-family:var(--sans)";
-  const pf=e.perimFin||{codes:[],familles:[]}, pq=e.perimQual||{codes:[],familles:[]};
+  const pf=engPerimDe(e,"fin"), pq=engPerimDe(e,"qual");
   const meme=pq.memeQueFin!==false;
   const fins=finList();
   const cf=engCodes(pf), cq=engPerimQual(e);
@@ -9479,7 +9652,10 @@ function engPartDef(e,i){
     <div style="font-size:11px;font-weight:700;margin-bottom:2px">Périmètre financier — sur quoi la subvention est imputée</div>
     <div style="font-size:9px;color:var(--text-3);margin-bottom:5px">Une famille est un périmètre <strong>vivant</strong> : un parcours qui la rejoint entre dans le suivi. C'est ce qu'on veut pour un suivi courant, et c'est exactement pourquoi un bilan figera la liste.</div>
     ${engListeFamilles(i,"fin",pf)}
-    <div style="font-size:9px;margin-top:5px">${cf.length} code(s) projet dans ce périmètre${cf.length?" : "+escHtml(cf.slice(0,18).join(", "))+(cf.length>18?"…":""):""}</div>
+    <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:5px">
+      <div style="font-size:9px;color:var(--text-3);margin-bottom:2px">Codes retenus — décochez pour écarter un projet précis sans renoncer à la famille.</div>
+      ${engListeCodes(i,"fin",pf)}</div>
+    <div style="font-size:9px;margin-top:5px;font-weight:600">${cf.length} code(s) projet dans ce périmètre${cf.length?" : "+escHtml(cf.slice(0,18).join(", "))+(cf.length>18?"…":""):""}</div>
   </div>`;
 
   h+=`<div class="scard" style="margin-bottom:10px">
@@ -9487,8 +9663,11 @@ function engPartDef(e,i){
     <div style="font-size:9px;color:var(--text-3);margin-bottom:5px">Souvent le même que le financier, pas toujours : « financé sur 11 parcours, rendre compte sur tous les parcours du Var ».</div>
     <label style="font-size:10px;display:inline-flex;gap:5px;align-items:center;cursor:pointer">
       <input type="checkbox" ${meme?"checked":""} onchange="engQualMeme(${i},this.checked)"> le même que le périmètre financier</label>
-    ${meme?"":`<div style="margin-top:6px">${engListeFamilles(i,"qual",pq)}</div>`}
-    <div style="font-size:9px;margin-top:5px">${cq.length} code(s) projet${cq.length?" : "+escHtml(cq.slice(0,18).join(", "))+(cq.length>18?"…":""):""}</div>
+    ${meme?"":`<div style="margin-top:6px">${engListeFamilles(i,"qual",pq)}
+      <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:5px">
+        <div style="font-size:9px;color:var(--text-3);margin-bottom:2px">Codes retenus — décochez pour écarter un projet précis.</div>
+        ${engListeCodes(i,"qual",pq)}</div></div>`}
+    <div style="font-size:9px;margin-top:5px;font-weight:600">${cq.length} code(s) projet${cq.length?" : "+escHtml(cq.slice(0,18).join(", "))+(cq.length>18?"…":""):""}</div>
   </div>`;
 
   const dispos=ENG_INDIC.filter(x=>!(e.cibles||[]).some(c=>c.cle===x.cle));
@@ -9850,13 +10029,18 @@ function suiviCell(crit){return _suiviCells.push(crit)-1}
 // Source unique de l'onglet : le tableau, les cartes et le détail d'un montant
 // cliqué lisent tous ce même jeu de lignes, sinon un total ne correspondrait
 // pas à la liste qu'il ouvre.
-let _suiviRatees=[],_suiviPartiels=[],_suiviSurs=[],_suiviColl=[],_suiviRegles=[];
+let _suiviRatees=[],_suiviPartiels=[],_suiviSurs=[],_suiviColl=[],_suiviRegles=[],_suiviFG=[],_suiviFGRatees=[];
 function suiviBaseRows(){
   let src=D.rows.filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
-  _suiviRatees=[];_suiviPartiels=[];_suiviSurs=[];_suiviColl=[];_suiviRegles=[];
+  _suiviRatees=[];_suiviPartiels=[];_suiviSurs=[];_suiviColl=[];_suiviRegles=[];_suiviFG=[];_suiviFGRatees=[];
   if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;
     _suiviRatees=v.ratees;_suiviPartiels=v.partiels;_suiviSurs=v.surs;
     _suiviColl=v.collectives;_suiviRegles=v.regles}
+  // Les frais généraux se répartissent APRÈS les salaires : la part de charges
+  // collectives que la masse salariale n'affecte à aucun projet atterrit sur le
+  // fonctionnement, et c'est bien celle-là qu'on veut voir repartir ensuite.
+  if(suiviFilt.fg){const g=fgRows(src);src=g.rows;
+    _suiviFG=g.reparties;_suiviFGRatees=g.ratees}
   return src.filter(r=>{
     if(suiviFilt.terr){const t=terrNorm(actTerr(r.act));if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
@@ -10023,6 +10207,8 @@ function openSuiviDetail(i){
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}${
         r._vent?(r._vent.reste
           ?`<div style="font-size:7px;color:var(--amber)" title="Part que ${r._vent.coll?"les salaires du "+(r._vent.base==="mois"?"mois":"l’exercice")+" ne rattachent à aucun projet":"le temps de travail de « "+escHtml(r._vent.poste||"")+" » n’affecte à aucun projet"} : elle reste sur le code d'origine.">⧉ ${(r._vent.part*100).toFixed(1)} % non affecté</div>`
+          :r._vent.fg
+          ?`<div style="font-size:7px;color:var(--blue)" title="Frais généraux « ${escHtml(r._vent.fg)} » répartis sur ${escHtml(r._vent.ou||"les projets")}${r._vent.mode==="heures"?" au prorata des heures d’action":" à parts égales"}.">⧉ ${(r._vent.part*100).toFixed(1)} % · ${escHtml(r._vent.fg)}</div>`
           :r._vent.regle
           ?`<div style="font-size:7px;color:var(--accent-l)" title="Règle de compte : cette dépense appartient à l’action « ${escHtml(r._vent.regle)} » et se répartit sur ses projets (${r._vent.base==="mois"?"actifs ce mois-là":r._vent.base==="exercice"?"actifs sur l’exercice":"tous ceux de la famille"}).">⧉ ${(r._vent.part*100).toFixed(1)} % · ${escHtml(r._vent.regle)}</div>`
           :r._vent.coll
@@ -10084,6 +10270,12 @@ function rSuivi(el){
       <option value="0"${suiviFilt.vent?"":" selected"}>Au code RH</option>
       <option value="1"${suiviFilt.vent?" selected":""}>Ventilés par poste</option>
     </select>
+    <span style="font-size:8px;color:var(--text-3);margin-left:6px">Frais généraux</span>
+    <select class="ms" style="width:190px;font-size:9px" onchange="suiviSetFG(this.value==='1')"
+      title="FG sur tous les projets, FV sur ceux du Sud, FP sur ceux d'Île-de-France, au prorata des heures d'action. Charges ET produits. C'est un affichage : les écritures ne sont pas modifiées.">
+      <option value="0"${suiviFilt.fg?"":" selected"}>Au code de fonctionnement</option>
+      <option value="1"${suiviFilt.fg?" selected":""}>Répartis sur les projets</option>
+    </select>
     <button class="b bd" style="font-size:8px;padding:2px 6px" onclick="openVentDiag()"
       title="Voir où la chaîne de ventilation s'arrête : interrupteur, « Nom relevé » sur les postes, rattachement des paies, affectation du temps">🔎 Pourquoi ?</button>
     <span style="font-size:8px;color:var(--text-3)">Projet :</span>
@@ -10115,6 +10307,22 @@ function rSuivi(el){
     if(Math.abs(dd)>0.005||Math.abs(dc)>0.005)
       h+=`<div style="margin:8px 14px;padding:9px 12px;border-radius:8px;font-size:10px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red)">La ventilation ne conserve pas les totaux : ${fmt(dd)} de débit et ${fmt(dc)} de crédit d'écart. Ne vous appuyez pas sur cette vue, signalez-le.</div>`;
     const resteRH=Math.round(_suiviPartiels.reduce((a,x)=>a+x.mt,0)*100)/100;
+    if(_suiviFG.length){
+      const parLib={};
+      _suiviFG.forEach(x=>{if(!parLib[x.lib])parLib[x.lib]={n:0,mt:0,proj:x.n,mode:x.mode,ou:x.ou,sans:x.sans};
+        parLib[x.lib].n++;parLib[x.lib].mt+=x.mt});
+      h+=`<div style="margin:8px 14px;padding:7px 11px;border-radius:8px;font-size:10px;line-height:1.7;background:var(--blue-bg);border:1px solid rgba(96,165,250,.25)">
+        ${Object.keys(parLib).map(l=>{const p=parLib[l];
+          return `<strong>${escHtml(l)}</strong> — ${p.n} écriture(s), ${fmt(Math.round(p.mt*100)/100)}, réparti(es) sur ${p.proj} ${escHtml(p.ou)}${p.mode==="heures"?" au prorata des heures d’action":" à parts égales, faute d’heures renseignées"}.`
+            +(p.sans?` <span style="color:var(--amber)">${p.sans} projet(s) écarté(s) faute d’heures</span> — ils ne reçoivent rien plutôt que de faire retomber tout le monde à parts égales.`:"");
+        }).join("<br>")}
+        <br><span style="color:var(--text-3)">Charges et produits : une subvention de fonctionnement finance de l’activité. Les écritures ne sont pas modifiées — le classement et le FEC ne bougent pas.</span></div>`;
+    }
+    if(_suiviFGRatees.length){
+      h+=`<div class="warn" style="margin:8px 14px;font-size:10px;line-height:1.7">
+        <strong>${_suiviFGRatees.length} écriture(s) de fonctionnement non réparties</strong> — ${escHtml([...new Set(_suiviFGRatees.map(x=>x.why))].join(" · "))}.
+        Elles restent sur leur code de fonctionnement.</div>`;
+    }
     if(_suiviRegles.length){
       const parLib={};
       _suiviRegles.forEach(x=>{if(!parLib[x.lib])parLib[x.lib]={n:0,mt:0,proj:x.n,mode:x.mode};
@@ -10252,6 +10460,7 @@ function rSuivi(el){
     <br><strong>Tous les montants sont cliquables</strong> — cartes comprises : ils ouvrent la liste des écritures qui les composent.
     <br>« Salaires : ventilés par poste » éclate chaque paie sur les projets, selon les affectations de temps du poste pour le mois de l'écriture. Le rattachement se fait par le nom saisi dans « Nom relevé » sur le poste (onglet RH → Postes). Une paie que l'outil ne sait pas ventiler reste sur son code d'origine et est comptée dans le bandeau ambre : rien n'est perdu en silence.
     <br>Trois mécaniques se succèdent : une <strong>règle de compte</strong> d'abord (la gratification de Service Civique, compte 64160, va aux projets de la famille SC et à eux seuls) ; sinon le <strong>rattachement à un poste</strong> par le nom du libellé ; sinon, pour les <strong>charges collectives</strong> sans nom — cotisations, mutuelle, taxes, médecine du travail, formations — le prorata des salaires du mois. Un compte de personnel portant un code de fonctionnement est repris comme charge collective, et ce que la masse salariale n'affecte à aucun projet reste sur ce code.
+    <br>Un second interrupteur répartit les <strong>frais généraux</strong> : ce qui reste sur FG part sur tous les projets, FV sur ceux du Sud, FP sur ceux d'Île-de-France, au prorata des heures d'action — charges <em>et</em> produits, une subvention de fonctionnement finançant de l'activité. Un projet sans heures renseignées est écarté du partage plutôt que de faire retomber tout le monde à parts égales.
     <br>C'est un <strong>affichage</strong> : les écritures ne sont pas modifiées, le FEC et les autres onglets ne bougent pas, et l'interrupteur permet de comparer les deux lectures. Pour éclater durablement une écriture — une subvention portant sur une famille, par exemple — utilisez le bouton <strong>⧉</strong> sur sa ligne du classement.
     Les colonnes se redimensionnent en glissant leur bord droit ; double-clic pour revenir à la largeur d'origine.</div>`;
   el.innerHTML=h;
