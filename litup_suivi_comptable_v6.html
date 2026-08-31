@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31o <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31p <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -1178,6 +1178,11 @@ async function saveComptaToSheet(){
       // poste ou la collègue, et le budget était introuvable.
       budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,
       rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,
+      // Deux champs de ligne que les colonnes de la feuille ne portent pas
+      // encore. Seules les lignes concernées sont listées : quelques dizaines
+      // d'entrées, pas 525.
+      lignesPlus:(()=>{const o={};(D.rows||[]).forEach(r=>{
+        if(r.split||r.driveFileId)o[r.id]={split:r.split||"",driveFileId:r.driveFileId||""}});return o})(),
       rhAlloc:D.rhAlloc,savedBy:qui,
       rowCount:(D.rows||[]).length,
       savedAt:new Date().toISOString()};
@@ -1413,7 +1418,9 @@ function fusNormRow(r){
     dt:ds(r.dt||""),yr:anStr(r.yr),lib:r.lib||"",four:r.four||"",
     cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
     modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
-    src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""};
+    src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",
+    driveFileId:r.driveFileId||"",comment:r.comment||"",
+    ...(r.split?{split:r.split}:{})};
 }
 // État du Sheet, dans la même forme que le nôtre. Une clé absente des
 // métadonnées du Sheet (sauvegarde faite par une version antérieure de l'outil)
@@ -1600,13 +1607,26 @@ async function loadComptaFromSheet(){
     if(res.error){alert("❌ Erreur : "+res.error);return}
     if(!res.rows||!res.rows.length){alert("☁️ Aucune donnée dans le Sheet Compta.");return}
     // Load rows
-    D.rows=res.rows.map(r=>({
-      id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
-      dt:ds(r.dt||""),yr:anStr(r.yr),lib:r.lib||"",four:r.four||"",
-      cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
-      modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
-      src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""
-    }));
+    // « split » et « driveFileId » n'étaient recopiés NI à la sauvegarde NI au
+    // chargement : après un ☁️ Charger, les sous-lignes d'une répartition
+    // perdaient leur lien de groupe, et l'outil affichait un avertissement
+    // d'orphelin sur ses propres données. Ils sont désormais transportés par le
+    // meta (« lignesPlus ») en plus des colonnes de la feuille : la reprise
+    // fonctionne donc avant même le redéploiement d'Apps Script.
+    const plus=(res.meta&&res.meta.lignesPlus)||{};
+    D.rows=res.rows.map(r=>{
+      const id=r.id||"imp_"+Math.random().toString(36).substr(2,8);
+      const x=plus[id]||{};
+      const o={id,
+        dt:ds(r.dt||""),yr:anStr(r.yr),lib:r.lib||"",four:r.four||"",
+        cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
+        modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
+        src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",
+        driveFileId:r.driveFileId||x.driveFileId||"",comment:r.comment||""};
+      const sp=r.split||x.split||"";
+      if(sp)o.split=sp;
+      return o;
+    });
     // Load metadata
     if(res.meta){
       const m=res.meta;
@@ -1634,6 +1654,17 @@ async function loadComptaFromSheet(){
       if(m.rhTx)D.rhTx=m.rhTx;
       if(m.rhBulletins)D.rhBulletins=m.rhBulletins;
       if(m.rhDriveFolder!==undefined)D.rhDriveFolder=m.rhDriveFolder;
+      // Ces cinq clés partaient bien vers le Sheet mais n'étaient jamais
+      // relues : chaque ☁️ Charger effaçait en silence les décisions prises sur
+      // les détecteurs (virements internes, doublons), les heures d'action
+      // reprises d'Airtable et la mémoire des répartitions. Le travail était
+      // dans la feuille, l'outil ne le regardait pas.
+      if(m.detIgnore!==undefined)D.detIgnore=m.detIgnore||{vi:{},dbl:{}};
+      if(m.actHeures!==undefined)D.actHeures=m.actHeures||{};
+      if(m.actHeuresSrc!==undefined)D.actHeuresSrc=m.actHeuresSrc||{};
+      if(m.actRid!==undefined)D.actRid=m.actRid||{};
+      if(m.splits!==undefined)D.splits=m.splits||{};
+      invalidateActCache();
     }
     fusSnapshot();   // version commune de départ pour une fusion ultérieure
     _piecePropFait=false;try{piecePropage()}catch(e){}

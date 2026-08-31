@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-08-31b";
+var BACKEND_VERSION = "2026-08-31c";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -371,7 +371,13 @@ function saveCompta(data) {
     }
   }
   if (data.rows && data.rows.length) {
-    const headers = ["id", "dt", "yr", "lib", "four", "cat", "act", "deb", "cre", "modal", "stat", "resp", "numj", "src", "ndf", "compte", "driveUrl", "comment"];
+    // split : identifiant de la répartition dont la ligne est une sous-ligne.
+    // driveFileId : identifiant Drive de la pièce, utile pour la supprimer.
+    // Les deux manquaient : après un chargement, les sous-lignes d'une
+    // répartition perdaient leur lien de groupe. Le front les transporte aussi
+    // par le meta, donc la reprise marche avant ce redéploiement ; ces colonnes
+    // rendent la feuille complète et lisible telle quelle.
+    const headers = ["id", "dt", "yr", "lib", "four", "cat", "act", "deb", "cre", "modal", "stat", "resp", "numj", "src", "ndf", "compte", "driveUrl", "driveFileId", "split", "comment"];
     sh.clear();
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold").setBackground("#f3f4f6");
     sh.setFrozenRows(1);
