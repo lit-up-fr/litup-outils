@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31f <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31g <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3726,9 +3726,13 @@ function posteMatch(r){
 // sur un compte de personnel (64x) sans code projet. Une ecriture 64x DEJA
 // affectee a un projet reel est laissee telle quelle : quelqu'un l'a ventilee a
 // la main, la reventiler effacerait ce travail.
+// 64x = charges de personnel. 631x et 633x = taxes assises sur les salaires
+// (apprentissage, formation professionnelle) : elles suivent la masse salariale
+// comme les cotisations.
+const CPT_PAIE=/^(64|631|633)/;
 function estLignePaie(r){
   if(actCat(r&&r.act)==="RH")return true;
-  return /^64/.test(catKey(r&&r.cat||""))&&!actCode(r&&r.act);
+  return CPT_PAIE.test(catKey(r&&r.cat||""))&&!actCode(r&&r.act);
 }
 // Memo de la ventilation : famActifs et projMoisActifs balaient D.rows, et une
 // ventilation les rappelle des centaines de fois. _ventMemo est declare tout en
@@ -3794,31 +3798,88 @@ function ventilParts(r){
 // ventilables ne sont JAMAIS perdues : elles passent telles quelles, avec leur
 // code d'origine, et la raison est remontee pour etre affichee. Les centimes de
 // l'arrondi vont sur la derniere part : le total est conserve au centime.
-function ventilRows(rows){
-  const out=[],ratees=[],partiels=[],surs=[];
-  (rows||[]).forEach(r=>{
-    if(!estLignePaie(r)){out.push(r);return}
-    const v=ventilParts(r);
-    if(v.err||!v.parts||!v.parts.length){out.push(r);ratees.push({r,why:v.err||"aucune part"});return}
-    // La part non affectée reste sur le code d'origine : une sous-ligne de plus,
-    // avec le même code qu'avant. C'est ce qui fait que la carte RH ne se vide
-    // pas entièrement — ce qui y reste est exactement ce qui n'est pas affecté.
-    const lignes=v.parts.slice();
-    if(v.reste>1e-9)lignes.push({act:r.act||"",part:v.reste,reste:true});
-    let rd=0,rc=0;
-    lignes.forEach((x,i)=>{
-      const dernier=i===lignes.length-1;
-      const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*x.part*100)/100;
-      const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*x.part*100)/100;
-      rd+=d;rc+=c;
-      out.push(Object.assign({},r,{act:x.act,deb:d,cre:c,
-        _vent:{de:r.act||"",poste:String(v.poste.lib||""),part:x.part,reste:!!x.reste}}));
-    });
-    if(v.reste>1e-9)partiels.push({r,poste:String(v.poste.lib||""),pct:v.reste*100,
-      mt:Math.round(((r.deb||0)-(r.cre||0))*v.reste*100)/100,tot:v.tot});
-    if(v.sur)surs.push({r,poste:String(v.poste.lib||""),tot:v.tot});
+// Éclate une écriture en sous-lignes selon des parts déjà calculées, la part non
+// affectée restant sur le code d'origine. Les centimes de l'arrondi vont sur la
+// dernière part : le total est conservé au centime.
+function ventilEclate(r,parts,reste,marque){
+  const lignes=parts.slice();
+  if(reste>1e-9)lignes.push({act:r.act||"",part:reste,reste:true});
+  let rd=0,rc=0;const out=[];
+  lignes.forEach((x,i)=>{
+    const dernier=i===lignes.length-1;
+    const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*x.part*100)/100;
+    const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*x.part*100)/100;
+    rd+=d;rc+=c;
+    out.push(Object.assign({},r,{act:x.act,deb:d,cre:c,
+      _vent:Object.assign({de:r.act||"",part:x.part,reste:!!x.reste},marque)}));
   });
-  return {rows:out,ratees,partiels,surs};
+  return out;
+}
+// Une cotisation URSSAF, une mutuelle, une taxe d'apprentissage sont payées
+// globalement : un seul prélèvement pour tous les salariés, et aucun nom dans le
+// libellé. Elles ne peuvent donc pas se rattacher à un poste. Elles suivent en
+// revanche la masse salariale : on les répartit avec la clé des SALAIRES du même
+// mois, telle qu'elle vient d'être calculée. Le mois sans salaire identifié
+// retombe sur la clé de l'exercice — un prélèvement trimestriel existe.
+function ventilRows(rows){
+  const src=rows||[];
+  const ratees=[],partiels=[],surs=[],collectives=[];
+  // Passe 1 : décider pour chaque écriture, sans encore produire de ligne.
+  const plan=src.map(r=>{
+    if(!estLignePaie(r))return {r,type:"tel"};
+    const mt=posteMatch(r);
+    if(mt.ambigu)return {r,type:"rate",why:"plusieurs postes reconnus dans le libellé"};
+    if(!mt.p)return {r,type:"coll"};
+    const v=ventilParts(r);
+    if(v.err||!v.parts||!v.parts.length)return {r,type:"rate",why:v.err||"aucune part"};
+    return {r,type:"poste",v};
+  });
+  // Clé des salaires, par mois et pour l'exercice en repli.
+  // Le repli annuel est indexé sur l'EXERCICE d'affectation, pas sur l'année de
+  // la date : une cotisation payée en janvier se rattache souvent à l'exercice
+  // précédent, et c'est cet exercice-là dont la masse salariale fait la clé.
+  const exoDe=r=>anStr(r&&r.yr)||String(moKey(r&&r.dt)||"").substring(0,4);
+  const parMois={},parAn={};
+  plan.forEach(x=>{
+    if(x.type!=="poste")return;
+    const mk=moKey(x.r.dt)||"";if(!mk)return;
+    const an=exoDe(x.r);
+    const mt=Math.abs((x.r.deb||0)-(x.r.cre||0));if(mt<=0)return;
+    [parMois[mk]||(parMois[mk]={p:{},reste:0,tot:0}),parAn[an]||(parAn[an]={p:{},reste:0,tot:0})]
+      .forEach(acc=>{
+        x.v.parts.forEach(pp=>{acc.p[pp.act]=(acc.p[pp.act]||0)+mt*pp.part});
+        acc.reste+=mt*(x.v.reste||0);acc.tot+=mt;
+      });
+  });
+  const cleDe=acc=>({parts:Object.keys(acc.p).map(a=>({act:a,part:acc.p[a]/acc.tot})),
+                     reste:acc.reste/acc.tot});
+  // Passe 2 : produire les lignes, dans l'ordre d'entrée.
+  const out=[];
+  plan.forEach(x=>{
+    const r=x.r;
+    if(x.type==="tel"){out.push(r);return}
+    if(x.type==="rate"){out.push(r);ratees.push({r,why:x.why});return}
+    if(x.type==="poste"){
+      const v=x.v;
+      out.push(...ventilEclate(r,v.parts,v.reste,{poste:String(v.poste.lib||"")}));
+      if(v.reste>1e-9)partiels.push({r,poste:String(v.poste.lib||""),pct:v.reste*100,
+        mt:Math.round(((r.deb||0)-(r.cre||0))*v.reste*100)/100,tot:v.tot});
+      if(v.sur)surs.push({r,poste:String(v.poste.lib||""),tot:v.tot});
+      return;
+    }
+    // charge collective
+    const mk=moKey(r.dt)||"", an=exoDe(r);
+    const acc=(parMois[mk]&&parMois[mk].tot>0)?parMois[mk]
+             :(parAn[an]&&parAn[an].tot>0)?parAn[an]:null;
+    if(!acc){out.push(r);ratees.push({r,why:"charge collective : aucun salaire réparti sur "+(mk||"cette période")+" ni sur l'exercice "+(an||"?")+" pour servir de clé"});return}
+    const base=(parMois[mk]&&parMois[mk].tot>0)?"mois":"exercice";
+    const k=cleDe(acc);
+    out.push(...ventilEclate(r,k.parts,k.reste,{coll:true,base}));
+    const mtr=(r.deb||0)-(r.cre||0);
+    collectives.push({r,base,pctReparti:(1-k.reste)*100,
+      mtVent:Math.round(mtr*(1-k.reste)*100)/100,mtReste:Math.round(mtr*k.reste*100)/100});
+  });
+  return {rows:out,ratees,partiels,surs,collectives};
 }
 // --- REPARTIR UNE ECRITURE SUR UNE FAMILLE DE PROJETS ---
 // Une subvention « Action Jeunes Sud » ne porte pas un code projet : elle porte
@@ -4301,9 +4362,16 @@ function famSplitDessine(){
     <h3>⧉ ${st.sid?"Modifier la répartition":"Répartir sur une ou plusieurs familles"}</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
       <strong>${escHtml(String(st.sid?st.refLib:r.lib||"").substring(0,80))}</strong> — ${String((st.sid?st.refDt:r.dt)||"").substring(0,10)} — ${mt}
+      ${!st.sid?`<br>Compte comptable : <strong>${escHtml(String(r.cat||"").substring(0,44)||"—")}</strong>
+      · Code projet actuel : ${r.act
+        ? `<strong>${escHtml(actCode(r.act))}</strong> <span style="color:var(--text-3)">${escHtml(actNom(r.act).substring(0,30))}</span>`
+        : '<strong style="color:var(--amber)">aucun</strong>'}
+      ${r.four?`<br>Fournisseur : ${escHtml(String(r.four).substring(0,40))}`:""}`:""}
       <br><span style="color:var(--text-3)">${st.sid
         ? "Les sous-lignes existantes sont réajustées, jamais recréées : un justificatif déjà rattaché est conservé. Un projet décoché est retiré, sauf s’il porte une pièce."
-        : "L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet : le FEC, les tris et le suivi analytique restent justes."} Annulable avec ↩.</span>
+        : (r.act?"Ce code projet unique sera <strong>remplacé</strong> par une sous-ligne par projet retenu. "
+                :"L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet. ")
+          +"Le FEC, les tris et le suivi analytique restent justes."} Annulable avec ↩.</span>
     </p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:9px;color:var(--text-3)">Familles :</span>
@@ -8725,12 +8793,12 @@ function suiviCell(crit){return _suiviCells.push(crit)-1}
 // Source unique de l'onglet : le tableau, les cartes et le détail d'un montant
 // cliqué lisent tous ce même jeu de lignes, sinon un total ne correspondrait
 // pas à la liste qu'il ouvre.
-let _suiviRatees=[],_suiviPartiels=[],_suiviSurs=[];
+let _suiviRatees=[],_suiviPartiels=[],_suiviSurs=[],_suiviColl=[];
 function suiviBaseRows(){
   let src=D.rows.filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
-  _suiviRatees=[];_suiviPartiels=[];_suiviSurs=[];
+  _suiviRatees=[];_suiviPartiels=[];_suiviSurs=[];_suiviColl=[];
   if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;
-    _suiviRatees=v.ratees;_suiviPartiels=v.partiels;_suiviSurs=v.surs}
+    _suiviRatees=v.ratees;_suiviPartiels=v.partiels;_suiviSurs=v.surs;_suiviColl=v.collectives}
   return src.filter(r=>{
     if(suiviFilt.terr){const t=terrNorm(actTerr(r.act));if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
@@ -8739,6 +8807,89 @@ function suiviBaseRows(){
 }
 // Écritures de paie que la ventilation n'a pas pu répartir. Elles restent dans
 // le tableau sous leur code d'origine : rien n'est perdu, mais il faut le dire.
+// ─── POURQUOI LES SALAIRES NE SE RÉPARTISSENT PAS ───
+// La ventilation dépend d'une chaîne de conditions : l'interrupteur, un « Nom
+// relevé » sur le poste, une écriture reconnue, une affectation couvrant son
+// mois. Quand rien ne bouge, il faut pouvoir voir OÙ la chaîne casse, sans
+// avoir à deviner. Ce diagnostic parcourt les quatre maillons.
+function ventDiag(){
+  const rows=(D.rows||[]).filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
+  const paies=rows.filter(estLignePaie);
+  const postes=D.rhPostes||[];
+  const sansNom=postes.filter(p=>!posteMotifs(p).length);
+  let rec=0,ambigu=0,pasPoste=0,pasAlloc=0,horsContrat=0,ventiles=0,mtVent=0,mtReste=0,mtBloque=0;
+  paies.forEach(r=>{
+    const mt=(r.deb||0)-(r.cre||0);
+    const m=posteMatch(r);
+    if(m.ambigu){ambigu++;mtBloque+=mt;return}
+    if(!m.p){pasPoste++;return}   // charge collective : comptée à part, pas bloquée
+    rec++;
+    const v=ventilParts(r);
+    if(v.err){if(/pas en contrat/.test(v.err))horsContrat++;else pasAlloc++;mtBloque+=mt;return}
+    ventiles++;
+    mtVent+=mt*(1-(v.reste||0));mtReste+=mt*(v.reste||0);
+  });
+  // Les charges collectives passent par la vraie mécanique à deux passes : c'est
+  // la seule façon d'en connaître le sort exact.
+  const v2=ventilRows(rows);
+  const r2=x=>Math.round(x*100)/100;
+  const collOk=v2.collectives.length;
+  const collKO=v2.ratees.filter(x=>/charge collective/.test(x.why||"")).length;
+  return {actif:!!suiviFilt.vent,nPaies:paies.length,nPostes:postes.length,
+    avecNom:postes.length-sansNom.length,sansNom:sansNom.map(p=>String(p.lib||"poste sans intitulé")),
+    rec,ambigu,pasPoste,pasAlloc,horsContrat,ventiles,nAlloc:(D.rhAlloc||[]).length,
+    collOk,collKO,collVent:r2(v2.collectives.reduce((a,x)=>a+x.mtVent,0)),
+    mtVent:r2(mtVent),mtReste:r2(mtReste),mtBloque:r2(mtBloque)};
+}
+function openVentDiag(){
+  const d=ventDiag();
+  const etape=(ok,titre,detail,action)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--border)">
+    <span style="font-size:13px;line-height:1.2">${ok===true?"✅":ok===false?"⛔":"⚠️"}</span>
+    <div style="flex:1"><div style="font-size:10px;font-weight:600">${titre}</div>
+      <div style="font-size:9px;color:var(--text-3);line-height:1.7">${detail}</div>
+      ${action?`<div style="margin-top:4px">${action}</div>`:""}</div></div>`;
+  let h="";
+  h+=etape(d.actif,"1. L’affichage « Salaires : ventilés par poste »",
+    d.actif?"Activé — le tableau et les cartes montrent la répartition."
+    :"<strong>Désactivé.</strong> Les salaires s’affichent au code RH, c’est-à-dire non répartis. C’est le réglage par défaut, et la cause la plus fréquente quand la carte RH ne bouge pas.",
+    d.actif?"":`<button class="b bp" style="font-size:9px" onclick="closeM();suiviSetVent(true)">Activer la ventilation</button>`);
+  h+=etape(d.nPaies>0,"2. Les écritures de paie sont détectées",
+    d.nPaies?d.nPaies+" écriture(s) de paie sur l’exercice affiché (code de la famille RH, ou compte 64x sans code projet)."
+    :"Aucune écriture de paie trouvée sur l’exercice affiché. Vérifiez le filtre « Exercice ».");
+  h+=etape(d.avecNom>0?(d.sansNom.length?null:true):false,"3. Chaque poste porte un « Nom relevé »",
+    d.nPostes?`${d.avecNom} poste(s) sur ${d.nPostes} ont un nom renseigné.`
+      +(d.sansNom.length?` <span style="color:var(--amber)">Sans nom : ${escHtml(d.sansNom.join(" · "))}</span> — les paies de ces postes ne peuvent pas être reconnues.`:"")
+      +`<br>C’est le seul lien entre un virement bancaire et un poste : le nom tel qu’il apparaît sur le libellé de la paie (ex. <em>DUPONT</em>).`
+    :"Aucun poste saisi dans l’onglet RH.",
+    d.sansNom.length||!d.nPostes?`<button class="b bb" style="font-size:9px" onclick="closeM();curTab='rh';rhVue='postes';render()">Aller à RH → Postes</button>`:"");
+  h+=etape(d.rec>0,"4. Les salaires sont rattachés à un poste",
+    `${d.rec} écriture(s) nominative(s) sur ${d.nPaies} reconnue(s).`
+    +(d.ambigu?` <span style="color:var(--red)">${d.ambigu} avec plusieurs postes possibles.</span>`:"")
+    +(d.pasPoste?`<br><span style="color:var(--text-3)">${d.pasPoste} écriture(s) sans nom dans le libellé : ce sont les <strong>charges collectives</strong> (URSSAF, mutuelle, retraite, taxes sur les salaires). Elles ne se rattachent à aucun poste par construction — voir l'étape suivante.</span>`:""));
+  h+=etape(d.collOk>0?(d.collKO?null:true):(d.pasPoste?false:true),"5. Les charges collectives suivent la masse salariale",
+    d.pasPoste
+      ? `${d.collOk} charge(s) collective(s) réparties au prorata des salaires du même mois, pour <strong>${fmt(d.collVent)}</strong>.`
+        +(d.collKO?` <span style="color:var(--amber)">${d.collKO} sans clé utilisable : aucun salaire réparti sur leur période.</span> Il faut qu'au moins un salaire soit ventilé sur le mois — ou sur l'exercice — pour pouvoir répartir une cotisation.`:"")
+      : "Aucune charge collective détectée sur l'exercice affiché.");
+  h+=etape(d.ventiles>0,"6. Une affectation de temps couvre le mois de la paie",
+    `${d.ventiles} paie(s) effectivement réparties.`
+    +(d.pasAlloc?` <span style="color:var(--amber)">${d.pasAlloc} sans affectation couvrant leur mois.</span>`:"")
+    +(d.horsContrat?` <span style="color:var(--text-3)">${d.horsContrat} datée(s) hors période de contrat du poste.</span>`:"")
+    +`<br>${d.nAlloc} affectation(s) saisie(s) au total.`,
+    d.pasAlloc||!d.nAlloc?`<button class="b bb" style="font-size:9px" onclick="closeM();curTab='rh';rhVue='projets';render()">Aller à RH → Par projet</button>`:"");
+  const bloc=d.actif?"":"L’interrupteur est le premier maillon : tant qu’il est sur « Au code RH », les quatre autres ne changent rien à l’affichage.";
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:760px">
+    <h3>🔎 Pourquoi les salaires ne se répartissent-ils pas ?</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 4px;line-height:1.7">
+      ${d.ventiles?`<strong>${fmt(d.mtVent)}</strong> réparti sur les projets · <strong>${fmt(d.mtReste)}</strong> resté sur RH faute d’affectation`:"Rien n’est réparti pour l’instant."}
+      ${d.mtBloque?`<br><strong style="color:var(--amber)">${fmt(d.mtBloque)}</strong> de paie que l’outil ne sait pas rattacher — ce montant reste entier dans RH.`:""}
+      ${bloc?`<br><span style="color:var(--text-3)">${bloc}</span>`:""}
+    </p>
+    ${h}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
 function openVentRatees(){
   suiviBaseRows();
   const L=_suiviRatees.slice().sort((a,b)=>String(a.r.dt||"").localeCompare(String(b.r.dt||"")));
@@ -8801,8 +8952,10 @@ function openSuiviDetail(i){
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.cat||"")}">${escHtml(String(r.cat||"\u2014").substring(0,30))}</td>
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}${
         r._vent?(r._vent.reste
-          ?`<div style="font-size:7px;color:var(--amber)" title="Part du temps de travail de « ${escHtml(r._vent.poste)} » qu'aucun projet ne porte : elle reste sur le code d'origine.">⧉ ${(r._vent.part*100).toFixed(1)} % non affecté</div>`
-          :`<div style="font-size:7px;color:var(--accent-l)" title="Sous-ligne issue de la ventilation du poste « ${escHtml(r._vent.poste)} » — code d'origine ${escHtml(r._vent.de||"aucun")}">⧉ ${(r._vent.part*100).toFixed(1)} % de ${escHtml(r._vent.poste.substring(0,18))}</div>`):""}</td>
+          ?`<div style="font-size:7px;color:var(--amber)" title="Part que ${r._vent.coll?"les salaires du "+(r._vent.base==="mois"?"mois":"l’exercice")+" ne rattachent à aucun projet":"le temps de travail de « "+escHtml(r._vent.poste||"")+" » n’affecte à aucun projet"} : elle reste sur le code d'origine.">⧉ ${(r._vent.part*100).toFixed(1)} % non affecté</div>`
+          :r._vent.coll
+          ?`<div style="font-size:7px;color:var(--accent-l)" title="Charge collective (cotisations, mutuelle, taxes) : aucun nom dans le libellé, donc répartie au prorata des salaires ${r._vent.base==="mois"?"du même mois":"de l’exercice"}.">⧉ ${(r._vent.part*100).toFixed(1)} % · prorata salaires ${r._vent.base==="mois"?"du mois":"de l’exercice"}</div>`
+          :`<div style="font-size:7px;color:var(--accent-l)" title="Sous-ligne issue de la ventilation du poste « ${escHtml(r._vent.poste||"")} » — code d'origine ${escHtml(r._vent.de||"aucun")}">⧉ ${(r._vent.part*100).toFixed(1)} % de ${escHtml(String(r._vent.poste||"").substring(0,18))}</div>`):""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${r.deb?fmt(r.deb):""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${r.cre?fmt(r.cre):""}</td>
       <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(r.modal||"").substring(0,18))}</td>
@@ -8859,12 +9012,25 @@ function rSuivi(el){
       <option value="0"${suiviFilt.vent?"":" selected"}>Au code RH</option>
       <option value="1"${suiviFilt.vent?" selected":""}>Ventilés par poste</option>
     </select>
+    <button class="b bd" style="font-size:8px;padding:2px 6px" onclick="openVentDiag()"
+      title="Voir où la chaîne de ventilation s'arrête : interrupteur, « Nom relevé » sur les postes, rattachement des paies, affectation du temps">🔎 Pourquoi ?</button>
     <span style="font-size:8px;color:var(--text-3)">Projet :</span>
     <select class="ms" style="width:110px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.filter(a=>!suiviFilt.codes.includes(a)).map(a=>`<option>${escHtml(a)}</option>`).join("")}</select>`;
   suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${escHtml(c)}<span class="x">×</span></span>`);
   h+='</div>';
 
   const fR=suiviBaseRows();
+
+  // Sans ce rappel, une carte RH intacte se lit comme une ventilation en panne
+  // alors que l'interrupteur est simplement sur « Au code RH » — c'est le
+  // malentendu le plus coûteux de cet onglet.
+  if(!suiviFilt.vent){
+    const nP=(D.rows||[]).filter(r=>(!suiviFilt.yr||anEq(r.yr,suiviFilt.yr))&&estLignePaie(r)).length;
+    if(nP)h+=`<div style="margin:8px 14px;padding:7px 11px;border-radius:8px;font-size:10px;line-height:1.7;background:var(--bg-2);border:1px solid var(--border)">
+      Les salaires sont affichés <strong>au code RH</strong> — ${nP} écriture(s) de paie non réparties, c'est le réglage par défaut.
+      <button class="b bp" style="font-size:9px;margin-left:6px" onclick="suiviSetVent(true)">Ventiler par poste</button>
+      <button class="b bd" style="font-size:9px;margin-left:4px" onclick="openVentDiag()">🔎 Pourquoi ?</button></div>`;
+  }
 
   // Contrôle du total : la ventilation redistribue, elle ne doit rien créer ni
   // rien perdre. On compare au jeu non ventilé, au centime.
@@ -8877,6 +9043,11 @@ function rSuivi(el){
     if(Math.abs(dd)>0.005||Math.abs(dc)>0.005)
       h+=`<div style="margin:8px 14px;padding:9px 12px;border-radius:8px;font-size:10px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red)">La ventilation ne conserve pas les totaux : ${fmt(dd)} de débit et ${fmt(dc)} de crédit d'écart. Ne vous appuyez pas sur cette vue, signalez-le.</div>`;
     const resteRH=Math.round(_suiviPartiels.reduce((a,x)=>a+x.mt,0)*100)/100;
+    const collVent=Math.round(_suiviColl.reduce((a,x)=>a+x.mtVent,0)*100)/100;
+    if(_suiviColl.length)
+      h+=`<div style="margin:8px 14px;padding:7px 11px;border-radius:8px;font-size:10px;line-height:1.7;background:var(--accent-bg);border:1px solid rgba(99,102,241,.2)">
+        <strong>${_suiviColl.length} charge(s) collective(s)</strong> — cotisations, mutuelle, taxes sur les salaires : aucun nom dans le libellé, donc aucun poste à qui les rattacher.
+        Elles sont réparties <strong>au prorata des salaires du même mois</strong> (${_suiviColl.filter(x=>x.base==="exercice").length?_suiviColl.filter(x=>x.base==="exercice").length+" au prorata de l'exercice, faute de salaire identifié ce mois-là. ":""}<strong>${fmt(collVent)}</strong> réparti).</div>`;
     if(_suiviRatees.length||_suiviPartiels.length||_suiviSurs.length)
       h+=`<div class="warn" style="margin:8px 14px;cursor:pointer;font-size:10px;line-height:1.7" onclick="openVentRatees()">
         ${_suiviRatees.length?`<strong>${_suiviRatees.length} écriture(s) de paie non ventilée(s)</strong> — elles restent entièrement sur leur code d'origine.`:""}
