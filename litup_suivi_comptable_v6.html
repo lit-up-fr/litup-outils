@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31b <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31c <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -725,11 +725,15 @@ let openDD=null;
 // Codes projets triés dans l'ordre alphanumérique attendu par l'œil : BU9 avant BU85,
 // et non l'ordre de saisie. Le tri numérique de localeCompare s'en charge.
 // Résultat mis en cache : sans lui, la liste serait retriée deux fois par ligne du tableau.
-let _actCache=null,_actPart=null;
+let _actCache=null,_actPart=null,_famMigreFait=false;
+// Majuscules sans accents. Declare ici : terrNorm et le rattachement des paies
+// l'utilisent, tous deux definis plus haut dans le fichier que son ancien
+// emplacement — une const plus bas serait hors de portee au moment de l'appel.
+const _NOACC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
 // Mémo de la ventilation des salaires, déclaré ici : invalidateActCache le vide,
 // et une déclaration plus bas serait hors de portée à cet instant.
 let _ventMemo=null;
-function invalidateActCache(){_actCache=null;_actPart=null;_ventMemo=null}
+function invalidateActCache(){_actCache=null;_actPart=null;_ventMemo=null;_famMigreFait=false}
 function actLabels(){
   if(_actCache)return _actCache;
   _actCache=D.acts.map(a=>typeof a==="string"?a:a.l)
@@ -3288,7 +3292,21 @@ function rhSetPresentation(v){pushUndo();D.rhPresentation=v;autoSave();render()}
 // réparti est le coût annuel du poste au prorata des mois couverts. La couverture
 // est vérifiée mois par mois : un mois où le total n'atteint pas 100 % est un
 // trou, un mois au-delà de 100 % est une sur-affectation.
-function rhAllocArr(){if(!Array.isArray(D.rhAlloc))D.rhAlloc=[];return D.rhAlloc}
+// Reecrit @FAM:sud-sc en @FAM:sc, etc. En memoire seulement : la prochaine
+// sauvegarde la fixera, et la migration se rejoue a chaque chargement — donc le
+// comportement est correct meme si rien n'est sauvegarde entre-temps.
+function famMigreAlloc(){
+  if(_famMigreFait)return 0;
+  _famMigreFait=true;
+  let n=0;
+  (Array.isArray(D.rhAlloc)?D.rhAlloc:[]).forEach(a=>{
+    if(!a||!estFam(a.act))return;
+    const c=famCle(a.act),nc=FAM_MIGR[c];
+    if(nc&&nc!==c){a.act=FAM_PFX+nc;n++}
+  });
+  return n;
+}
+function rhAllocArr(){if(!Array.isArray(D.rhAlloc))D.rhAlloc=[];famMigreAlloc();return D.rhAlloc}
 // Chaque poste doit avoir un identifiant : les anciens n'en ont pas.
 function rhPostesIds(){
   let n=0;
@@ -3381,21 +3399,28 @@ const allocCout=(a,y,coutAnnuel)=>coutAnnuel*(parseFloat(a.pct)||0)/100*allocPar
 // Un code n'apparaît qu'une fois : il tombe dans le PREMIER groupe qui le
 // réclame, l'ordre ci-dessous faisant loi. Ce qui ne correspond à rien reste
 // accessible sous « Autres », pour ne jamais rendre un code insélectionnable.
+// SU = Speak uP, une categorie d'Action Jeunes comme BU ou EXP : pas encore
+// utilisee, mais elle rejoint les jeunes le jour ou un code SU apparaitra.
+// SC = Service Civique et IU = Impact uP sont des actions a part entiere : elles
+// ont leurs propres familles, jamais melees aux Action Jeunes.
+// LAB ne prend plus le prefixe LU : Light uP est un parcours jeunes, et la
+// famille LAB ne doit contenir que le laboratoire lui-meme.
 const RH_GROUPES=[
-  {zone:"National",      lib:"LAB", k:"nat-lab",                       pfx:["LU","LAB"],                 terr:["NAT",""]},
-  {zone:"National",      lib:"FG", k:"nat-fg",                        pfx:["FG"],                       terr:null},
-  {zone:"National",      lib:"IU", k:"nat-iu",                        pfx:["IU"],                       terr:["NAT",""]},
-  {zone:"Sud",           lib:"FV", k:"sud-fv",                        pfx:["FV"],                       terr:null},
-  {zone:"Sud",           lib:"Action Jeunes Sud", k:"sud-jeunes",         pfx:["EXP","BU","ME","UTY","LU"], terr:["SUD"]},
-  {zone:"Sud",           lib:"Accompagnement pro Sud", k:"sud-pro",    pfx:["F2F"],                      terr:["SUD"]},
-  {zone:"Sud",           lib:"Suivi Service Civique Sud", k:"sud-sc", pfx:["SU"],                       terr:["SUD"]},
-  {zone:"Sud",           lib:"Suivi Impact uP Sud", k:"sud-impact",       pfx:["IU"],                       terr:["SUD"]},
-  {zone:"\u00cele-de-France", lib:"FP", k:"idf-fp",                        pfx:["FP"],                       terr:null},
-  {zone:"\u00cele-de-France", lib:"Action Jeunes IDF", k:"idf-jeunes",         pfx:["EXP","BU","ME","UTY","LU"], terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Accompagnement pro IDF", k:"idf-pro",    pfx:["F2F"],                      terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Suivi Service Civique IDF", k:"idf-sc", pfx:["SU"],                       terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Suivi Impact uP IDF", k:"idf-impact",       pfx:["IU"],                       terr:["IDF"]}
+  {zone:"National",      lib:"LAB", k:"nat-lab",                       pfx:["LAB"],                           terr:["NAT",""]},
+  {zone:"National",      lib:"FG", k:"nat-fg",                        pfx:["FG"],                            terr:null},
+  {zone:"National",      lib:"IU", k:"iu",                          pfx:["IU"],                            terr:null},
+  {zone:"National",      lib:"SC", k:"sc",                          pfx:["SC"],                            terr:null},
+  {zone:"Sud",           lib:"FV", k:"sud-fv",                        pfx:["FV"],                            terr:null},
+  {zone:"Sud",           lib:"Action Jeunes Sud", k:"sud-jeunes",         pfx:["EXP","BU","ME","UTY","LU","SU"], terr:["SUD"]},
+  {zone:"Sud",           lib:"Accompagnement pro Sud", k:"sud-pro",    pfx:["F2F"],                           terr:["SUD"]},
+  {zone:"\u00cele-de-France", lib:"FP", k:"idf-fp",                        pfx:["FP"],                            terr:null},
+  {zone:"\u00cele-de-France", lib:"Action Jeunes IDF", k:"idf-jeunes",         pfx:["EXP","BU","ME","UTY","LU","SU"], terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Accompagnement pro IDF", k:"idf-pro",    pfx:["F2F"],                           terr:["IDF"]}
 ];
+// Service Civique et Impact uP se pilotent d'un bloc, IDF et Sud ensemble : les
+// familles par territoire d'avant sont redirigees vers la famille unique, pour
+// qu'une affectation deja saisie ne pointe pas dans le vide.
+const FAM_MIGR={"sud-sc":"sc","idf-sc":"sc","sud-impact":"iu","idf-impact":"iu","nat-iu":"iu"};
 // Codes qu'on n'affecte jamais à du temps de travail : « RH » désigne la
 // fonction employeur elle-même, pas une activité sur laquelle on passe des
 // heures. Ils restent utilisables partout ailleurs dans l'outil.
@@ -3408,14 +3433,29 @@ const rhExclu=label=>estProspect(label)||RH_EXCLUS.some(x=>rhPfxMatch(actCode(la
 // « SU » ne doit pas happer un code « SUD… », et « ME » ni « BU » ne doivent
 // mordre sur un préfixe plus long : on exige que le préfixe soit suivi d'un
 // chiffre ou de la fin du code, ce qui est la forme de tous les codes existants.
+// Le code doit COMMENCER par le prefixe, et ce qui suit ne doit pas prolonger le
+// mot : un chiffre (BU91), un separateur (« SC IDF », « IU Sud ») ou la fin.
+// Sans le separateur, « SC IDF » n'etait reconnu par aucun prefixe et le code
+// tombait hors regroupement — c'etait le cas de SC IDF, SC SUD, IU IDF, IU SUD.
 function rhPfxMatch(code,pfx){
   if(code.indexOf(pfx)!==0)return false;
   const suite=code.substring(pfx.length);
-  return suite===""||/^[0-9]/.test(suite);
+  return suite===""||/^[0-9 _-]/.test(suite);
+}
+// Airtable ecrit « NATIONAL » la ou l'outil attend « NAT », et « ILE-DE-FRANCE »
+// arrive aussi sous plusieurs graphies. Sans normalisation, LAB2026 (territoire
+// « NATIONAL ») ne rejoignait aucun groupe.
+function terrNorm(t){
+  const u=_NOACC(t).replace(/[^A-Z]/g,"");
+  if(!u)return "";
+  if(u.indexOf("NAT")===0)return "NAT";
+  if(u==="IDF"||u.indexOf("ILEDEFRANCE")===0)return "IDF";
+  if(u.indexOf("SUD")===0)return "SUD";
+  return u;
 }
 function rhGroupeDe(label){
   if(actEstAncien(label))return -2;   // exercice révolu : son propre groupe, en dernier
-  const code=actCode(label),terr=String(actTerr(label)||"").toUpperCase();
+  const code=actCode(label),terr=terrNorm(actTerr(label));
   for(let i=0;i<RH_GROUPES.length;i++){
     const g=RH_GROUPES[i];
     if(!g.pfx.some(x=>rhPfxMatch(code,x)))continue;
@@ -3472,7 +3512,8 @@ function actSetTerr(label,t){
 const FAM_PFX="@FAM:";
 const estFam=v=>String(v||"").indexOf(FAM_PFX)===0;
 const famCle=v=>String(v||"").substring(FAM_PFX.length);
-const famGroupe=cle=>RH_GROUPES.find(g=>g.k===cle)||null;
+const famCleNorm=c=>FAM_MIGR[String(c||"")]||String(c||"");
+const famGroupe=cle=>RH_GROUPES.find(g=>g.k===famCleNorm(cle))||null;
 function famLib(v){const g=famGroupe(famCle(v));return g?g.zone+" \u2014 "+g.lib:"famille inconnue"}
 function famProjets(cle){
   const g=famGroupe(cle);if(!g)return [];
@@ -3559,6 +3600,27 @@ function heuresManquantes(){
   return actLabels().filter(l=>!rhExclu(l)&&!actEstAncien(l)&&heuresUtiles(l)&&actHeures(actCode(l))<=0)
     .map(l=>({code:actCode(l),lib:l}));
 }
+// Un parcours supprime dans Airtable laisse son code dans la liste de l'outil :
+// il continue d'apparaitre dans les familles et de reclamer des heures qui ne
+// viendront jamais. On le retire — mais jamais s'il porte des ecritures : elles
+// perdraient leur code projet en silence, et c'est a elle de les reaffecter.
+function actNbEcritures(code){
+  const c=String(code||"").toUpperCase();
+  return (D.rows||[]).filter(r=>actCode(r.act)===c).length;
+}
+function actSupprCode(code){
+  const c=String(code||"").toUpperCase();if(!c)return;
+  const n=actNbEcritures(c);
+  if(n){alert("« "+c+" » porte encore "+n+" écriture(s).\n\nRéaffectez-les à un autre code projet depuis le classement, puis revenez retirer celui-ci.");return}
+  const l=actLabels().find(x=>actCode(x)===c);
+  if(!l)return;
+  if(!confirm("Retirer le code projet « "+c+" » de la liste ?\n\nAucune écriture ne l'utilise. Il reviendra au prochain chargement Airtable si un parcours le porte encore.\n\nAnnulable avec ↩."))return;
+  pushUndo();
+  D.acts=D.acts.filter(a=>actCode(a)!==c);
+  invalidateActCache();autoSave();render();
+  toast("Code « "+c+" » retiré de la liste");
+  if(_famSplit)famSplitDessine();else openHeuresManquantes();
+}
 function openHeuresManquantes(){
   const L=heuresManquantes();
   // Avant le premier chargement Airtable, aucun code n'a d'identifiant : dire
@@ -3574,8 +3636,11 @@ function openHeuresManquantes(){
       <td style="padding:3px 6px">${synchro&&!actRid(x.code)
         ? `<span style="font-size:9px;color:var(--amber)" title="Le dernier chargement Airtable n'a renvoyé aucun parcours sous ce code : soit le libellé diffère dans la base, soit le parcours n'existe pas (ou plus). Les heures ne pourront jamais venir d'Airtable pour ce code — corrigez le libellé dans la base, ou saisissez la valeur ci-contre.">aucun parcours sous ce code ⚠️</span>`
         : `<a href="${actAirtableUrl(x.code)}" target="_blank" rel="noopener" style="font-size:9px;color:var(--accent-l)">Ouvrir dans Airtable ↗</a>`}</td>
+      <td style="padding:3px 6px;font-size:9px;white-space:nowrap">${(()=>{const n=actNbEcritures(x.code);
+        return n?`<span style="color:var(--text-3)" title="Ce code porte des écritures : réaffectez-les avant de pouvoir le retirer.">${n} écriture(s)</span>`
+                :`<button class="b bd" style="font-size:8px" onclick="actSupprCode('${x.code.replace(/'/g,"")}')" title="Retirer ce code de la liste — aucune écriture ne l'utilise">🗑 retirer</button>`})()}</td>
     </tr>`).join("")
-    :`<tr><td colspan="5" style="padding:14px;font-size:10px;color:var(--text-3)">Tous les projets ont un volume d'heures.</td></tr>`;
+    :`<tr><td colspan="6" style="padding:14px;font-size:10px;color:var(--text-3)">Tous les projets ont un volume d'heures.</td></tr>`;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:820px">
     <h3>⏱ Heures d'action manquantes</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
@@ -3586,7 +3651,7 @@ function openHeuresManquantes(){
     </p>
     <div style="overflow:auto;max-height:56vh;border:1px solid var(--border);border-radius:6px">
       <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
-        ${["Code","Projet","Territoire","Heures (saisie manuelle)","Airtable"].map(x=>`<th style="padding:5px 6px;font-size:9px;text-align:left">${x}</th>`).join("")}
+        ${["Code","Projet","Territoire","Heures (saisie manuelle)","Airtable","Écritures"].map(x=>`<th style="padding:5px 6px;font-size:9px;text-align:left">${x}</th>`).join("")}
       </tr></thead><tbody>${lignes}</tbody></table>
     </div>
     <div style="display:flex;gap:6px;margin-top:12px"><button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button></div>
@@ -3626,7 +3691,6 @@ function famParts(actifs,y){
 // relier une ecriture a SON poste : le seul lien disponible est le nom qui
 // figure sur le libelle du virement. Il faut donc le saisir sur le poste - c'est
 // le prix de l'exactitude, et c'est le choix retenu.
-const _NOACC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
 // Plusieurs graphies possibles pour un meme poste, separees par , ; ou /.
 // Moins de trois caracteres serait un motif attrape-tout : on l'ecarte.
 function posteMotifs(p){
@@ -3748,19 +3812,28 @@ function famSplitProjets(cle,scope,y,m){
   if(scope==="mois")return famActifs(cle,y,m);
   return famActifsAn(cle,y);
 }
-// Calcule la repartition proposee. Les centimes de l'arrondi vont sur la
-// derniere part : la somme des sous-lignes egale l'ecriture d'origine, au
-// centime, et c'est cela qu'il faut garantir.
+// Calcule la répartition proposée. Un financement peut couvrir PLUSIEURS
+// familles à la fois — une subvention Service Civique et Impact uP, par exemple :
+// tous les projets des familles retenues se partagent le montant, pondérés par
+// leurs heures d'action. Les centimes de l'arrondi vont sur la dernière part, la
+// somme des sous-lignes égale donc l'écriture d'origine au centime.
 function famSplitCalc(){
   const st=_famSplit;if(!st)return null;
   const r=D.rows.find(x=>x.id===st.id);if(!r)return null;
   const mk=moKey(r.dt)||"";
   const y=mk?Number(mk.substring(0,4)):Number(anStr(r.yr))||new Date().getFullYear();
   const m=mk?Number(mk.substring(5,7))-1:0;
-  // tous = les projets du périmètre, affichés avec leur case. retenus = ceux
-  // qui sont cochés, et eux seuls se partagent le montant. Une famille n'est
-  // qu'une proposition de départ : c'est la sélection qui décide.
-  const tous=st.cle?famSplitProjets(st.cle,st.scope,y,m):[];
+  // Un bloc par famille, dans l'ordre d'ajout. Un projet déjà vu dans une
+  // famille précédente n'est pas compté deux fois : il ne toucherait sinon une
+  // double part sans que rien ne le montre.
+  const vu=new Set(),groupes=[],tous=[],parFam={};
+  (st.cles||[]).forEach(cle=>{
+    const g=famGroupe(cle);
+    const proj=famSplitProjets(cle,st.scope,y,m)
+      .filter(l=>{if(vu.has(l))return false;vu.add(l);return true});
+    proj.forEach(l=>{tous.push(l);parFam[l]=g?g.zone+" — "+g.lib:cle});
+    groupes.push({cle,lib:g?g.lib:cle,zone:g?g.zone:"",proj});
+  });
   const retenus=st.sel?tous.filter(l=>st.sel.indexOf(l)>=0):tous.slice();
   const k=retenus.length?famParts(retenus,y):{mode:"egal",sans:[],parts:[]};
   let rd=0,rc=0;
@@ -3772,10 +3845,44 @@ function famSplitCalc(){
     return {act:l,part:k.parts[i],deb:d,cre:c};
   });
   const parAct={};parts.forEach(x=>{parAct[x.act]=x});
-  return {r,y,m,mk,tous,retenus,proj:retenus,mode:k.mode,sans:k.sans,parts,parAct};
+  // sel est renvoye : famSplitResel compare l'ancienne selection a la nouvelle
+  // liste, et sans cette cle il retombait sur « tout etait coche » — un projet
+  // volontairement ecarte revenait des qu'on ajoutait une famille.
+  return {r,y,m,mk,groupes,tous,retenus,parFam,sel:st.sel||null,mode:k.mode,sans:k.sans,parts,parAct};
 }
-// La sélection se règle par indice dans le périmètre : un libellé de projet
-// contient apostrophes et guillemets, et un attribut onclick ne les supporte pas.
+// Ajouter ou retirer une famille, ou changer de périmètre, ne doit pas effacer
+// les décochages déjà faits : on garde les choix encore valables, et tout projet
+// qui apparaît arrive coché.
+function famSplitResel(avant){
+  const c=famSplitCalc();if(!c)return;
+  if(!avant){_famSplit.sel=null;return}
+  const base=avant.sel?avant.sel:avant.tous;
+  const gardes=base.filter(l=>c.tous.indexOf(l)>=0);
+  const nouveaux=c.tous.filter(l=>avant.tous.indexOf(l)<0);
+  _famSplit.sel=gardes.concat(nouveaux);
+}
+// Les clés de famille sont des identifiants sans espace ni apostrophe : elles
+// peuvent transiter par un attribut onchange. Les libellés de projets, non — d'où
+// les indices partout ailleurs.
+function famSplitAjout(cle){
+  if(!_famSplit||!cle)return;
+  const avant=famSplitCalc();
+  if(!Array.isArray(_famSplit.cles))_famSplit.cles=[];
+  if(_famSplit.cles.indexOf(cle)<0)_famSplit.cles.push(cle);
+  famSplitResel(avant);famSplitDessine();
+}
+function famSplitRetire(i){
+  if(!_famSplit||!Array.isArray(_famSplit.cles))return;
+  const avant=famSplitCalc();
+  _famSplit.cles.splice(i,1);
+  famSplitResel(avant);famSplitDessine();
+}
+function famSplitScope(v){
+  if(!_famSplit)return;
+  const avant=famSplitCalc();
+  _famSplit.scope=v;
+  famSplitResel(avant);famSplitDessine();
+}
 function famSplitCoche(i){
   const c=famSplitCalc();if(!c)return;
   const l=c.tous[i];if(l===undefined)return;
@@ -3792,24 +3899,23 @@ function famSplitTout(v){
 }
 function openFamSplit(id){
   const r=D.rows.find(x=>x.id===id);if(!r)return;
-  _famSplit={id,cle:"",scope:"annee",sel:null};
+  _famSplit={id,cles:[],scope:"annee",sel:null};
   famSplitDessine();
 }
-// Changer de famille ou de périmètre repart d'une sélection complète : garder
-// l'ancienne cocherait des projets qui ne sont plus proposés.
-function famSplitSet(champ,v){if(!_famSplit)return;_famSplit[champ]=v;_famSplit.sel=null;famSplitDessine()}
 function famSplitDessine(){
   const c=famSplitCalc();
   if(!c){$("modalC").innerHTML="";_famSplit=null;return}
-  const r=c.r,st=_famSplit;
+  const r=c.r,st=_famSplit,cles=st.cles||[];
   const mt=(r.deb||0)>0?fmt(r.deb)+" de débit":fmt(r.cre)+" de crédit";
-  // Familles proposees, regroupees par zone comme dans l'affectation RH.
-  let opts='<option value="">— Choisir une famille —</option>';
+  const scrollAv=(document.getElementById("famSplitScroll")||{}).scrollTop||0;
+  // Familles proposées, regroupées par zone, celles déjà retenues en moins.
+  let opts='<option value="">+ Ajouter une famille…</option>';
   let zone="";
   RH_GROUPES.forEach(g=>{
+    if(cles.indexOf(g.k)>=0)return;
     if(g.zone!==zone){if(zone)opts+="</optgroup>";opts+='<optgroup label="'+escHtml(g.zone)+'">';zone=g.zone}
     const n=famSplitProjets(g.k,st.scope,c.y,c.m).length;
-    opts+='<option value="'+g.k+'"'+(st.cle===g.k?" selected":"")+(n?"":" disabled")+'>'
+    opts+='<option value="'+g.k+'"'+(n?"":" disabled")+'>'
       +escHtml(g.lib)+" — "+n+" projet(s)"+(n?"":" : rien à répartir")+"</option>";
   });
   if(zone)opts+="</optgroup>";
@@ -3817,36 +3923,44 @@ function famSplitDessine(){
                 ["annee","Projets actifs sur l’exercice "+c.y],
                 ["tous","Tous les projets de la famille"]];
   let corps="";
-  if(!st.cle){
-    corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Choisissez une famille pour voir la répartition proposée.</div>';
+  if(!cles.length){
+    corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Ajoutez une ou plusieurs familles pour voir la répartition proposée. Un financement qui couvre le Service Civique et l’Impact uP, par exemple, se répartit sur les deux d’un coup.</div>';
   }else if(!c.tous.length){
-    corps='<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de cette famille ne répond à ce périmètre. Élargissez le périmètre ci-dessus, ou vérifiez que les projets de la famille portent bien un territoire.</div>';
+    corps='<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de ces familles ne répond à ce périmètre. Élargissez le périmètre ci-dessus, ou vérifiez que les projets portent bien un territoire.</div>';
   }else{
     const sd=c.parts.reduce((a,x)=>a+x.deb,0),sc=c.parts.reduce((a,x)=>a+x.cre,0);
     const ecart=Math.round((sd-(r.deb||0))*100)/100, ecartC=Math.round((sc-(r.cre||0))*100)/100;
     const nCoch=c.retenus.length;
+    let lignes="";
+    c.groupes.forEach(g=>{
+      const pris=g.proj.filter(l=>c.parAct[l]).length;
+      lignes+=`<tr><td colspan="7" style="padding:4px 6px;font-size:8px;font-weight:700;color:var(--accent-l);background:var(--accent-bg)">
+        ${escHtml(g.zone)} — ${escHtml(g.lib)} · ${pris} retenu(s) sur ${g.proj.length}${g.proj.length?"":" : aucun projet sur ce périmètre"}</td></tr>`;
+      g.proj.forEach(l=>{
+        const i=c.tous.indexOf(l), x=c.parAct[l], on=!!x;
+        const code=actCode(l), hh=actHeures(code), org=actHeuresOrig(code);
+        lignes+=`<tr style="${on?"":"opacity:.45"}">
+          <td style="padding:3px 6px"><input type="checkbox"${on?" checked":""} onchange="famSplitCoche(${i})"
+            title="${on?"Retirer ce projet de la répartition":"Inclure ce projet dans la répartition"}"></td>
+          <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(code)}</td>
+          <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(l).substring(0,38))}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right">${hh>0
+            ?`<span style="color:var(--text-2)" title="${org==="airtable"?"Reprises d’Airtable (« Nb heures formation »)":"Saisie manuelle"}">${hh}${org==="airtable"?"":" ✎"}</span>`
+            :`<span style="color:var(--amber)" title="« Nb heures formation » est vide dans Airtable pour ce parcours : la répartition retombe à parts égales.">vide ⚠️</span>`}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${on?(x.part*100).toFixed(2)+" %":"—"}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${on&&x.deb?fmt(x.deb):""}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${on&&x.cre?fmt(x.cre):""}</td></tr>`;
+      });
+    });
     corps=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
-        <span style="font-size:9px;color:var(--text-3)">Projets retenus : <strong style="color:var(--text-1)">${nCoch}</strong> sur ${c.tous.length}</span>
+        <span style="font-size:9px;color:var(--text-3)">Projets retenus : <strong style="color:var(--text-1)">${nCoch}</strong> sur ${c.tous.length}, dans ${cles.length} famille(s)</span>
         <button class="b bd" style="font-size:8px" onclick="famSplitTout(true)">Tout cocher</button>
         <button class="b bd" style="font-size:8px" onclick="famSplitTout(false)">Tout décocher</button>
       </div>
-      <div id="famSplitScroll" style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:42vh">
+      <div id="famSplitScroll" style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:40vh">
       <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
         ${["","Code","Projet","Heures d’action","Part","Débit","Crédit"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=4?"right":"left"}">${x}</th>`).join("")}
-      </tr></thead><tbody>
-      ${c.tous.map((l,i)=>{
-        const x=c.parAct[l], on=!!x, code=actCode(l), hh=actHeures(code), org=actHeuresOrig(code);
-        return `<tr style="${on?"":"opacity:.45"}">
-        <td style="padding:3px 6px"><input type="checkbox"${on?" checked":""} onchange="famSplitCoche(${i})"
-          title="${on?"Retirer ce projet de la répartition":"Inclure ce projet dans la répartition"}"></td>
-        <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(code)}</td>
-        <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(l).substring(0,40))}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right">${hh>0
-          ?`<span style="color:var(--text-2)" title="${org==="airtable"?"Reprises d’Airtable (« Nb heures formation »)":"Saisie manuelle"}">${hh}${org==="airtable"?"":" ✎"}</span>`
-          :`<span style="color:var(--amber)" title="« Nb heures formation » est vide dans Airtable pour ce parcours : la répartition retombe à parts égales.">vide ⚠️</span>`}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${on?(x.part*100).toFixed(2)+" %":"—"}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${on&&x.deb?fmt(x.deb):""}</td>
-        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${on&&x.cre?fmt(x.cre):""}</td></tr>`}).join("")}
+      </tr></thead><tbody>${lignes}
       <tr style="border-top:2px solid var(--accent);font-weight:700">
         <td colspan="4" style="padding:4px 6px;font-size:9px">${nCoch} sous-ligne(s)</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${nCoch?"100,00 %":"—"}</td>
@@ -3855,29 +3969,32 @@ function famSplitDessine(){
       </tbody></table></div>
       <p style="font-size:9px;color:var(--text-3);margin:8px 0 0;line-height:1.7">
         ${!nCoch?'<span style="color:var(--amber)">Aucun projet coché : rien à répartir.</span>'
-        :nCoch===1?"Un seul projet retenu : il reçoit la totalité de l\u2019écriture, les heures d\u2019action n\u2019entrent pas en jeu."
+        :nCoch===1?"Un seul projet retenu : il reçoit la totalité de l’écriture, les heures d’action n’entrent pas en jeu."
         :c.mode==="heures"
-          ?"Pondération par les <strong>heures d’action</strong> (« Nb heures formation » d’Airtable), ramenées au nombre de mois d’activité de chaque projet."
+          ?"Pondération par les <strong>heures d’action</strong> (« Nb heures formation » d’Airtable), ramenées au nombre de mois d’activité de chaque projet. Les familles ne sont pas égalisées entre elles : c’est le volume d’heures de chaque projet qui décide, quelle que soit sa famille."
           :"Parts <strong>égales</strong>"+(c.sans.length?' : '+c.sans.length+" projet(s) sans heures ("+escHtml(c.sans.map(actCode).join(", "))+"). Remplissez « Nb heures formation » dans Airtable puis ☁️ Charger → Airtable, ou saisissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>.":" — aucune heure d’action renseignée.")}
         ${nCoch&&(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":nCoch?"<br>La somme des sous-lignes égale l’écriture d’origine, au centime.":""}
       </p>`;
   }
-  const pret=st.cle&&c.parts.length;
-  const scrollAv=(document.getElementById("famSplitScroll")||{}).scrollTop||0;
-  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:860px">
-    <h3>⧉ Répartir sur une famille de projets</h3>
+  const pret=c.parts.length>0;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:900px">
+    <h3>⧉ Répartir sur une ou plusieurs familles</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
       <strong>${escHtml(String(r.lib||"").substring(0,80))}</strong> — ${String(r.dt||"").substring(0,10)} — ${mt}
       <br><span style="color:var(--text-3)">L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet : le FEC, les tris et le suivi analytique restent justes. Annulable avec ↩.</span>
     </p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <span style="font-size:9px;color:var(--text-3)">Famille :</span>
-      <select class="ms" style="width:260px" onchange="famSplitSet('cle',this.value)">${opts}</select>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:9px;color:var(--text-3)">Familles :</span>
+      <select class="ms" style="width:250px" onchange="famSplitAjout(this.value)">${opts}</select>
       <span style="font-size:9px;color:var(--text-3)">Périmètre :</span>
-      <select class="ms" style="width:250px" onchange="famSplitSet('scope',this.value)">
+      <select class="ms" style="width:250px" onchange="famSplitScope(this.value)">
         ${scopes.map(([k,l])=>`<option value="${k}"${st.scope===k?" selected":""}>${escHtml(l)}</option>`).join("")}
       </select>
     </div>
+    ${cles.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">${cles.map((k,i)=>{
+      const g=famGroupe(k);
+      return `<span class="chip" onclick="famSplitRetire(${i})" title="Retirer cette famille">${escHtml(g?g.zone+" — "+g.lib:k)}<span class="x">×</span></span>`;
+    }).join("")}</div>`:""}
     ${corps}
     <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
       <button class="b bp"${pret?"":" disabled style=\"opacity:.4;cursor:not-allowed\""} onclick="famSplitValider()">⧉ Éclater en ${pret?c.parts.length:0} sous-ligne(s)</button>
@@ -3885,26 +4002,28 @@ function famSplitDessine(){
     </div></div></div>`;
   // Cocher une case redessine la modale : sans cela la liste remonterait en
   // haut a chaque clic, ce qui rend une famille de vingt projets impraticable.
-  const sc=document.getElementById("famSplitScroll");
-  if(sc&&scrollAv)sc.scrollTop=scrollAv;
+  const scEl=document.getElementById("famSplitScroll");
+  if(scEl&&scrollAv)scEl.scrollTop=scrollAv;
 }
 function famSplitFermer(){_famSplit=null;closeM()}
 function famSplitValider(){
   const c=famSplitCalc();if(!c||!c.parts.length)return;
-  const g=famGroupe(_famSplit.cle);
   const i=D.rows.findIndex(x=>x.id===c.r.id);if(i<0)return;
   pushUndo();
-  const base=c.r, trace=(g?g.zone+" — "+g.lib:_famSplit.cle);
+  const base=c.r;
+  // Chaque sous-ligne trace SA famille d'origine, pas la liste entiere : c'est
+  // ce qu'on veut lire six mois plus tard sur une ligne prise au hasard.
   const subs=c.parts.map((x,j)=>Object.assign({},base,{
     id:"f"+Date.now().toString(36)+"_"+j,
     act:x.act, deb:x.deb, cre:x.cre,
     comment:[String(base.comment||"").trim(),
-      "Réparti depuis « "+trace+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
+      "Réparti depuis « "+(c.parFam[x.act]||"famille")+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
   }));
   subs.forEach(x=>{delete x._vent});
   D.rows.splice(i,1,...subs);
+  const nf=(_famSplit.cles||[]).length;
   _famSplit=null;closeM();autoSave();render();
-  toast(c.parts.length+" sous-ligne(s) créée(s) sur « "+trace+" »");
+  toast(c.parts.length+" sous-ligne(s) créée(s) sur "+nf+" famille(s)");
 }
 // Nombre d'ecritures de paie qu'un poste reconnait : le seul moyen de verifier
 // qu'un Nom releve est le bon, sans ouvrir le classement.
@@ -8179,6 +8298,7 @@ const SUIVI_CATS=[
   {k:"F2F", l:"F2F",            pfx:["F2F"]},
   {k:"LAB", l:"LAB",            pfx:["LU","LAB"]},
   {k:"SU",  l:"SU",             pfx:["SU"]},
+  {k:"SC",  l:"Service Civique",pfx:["SC"]},
   {k:"IU",  l:"IU",             pfx:["IU"]},
   {k:"RH",  l:"RH",             pfx:["RH"]},
   {k:"FONC",l:"Fonctionnement", pfx:["FG","FP","FV"]}
@@ -8224,7 +8344,7 @@ function suiviBaseRows(){
   _suiviRatees=[];
   if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;_suiviRatees=v.ratees}
   return src.filter(r=>{
-    if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
+    if(suiviFilt.terr){const t=terrNorm(actTerr(r.act));if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
     return true;
   });
