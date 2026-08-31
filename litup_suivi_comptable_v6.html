@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26j <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26k <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -705,7 +705,9 @@ let curTab="class",curFilt="",compYear="2026";
 // L'onglet Synthèse est fusionné dans le suivi analytique : ses cartes y sont
 // reprises en tête, regroupées par famille de projet. « col » retient la vue de
 // colonnes choisie (projets, familles, mois) d'une session à l'autre.
-let suiviFilt={codes:[],yr:"",terr:"",col:(()=>{try{return localStorage.getItem("litup_suiviCol")||"proj"}catch(e){return "proj"}})()};
+let suiviFilt={codes:[],yr:"",terr:"",
+  col:(()=>{try{return localStorage.getItem("litup_suiviCol")||"proj"}catch(e){return "proj"}})(),
+  vent:(()=>{try{return localStorage.getItem("litup_suiviVent")==="1"}catch(e){return false}})()};
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
 // Version du budget affichée (null = la plus récente). Préférence locale, pas une donnée partagée.
@@ -722,7 +724,10 @@ let openDD=null;
 // et non l'ordre de saisie. Le tri numérique de localeCompare s'en charge.
 // Résultat mis en cache : sans lui, la liste serait retriée deux fois par ligne du tableau.
 let _actCache=null,_actPart=null;
-function invalidateActCache(){_actCache=null;_actPart=null}
+// Mémo de la ventilation des salaires, déclaré ici : invalidateActCache le vide,
+// et une déclaration plus bas serait hors de portée à cet instant.
+let _ventMemo=null;
+function invalidateActCache(){_actCache=null;_actPart=null;_ventMemo=null}
 function actLabels(){
   if(_actCache)return _actCache;
   _actCache=D.acts.map(a=>typeof a==="string"?a:a.l)
@@ -3105,6 +3110,7 @@ function rhSetPoste(i,f,v){
   if(f==="brut"||f==="quotite")v=parseFloat(String(v).replace(",","."))||0;
   if(f==="statut"){p.cdd=(v==="CDD")}
   p[f]=v;autoSave();
+  if(f==="nom")invalidateActCache();   // le rattachement des paies change
   if(f==="lib"||f==="terr")return;      // champs texte : pas de re-rendu
   render();
 }
@@ -3527,6 +3533,265 @@ function famParts(actifs,y){
   if(tot<=0)return {mode:"egal",sans:[],parts:actifs.map(()=>1/actifs.length)};
   return {mode:"heures",sans:[],parts:poids.map(x=>x/tot)};
 }
+// --- VENTILATION DES SALAIRES SUR LES PROJETS ---
+// Les ecritures de paie arrivent de la banque sous un code RH global : elles ne
+// disent pas sur quels projets le temps a ete passe. Les affectations saisies
+// dans RH / Par projet le disent, poste par poste et mois par mois. Reste a
+// relier une ecriture a SON poste : le seul lien disponible est le nom qui
+// figure sur le libelle du virement. Il faut donc le saisir sur le poste - c'est
+// le prix de l'exactitude, et c'est le choix retenu.
+const _NOACC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+// Plusieurs graphies possibles pour un meme poste, separees par , ; ou /.
+// Moins de trois caracteres serait un motif attrape-tout : on l'ecarte.
+function posteMotifs(p){
+  return String(p&&p.nom||"").split(/[;,\/]+/).map(x=>_NOACC(x).trim()).filter(x=>x.length>=3);
+}
+// Poste porte par une ecriture. Le motif le plus long gagne : MARTINEZ n'est
+// pas MARTIN. Deux postes differents reconnus par un motif de meme longueur
+// sont une ambiguite - l'outil ne tranche pas, il le signale.
+function posteMatch(r){
+  const txt=_NOACC((r&&r.lib||"")+" "+(r&&r.four||""));
+  if(!txt.trim())return {p:null,ambigu:false};
+  let best=null,bestLen=0,ambigu=false;
+  (D.rhPostes||[]).forEach(p=>{
+    posteMotifs(p).forEach(m=>{
+      if(txt.indexOf(m)<0)return;
+      if(m.length>bestLen){best=p;bestLen=m.length;ambigu=false}
+      else if(m.length===bestLen&&best&&best!==p)ambigu=true;
+    });
+  });
+  return {p:ambigu?null:best,ambigu};
+}
+// Une ecriture de paie : soit elle porte un code de la famille RH, soit elle est
+// sur un compte de personnel (64x) sans code projet. Une ecriture 64x DEJA
+// affectee a un projet reel est laissee telle quelle : quelqu'un l'a ventilee a
+// la main, la reventiler effacerait ce travail.
+function estLignePaie(r){
+  if(actCat(r&&r.act)==="RH")return true;
+  return /^64/.test(catKey(r&&r.cat||""))&&!actCode(r&&r.act);
+}
+// Memo de la ventilation : famActifs et projMoisActifs balaient D.rows, et une
+// ventilation les rappelle des centaines de fois. _ventMemo est declare tout en
+// haut, avec les autres caches, et vide par invalidateActCache.
+function ventMemo(){if(!_ventMemo)_ventMemo={fa:{},fp:{},nb:null};return _ventMemo}
+function ventFamActifs(cle,y,m){
+  const c=ventMemo().fa,k=cle+"|"+y+"|"+m;
+  if(!(k in c))c[k]=famActifs(cle,y,m);
+  return c[k];
+}
+function ventFamParts(actifs,y){
+  const c=ventMemo().fp,k=y+"|"+actifs.join("~");
+  if(!(k in c))c[k]=famParts(actifs,y);
+  return c[k];
+}
+// Cles de repartition d'une ecriture de paie : rend les parts (somme = 1) ou la
+// raison pour laquelle la ventilation est impossible.
+function ventilParts(r){
+  const mk=moKey(r&&r.dt);
+  if(!mk)return {err:"pas de date exploitable"};
+  const y=Number(mk.substring(0,4)),m=Number(mk.substring(5,7))-1;
+  const mt=posteMatch(r);
+  if(mt.ambigu)return {err:"plusieurs postes reconnus dans le libellé"};
+  if(!mt.p)return {err:"aucun poste reconnu — renseignez « Nom relevé » sur le poste"};
+  const p=mt.p,poids={};
+  let tot=0;
+  rhAllocDe(p).forEach(a=>{
+    const pct=parseFloat(a.pct)||0;if(pct<=0)return;
+    const cv=allocCouv(a,y)[m];if(!cv)return;
+    const w=pct*cv;
+    if(estFam(a.act)){
+      const actifs=ventFamActifs(famCle(a.act),y,m);
+      if(!actifs.length)return;
+      const fp=ventFamParts(actifs,y);
+      actifs.forEach((l,i)=>{const x=w*fp.parts[i];if(x>0){poids[l]=(poids[l]||0)+x;tot+=x}});
+    }else if(a.act){
+      poids[a.act]=(poids[a.act]||0)+w;tot+=w;
+    }
+  });
+  if(tot<=0){
+    // Un mois hors contrat n'est pas un oubli de saisie : c'est une paie datee
+    // avant l'embauche ou apres la sortie du poste, et c'est cette date-la qu'il
+    // faut regarder. Le dire autrement enverrait chercher un trou inexistant.
+    const du=String(p.debut||"").substring(0,7),au=String(p.fin||"").substring(0,7);
+    if((du&&mk<du)||(au&&mk>au))
+      return {err:"le poste \u00ab\u00a0"+String(p.lib||"")+"\u00a0\u00bb n\u2019est pas en contrat en "+mk
+        +" (du "+(du||"?")+" au "+(au||"sans fin")+")",poste:p};
+    return {err:"aucune affectation du poste \u00ab\u00a0"+String(p.lib||"")+"\u00a0\u00bb ne couvre "+mk,poste:p};
+  }
+  return {poste:p,parts:Object.entries(poids).map(([act,w])=>({act,part:w/tot}))};
+}
+// Eclate les ecritures de paie en sous-lignes par projet. Les ecritures non
+// ventilables ne sont JAMAIS perdues : elles passent telles quelles, avec leur
+// code d'origine, et la raison est remontee pour etre affichee. Les centimes de
+// l'arrondi vont sur la derniere part : le total est conserve au centime.
+function ventilRows(rows){
+  const out=[],ratees=[];
+  (rows||[]).forEach(r=>{
+    if(!estLignePaie(r)){out.push(r);return}
+    const v=ventilParts(r);
+    if(v.err||!v.parts||!v.parts.length){out.push(r);ratees.push({r,why:v.err||"aucune part"});return}
+    let rd=0,rc=0;
+    v.parts.forEach((x,i)=>{
+      const dernier=i===v.parts.length-1;
+      const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*x.part*100)/100;
+      const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*x.part*100)/100;
+      rd+=d;rc+=c;
+      out.push(Object.assign({},r,{act:x.act,deb:d,cre:c,
+        _vent:{de:r.act||"",poste:String(v.poste.lib||""),part:x.part}}));
+    });
+  });
+  return {rows:out,ratees};
+}
+// --- REPARTIR UNE ECRITURE SUR UNE FAMILLE DE PROJETS ---
+// Une subvention « Action Jeunes Sud » ne porte pas un code projet : elle porte
+// une famille. Mettre @FAM:sud-jeunes dans le code projet de l'ecriture aurait
+// casse le FEC et tous les tris par code. On eclate donc l'ecriture en vraies
+// sous-lignes, une par projet actif de la famille, ponderees par les heures
+// d'action. Le resultat est une comptabilite analytique normale : rien de
+// special a savoir ailleurs dans l'outil.
+let _famSplit=null;
+// Projets de la famille portant au moins une ecriture sur l'exercice.
+function famActifsAn(cle,y){
+  const proj=famProjets(cle);if(!proj.length)return [];
+  const vus=new Set();
+  (D.rows||[]).forEach(r=>{if(r.act&&String(moKey(r.dt)||"").substring(0,4)===String(y))vus.add(actCode(r.act))});
+  return proj.filter(l=>vus.has(actCode(l)));
+}
+function famSplitProjets(cle,scope,y,m){
+  if(scope==="tous")return famProjets(cle);
+  if(scope==="mois")return famActifs(cle,y,m);
+  return famActifsAn(cle,y);
+}
+// Calcule la repartition proposee. Les centimes de l'arrondi vont sur la
+// derniere part : la somme des sous-lignes egale l'ecriture d'origine, au
+// centime, et c'est cela qu'il faut garantir.
+function famSplitCalc(){
+  const st=_famSplit;if(!st)return null;
+  const r=D.rows.find(x=>x.id===st.id);if(!r)return null;
+  const mk=moKey(r.dt)||"";
+  const y=mk?Number(mk.substring(0,4)):Number(anStr(r.yr))||new Date().getFullYear();
+  const m=mk?Number(mk.substring(5,7))-1:0;
+  const proj=st.cle?famSplitProjets(st.cle,st.scope,y,m):[];
+  const k=proj.length?famParts(proj,y):{mode:"egal",sans:[],parts:[]};
+  let rd=0,rc=0;
+  const parts=proj.map((l,i)=>{
+    const dernier=i===proj.length-1;
+    const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*k.parts[i]*100)/100;
+    const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*k.parts[i]*100)/100;
+    rd+=d;rc+=c;
+    return {act:l,part:k.parts[i],deb:d,cre:c};
+  });
+  return {r,y,m,mk,proj,mode:k.mode,sans:k.sans,parts};
+}
+function openFamSplit(id){
+  const r=D.rows.find(x=>x.id===id);if(!r)return;
+  _famSplit={id,cle:"",scope:"annee"};
+  famSplitDessine();
+}
+function famSplitSet(champ,v){if(!_famSplit)return;_famSplit[champ]=v;famSplitDessine()}
+function famSplitDessine(){
+  const c=famSplitCalc();
+  if(!c){$("modalC").innerHTML="";_famSplit=null;return}
+  const r=c.r,st=_famSplit;
+  const mt=(r.deb||0)>0?fmt(r.deb)+" de débit":fmt(r.cre)+" de crédit";
+  // Familles proposees, regroupees par zone comme dans l'affectation RH.
+  let opts='<option value="">— Choisir une famille —</option>';
+  let zone="";
+  RH_GROUPES.forEach(g=>{
+    if(g.zone!==zone){if(zone)opts+="</optgroup>";opts+='<optgroup label="'+escHtml(g.zone)+'">';zone=g.zone}
+    const n=famSplitProjets(g.k,st.scope,c.y,c.m).length;
+    opts+='<option value="'+g.k+'"'+(st.cle===g.k?" selected":"")+(n?"":" disabled")+'>'
+      +escHtml(g.lib)+" — "+n+" projet(s)"+(n?"":" : rien à répartir")+"</option>";
+  });
+  if(zone)opts+="</optgroup>";
+  const scopes=[["mois","Projets actifs le mois de l’écriture"+(c.mk?" ("+c.mk+")":"")],
+                ["annee","Projets actifs sur l’exercice "+c.y],
+                ["tous","Tous les projets de la famille"]];
+  let corps="";
+  if(!st.cle){
+    corps='<div style="padding:16px;font-size:10px;color:var(--text-3)">Choisissez une famille pour voir la répartition proposée.</div>';
+  }else if(!c.parts.length){
+    corps='<div class="warn" style="font-size:10px;line-height:1.7">Aucun projet de cette famille ne répond à ce périmètre. Élargissez le périmètre ci-dessus, ou vérifiez que les projets de la famille portent bien un territoire.</div>';
+  }else{
+    const sd=c.parts.reduce((a,x)=>a+x.deb,0),sc=c.parts.reduce((a,x)=>a+x.cre,0);
+    const ecart=Math.round((sd-(r.deb||0))*100)/100, ecartC=Math.round((sc-(r.cre||0))*100)/100;
+    corps=`<div style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:44vh">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2)">
+        ${["Code","Projet","Heures d’action","Part","Débit","Crédit"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=3?"right":"left"}">${x}</th>`).join("")}
+      </tr></thead><tbody>
+      ${c.parts.map(x=>`<tr>
+        <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(actCode(x.act))}</td>
+        <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(x.act).substring(0,42))}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;color:var(--text-3)">${actHeures(actCode(x.act))||"—"}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${(x.part*100).toFixed(2)} %</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${x.deb?fmt(x.deb):""}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${x.cre?fmt(x.cre):""}</td></tr>`).join("")}
+      <tr style="border-top:2px solid var(--accent);font-weight:700">
+        <td colspan="3" style="padding:4px 6px;font-size:9px">${c.parts.length} sous-ligne(s)</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">100,00 %</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sd)}</td>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sc)}</td></tr>
+      </tbody></table></div>
+      <p style="font-size:9px;color:var(--text-3);margin:8px 0 0;line-height:1.7">
+        ${c.mode==="heures"
+          ?"Pondération par les <strong>heures d’action</strong> de chaque projet, ramenées à leur nombre de mois d’activité."
+          :"Parts <strong>égales</strong>"+(c.sans.length?" : "+c.sans.length+" projet(s) sans heures renseignées ("+escHtml(c.sans.map(actCode).join(", "))+"). Renseignez les heures dans RH → Par projet pour pondérer.":" — aucune heure d’action renseignée.")}
+        ${(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":"<br>La somme des sous-lignes égale l’écriture d’origine, au centime."}
+      </p>`;
+  }
+  const pret=st.cle&&c.parts.length;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:860px">
+    <h3>⧉ Répartir sur une famille de projets</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      <strong>${escHtml(String(r.lib||"").substring(0,80))}</strong> — ${String(r.dt||"").substring(0,10)} — ${mt}
+      <br><span style="color:var(--text-3)">L’écriture est remplacée par une sous-ligne par projet, avec un vrai code projet : le FEC, les tris et le suivi analytique restent justes. Annulable avec ↩.</span>
+    </p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:9px;color:var(--text-3)">Famille :</span>
+      <select class="ms" style="width:260px" onchange="famSplitSet('cle',this.value)">${opts}</select>
+      <span style="font-size:9px;color:var(--text-3)">Périmètre :</span>
+      <select class="ms" style="width:250px" onchange="famSplitSet('scope',this.value)">
+        ${scopes.map(([k,l])=>`<option value="${k}"${st.scope===k?" selected":""}>${escHtml(l)}</option>`).join("")}
+      </select>
+    </div>
+    ${corps}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bp"${pret?"":" disabled style=\"opacity:.4;cursor:not-allowed\""} onclick="famSplitValider()">⧉ Éclater en ${pret?c.parts.length:0} sous-ligne(s)</button>
+      <button class="b bd" style="margin-left:auto" onclick="famSplitFermer()">Annuler</button>
+    </div></div></div>`;
+}
+function famSplitFermer(){_famSplit=null;closeM()}
+function famSplitValider(){
+  const c=famSplitCalc();if(!c||!c.parts.length)return;
+  const g=famGroupe(_famSplit.cle);
+  const i=D.rows.findIndex(x=>x.id===c.r.id);if(i<0)return;
+  pushUndo();
+  const base=c.r, trace=(g?g.zone+" — "+g.lib:_famSplit.cle);
+  const subs=c.parts.map((x,j)=>Object.assign({},base,{
+    id:"f"+Date.now().toString(36)+"_"+j,
+    act:x.act, deb:x.deb, cre:x.cre,
+    comment:[String(base.comment||"").trim(),
+      "Réparti depuis « "+trace+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
+  }));
+  subs.forEach(x=>{delete x._vent});
+  D.rows.splice(i,1,...subs);
+  _famSplit=null;closeM();autoSave();render();
+  toast(c.parts.length+" sous-ligne(s) créée(s) sur « "+trace+" »");
+}
+// Nombre d'ecritures de paie qu'un poste reconnait : le seul moyen de verifier
+// qu'un Nom releve est le bon, sans ouvrir le classement.
+// Un seul balayage pour tous les postes, memorise : l'appeler poste par poste
+// rebalayait D.rows autant de fois qu'il y a de postes.
+function posteNbLignes(p){
+  if(!p||!posteMotifs(p).length)return 0;
+  const c=ventMemo();
+  if(!c.nb){
+    c.nb={};
+    (D.rows||[]).forEach(r=>{if(!estLignePaie(r))return;
+      const m=posteMatch(r);if(m.p&&m.p.id)c.nb[m.p.id]=(c.nb[m.p.id]||0)+1});
+  }
+  return c.nb[p.id]||0;
+}
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
   const p=(D.rhPostes||[])[pi];if(!p)return;
@@ -3708,14 +3973,16 @@ function rRH(el){
     h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <h4 style="font-size:12px;margin:0">Postes</h4>
       <button class="b bg" style="font-size:9px" onclick="rhAddPoste()">+ Poste</button>
-      <span style="font-size:9px;color:var(--text-3);margin-left:6px">Brut = <strong>annuel</strong>, à 100 %. La quotité s'applique ensuite.</span>
+      <span style="font-size:9px;color:var(--text-3);margin-left:6px">Brut = <strong>annuel</strong>, à 100 %. La quotité s'applique ensuite.
+        <br>« Nom relevé » est le nom tel qu'il apparaît sur le libellé du virement de paie (ex. <em>DUPONT</em>) : c'est ce qui permet au suivi analytique de ventiler les salaires sur les projets affectés à ce poste. Plusieurs graphies possibles, séparées par une virgule.</span>
     </div>`;
     D.rhPostes.forEach((p,i)=>{
       const ba=rhBrutAnnuel(p,rhYear+"-12");
       const tx=rhReducTaux(ba)*100;
       h+=`<div class="scard" style="margin-bottom:6px">
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-          <input class="ci" style="flex:1;min-width:160px" placeholder="Intitulé du poste" value="${String(p.lib||"").replace(/"/g,"&quot;")}" onchange="rhSetPoste(${i},'lib',this.value)">
+          <input class="ci" style="flex:1 1 200px;min-width:150px;max-width:270px" placeholder="Intitulé du poste" value="${String(p.lib||"").replace(/"/g,"&quot;")}" onchange="rhSetPoste(${i},'lib',this.value)">
+          <input class="ci" style="width:118px" placeholder="Nom relevé" value="${String(p.nom||"").replace(/"/g,"&quot;")}" onchange="rhSetPoste(${i},'nom',this.value)" title="Nom tel qu'il apparaît sur le libellé du virement de paie, ex. DUPONT. Plusieurs graphies possibles, séparées par une virgule. C'est ce nom qui permet de ventiler les salaires sur les projets.">
           <select class="ms" style="width:86px" onchange="rhSetPoste(${i},'statut',this.value)">
             ${["CDI","CDD","Apprenti","Autre"].map(s=>`<option${s===(p.statut||"CDI")?" selected":""}>${s}</option>`).join("")}
           </select>
@@ -3735,6 +4002,10 @@ function rRH(el){
         <div style="font-size:9px;color:var(--text-3);margin-top:4px">
           Au 12/${rhYear} : brut <strong style="font-family:'JetBrains Mono'">${fmt(ba)}</strong>/an
           (${fmt(ba/12)}/mois) · réduction générale <strong style="color:${tx>0?"var(--green)":"var(--text-3)"}">${tx.toFixed(2)} %</strong> du brut
+          · ${(()=>{const n=posteNbLignes(p);
+              if(!posteMotifs(p).length)return '<span style="color:var(--amber)">« Nom relevé » vide : les salaires de ce poste ne seront pas ventilés</span>';
+              return n?'paie reconnue sur <strong style="color:var(--green)">'+n+'</strong> écriture(s)'
+                      :'<span style="color:var(--amber)">aucune écriture de paie ne porte ce nom</span>';})()}
         </div>`;
       // évolutions
       h+=`<div style="margin-top:5px;padding-left:8px;border-left:2px solid var(--border)">
@@ -7733,7 +8004,7 @@ function renderCorps(){
     h+=`<td style="min-width:60px">${selLazy("",r.id,"resp",r.resp,"resps","")}</td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
-    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button><button class="ib" onclick="openFamSplit('${r.id}')" title="Répartir sur une famille de projets — l'écriture est éclatée en une sous-ligne par projet, pondérée par les heures d'action">⧉</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
   h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="6" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
@@ -7782,6 +8053,7 @@ function suiviCatOrdre(k){
   return i<0?(k==="AUTRE"?98:99):i;
 }
 function suiviSetCol(v){suiviFilt.col=v;try{localStorage.setItem("litup_suiviCol",v)}catch(e){}render()}
+function suiviSetVent(v){suiviFilt.vent=!!v;try{localStorage.setItem("litup_suiviVent",v?"1":"0")}catch(e){}render()}
 
 // Registre des cellules cliquables du suivi analytique. Les critères ne
 // transitent pas par l'attribut onclick : un libellé de projet contient
@@ -7789,14 +8061,52 @@ function suiviSetCol(v){suiviFilt.col=v;try{localStorage.setItem("litup_suiviCol
 // inerte ailleurs. On enregistre le critère et on ne passe que son indice.
 let _suiviCells=[];
 function suiviCell(crit){return _suiviCells.push(crit)-1}
-// Filtre de base de l'onglet : exercice, territoire, projets choisis.
+// Filtre de base de l'onglet : exercice, ventilation des salaires, puis
+// territoire et projets choisis. L'ordre compte : la ventilation change le code
+// projet, donc les filtres qui portent sur ce code doivent venir APRÈS, sinon
+// une paie ventilée sur EXP18 serait écartée par un filtre « EXP18 ».
+// Source unique de l'onglet : le tableau, les cartes et le détail d'un montant
+// cliqué lisent tous ce même jeu de lignes, sinon un total ne correspondrait
+// pas à la liste qu'il ouvre.
+let _suiviRatees=[];
 function suiviBaseRows(){
-  return D.rows.filter(r=>{
-    if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
+  let src=D.rows.filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
+  _suiviRatees=[];
+  if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;_suiviRatees=v.ratees}
+  return src.filter(r=>{
     if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
     return true;
   });
+}
+// Écritures de paie que la ventilation n'a pas pu répartir. Elles restent dans
+// le tableau sous leur code d'origine : rien n'est perdu, mais il faut le dire.
+function openVentRatees(){
+  suiviBaseRows();
+  const L=_suiviRatees.slice().sort((a,b)=>String(a.r.dt||"").localeCompare(String(b.r.dt||"")));
+  const tot=L.reduce((a,x)=>a+(x.r.deb||0)-(x.r.cre||0),0);
+  const lignes=L.length?L.map(x=>`<tr>
+      <td style="padding:3px 6px;font-size:9px;font-family:var(--mono);white-space:nowrap">${String(x.r.dt||"").substring(0,10)}</td>
+      <td style="padding:3px 6px;font-size:9px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(x.r.lib||"")}">${escHtml(String(x.r.lib||"").substring(0,60))}</td>
+      <td style="padding:3px 6px;font-size:9px">${escHtml(String(x.r.act||"\u2014").substring(0,24))}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${x.r.deb?fmt(x.r.deb):""}</td>
+      <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${x.r.cre?fmt(x.r.cre):""}</td>
+      <td style="padding:3px 6px;font-size:9px;color:var(--amber)">${escHtml(x.why)}</td>
+    </tr>`).join("")
+    :`<tr><td colspan="6" style="padding:14px;font-size:10px;color:var(--text-3)">Toutes les écritures de paie ont été ventilées.</td></tr>`;
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
+    <h3>Salaires non ventilés</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      ${L.length} écriture(s), <strong>${fmt(tot)}</strong> de charge nette, restées sur leur code d'origine.
+      <br><span style="color:var(--text-3)">Deux causes : le poste n'est pas reconnu dans le libellé — renseignez « Nom relevé » sur le poste dans l'onglet RH → Postes — ou aucune affectation du poste ne couvre ce mois-là, ce que le bandeau de couverture signale comme un trou.</span>
+    </p>
+    <div style="overflow:auto;max-height:58vh;border:1px solid var(--border);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
+        ${["Date","Libell\u00e9","Code projet","D\u00e9bit","Cr\u00e9dit","Pourquoi"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j===3||j===4?"right":"left"}">${x}</th>`).join("")}
+      </tr></thead><tbody>${lignes}</tbody></table>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px"><button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button></div>
+  </div></div>`;
 }
 function suiviCleDe(r,mode){
   return mode==="mois"?moKey(r.dt):mode==="cat"?actCat(r.act):(actCode(r.act)||"\u2014");
@@ -7818,7 +8128,8 @@ function openSuiviDetail(i){
         title="${escHtml(r.lib||"")}">${escHtml(String(r.lib||"").substring(0,58))}</td>
       <td style="padding:3px 6px;font-size:9px">${escHtml(String(r.four||"").substring(0,20))}</td>
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.cat||"")}">${escHtml(String(r.cat||"\u2014").substring(0,30))}</td>
-      <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}</td>
+      <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}${
+        r._vent?`<div style="font-size:7px;color:var(--accent-l)" title="Sous-ligne issue de la ventilation du poste « ${escHtml(r._vent.poste)} » — code d'origine ${escHtml(r._vent.de||"aucun")}">⧉ ${(r._vent.part*100).toFixed(1)} % de ${escHtml(r._vent.poste.substring(0,18))}</div>`:""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${r.deb?fmt(r.deb):""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${r.cre?fmt(r.cre):""}</td>
       <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(r.modal||"").substring(0,18))}</td>
@@ -7869,17 +8180,33 @@ function rSuivi(el){
       <option value="cat"${col==="cat"?" selected":""}>Familles</option>
       <option value="mois"${col==="mois"?" selected":""}>Mois</option>
     </select>
+    <span style="font-size:8px;color:var(--text-3)">Salaires :</span>
+    <select class="ms" style="width:150px" onchange="suiviSetVent(this.value==='1')"
+      title="Les écritures de paie portent un code RH global. « Ventilés » les éclate sur les projets selon les affectations de temps saisies dans RH → Par projet, poste par poste et mois par mois.">
+      <option value="0"${suiviFilt.vent?"":" selected"}>Au code RH</option>
+      <option value="1"${suiviFilt.vent?" selected":""}>Ventilés par poste</option>
+    </select>
     <span style="font-size:8px;color:var(--text-3)">Projet :</span>
     <select class="ms" style="width:110px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.filter(a=>!suiviFilt.codes.includes(a)).map(a=>`<option>${escHtml(a)}</option>`).join("")}</select>`;
   suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${escHtml(c)}<span class="x">×</span></span>`);
   h+='</div>';
 
-  const fR=D.rows.filter(r=>{
-    if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
-    if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
-    if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
-    return true;
-  });
+  const fR=suiviBaseRows();
+
+  // Contrôle du total : la ventilation redistribue, elle ne doit rien créer ni
+  // rien perdre. On compare au jeu non ventilé, au centime.
+  if(suiviFilt.vent){
+    const brut=D.rows.filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
+    const sd=a=>Math.round(a.reduce((x,r)=>x+(r.deb||0),0)*100)/100;
+    const sc=a=>Math.round(a.reduce((x,r)=>x+(r.cre||0),0)*100)/100;
+    const vent=ventilRows(brut).rows;
+    const dd=sd(vent)-sd(brut), dc=sc(vent)-sc(brut);
+    if(Math.abs(dd)>0.005||Math.abs(dc)>0.005)
+      h+=`<div style="margin:8px 14px;padding:9px 12px;border-radius:8px;font-size:10px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red)">La ventilation ne conserve pas les totaux : ${fmt(dd)} de débit et ${fmt(dc)} de crédit d'écart. Ne vous appuyez pas sur cette vue, signalez-le.</div>`;
+    if(_suiviRatees.length)
+      h+=`<div class="warn" style="margin:8px 14px;cursor:pointer;font-size:10px;line-height:1.7" onclick="openVentRatees()">
+        <strong>${_suiviRatees.length} écriture(s) de paie non ventilée(s)</strong> — elles restent sur leur code d'origine, rien n'est perdu. Cliquez pour voir pourquoi.</div>`;
+  }
 
   // ── Cartes de synthèse par famille (anciennement l'onglet Synthèse) ──
   const parCat={};
@@ -7996,6 +8323,8 @@ function rSuivi(el){
     <br>« Colonnes : Familles » replie les projets en ${SUIVI_CATS.length} familles ; « Mois » retrouve la vue chronologique.
     Les virements internes sont comptés dans le tableau mais exclus des cartes, qui mesurent des charges et des produits réels.
     <br><strong>Tous les montants sont cliquables</strong> — cartes comprises : ils ouvrent la liste des écritures qui les composent.
+    <br>« Salaires : ventilés par poste » éclate chaque paie sur les projets, selon les affectations de temps du poste pour le mois de l'écriture. Le rattachement se fait par le nom saisi dans « Nom relevé » sur le poste (onglet RH → Postes). Une paie que l'outil ne sait pas ventiler reste sur son code d'origine et est comptée dans le bandeau ambre : rien n'est perdu en silence.
+    <br>C'est un <strong>affichage</strong> : les écritures ne sont pas modifiées, le FEC et les autres onglets ne bougent pas, et l'interrupteur permet de comparer les deux lectures. Pour éclater durablement une écriture — une subvention portant sur une famille, par exemple — utilisez le bouton <strong>⧉</strong> sur sa ligne du classement.
     Les colonnes se redimensionnent en glissant leur bord droit ; double-clic pour revenir à la largeur d'origine.</div>`;
   el.innerHTML=h;
   applyColWidths(el.querySelector("#tblSuivi"),"suivi");
