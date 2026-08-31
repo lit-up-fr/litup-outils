@@ -158,7 +158,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25y <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25z <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -423,6 +423,13 @@ const ds=v=>{
   return s.split(" ")[0].split("T")[0];
 };
 const yrOf=dt=>dt?dt.substring(0,4):"2026";
+// L'année d'affectation revient du Google Sheet en NOMBRE, alors qu'elle est
+// saisie et comparée comme chaîne. Toute comparaison stricte échouait donc en
+// silence : le filtre d'année ne rendait plus rien, et l'export FEC sortait vide.
+const anStr=v=>v===undefined||v===null?"":String(v).trim();
+const escHtml=v=>String(v===undefined||v===null?"":v)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const anEq=(a,b)=>anStr(a)===anStr(b);
 const moKey=dt=>dt?dt.substring(0,7):"";
 const MOS=["01","02","03","04","05","06","07","08","09","10","11","12"];
 const MONAMES=["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Aoû","Sep","Oct","Nov","Déc"];
@@ -716,6 +723,41 @@ function actPartition(){
 // Options d'une liste déroulante Projet : « Transversal » puis « Parcours ».
 // Une valeur absente de la liste (ancien code, code saisi à la main) est conservée
 // telle quelle en première position, pour ne jamais l'effacer silencieusement.
+// Les listes déroulantes de comptes comptables (84 entrées) et de codes projets
+// (45) construites pour chaque ligne faisaient plus de 80 000 balises <option> sur
+// 518 écritures : deux secondes de calcul à chaque rendu, sur un onglet qui se
+// redessine à la moindre saisie. D'où la lenteur générale, et des clics qui
+// semblaient perdus parce que le navigateur était occupé.
+// Chaque cellule ne porte donc plus que sa propre valeur ; la liste complète est
+// construite au premier contact avec le sélecteur, souris ou clavier.
+const SEL_SRC={
+  cats: {vide:"— Comptable —", liste:()=>D.cats||[]},
+  acts: {vide:"— Projet —",    liste:null},           // actOptions gère ses groupes
+  mods: {vide:"—",             liste:()=>MODS},
+  sts:  {vide:"—",             liste:()=>STS},
+  resps:{vide:"—",             liste:()=>RESPS}
+};
+function selLazy(id,rid,champ,valeur,src,style){
+  const v=String(valeur||"");
+  return `<select class="ms"${id?` id="${id}"`:""} data-src="${src}" data-v="${escHtml(v)}"`
+    +` style="${style||""}"`
+    +` onpointerdown="remplirSel(this)" onfocus="remplirSel(this)" onkeydown="remplirSel(this)"`
+    +` onchange="upd('${rid}','${champ}',this.value)">`
+    +(v?`<option selected>${escHtml(v)}</option>`:`<option value="" selected>${SEL_SRC[src].vide}</option>`)
+    +`</select>`;
+}
+function remplirSel(sel){
+  if(!sel||sel.dataset.rempli)return;
+  sel.dataset.rempli="1";
+  const v=sel.dataset.v||"",src=SEL_SRC[sel.dataset.src];
+  if(!src)return;
+  sel.innerHTML=src.liste
+    ?`<option value=""${v?"":" selected"}>${src.vide}</option>`
+      +(v&&!src.liste().includes(v)?`<option selected>${escHtml(v)}</option>`:"")
+      +src.liste().map(c=>`<option${c===v?" selected":""}>${escHtml(c)}</option>`).join("")
+    :actOptions(v);
+  sel.value=v;
+}
 function actOptions(current,placeholder){
   const P=actPartition(),cur=current||"";
   const opt=l=>`<option${l===cur?" selected":""}>${l}</option>`;
@@ -911,6 +953,8 @@ function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.g
   Object.assign(D,d);
   // Sanitize IDs
   if(D.rows)D.rows.forEach(r=>{if(r.id&&/\s/.test(r.id))r.id=r.id.replace(/\s+/g,"")});
+  // Années venues du Sheet en nombre : ramenées en chaîne une fois pour toutes.
+  if(D.rows)D.rows.forEach(r=>{r.yr=anStr(r.yr)});
   // Fix duplicate IDs
   if(D.rows){const seen=new Set();D.rows.forEach(r=>{if(seen.has(r.id)){r.id=r.id+"_"+Math.random().toString(36).substr(2,5)}seen.add(r.id)})}
   // Normalise les dates ISO UTC résiduelles (2026-04-15T22:00:00.000Z → date locale)
@@ -1228,7 +1272,7 @@ const FUS_LIB=f=>FUS_LIBS[f]||f;
 // Écriture du Sheet ramenée à la forme locale, sans toucher à D.
 function fusNormRow(r){
   return {id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
-    dt:ds(r.dt||""),yr:r.yr||"",lib:r.lib||"",four:r.four||"",
+    dt:ds(r.dt||""),yr:anStr(r.yr),lib:r.lib||"",four:r.four||"",
     cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
     modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
     src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""};
@@ -1419,7 +1463,7 @@ async function loadComptaFromSheet(){
     // Load rows
     D.rows=res.rows.map(r=>({
       id:r.id||"imp_"+Math.random().toString(36).substr(2,8),
-      dt:ds(r.dt||""),yr:r.yr||"",lib:r.lib||"",four:r.four||"",
+      dt:ds(r.dt||""),yr:anStr(r.yr),lib:r.lib||"",four:r.four||"",
       cat:r.cat||"",act:r.act||"",deb:r.deb?parseFloat(r.deb):null,cre:r.cre?parseFloat(r.cre):null,
       modal:r.modal||"",stat:r.stat||"",resp:r.resp||"",numj:r.numj||"",
       src:r.src||"",ndf:r.ndf||"",compte:r.compte||"",driveUrl:r.driveUrl||"",comment:r.comment||""
@@ -2035,7 +2079,7 @@ function exportFEC(){
   const fecHeaders=["JournalCode","JournalLib","EcritureNum","EcritureDate","CompteNum","CompteLib","CompAuxNum","CompAuxLib","PieceRef","PieceDate","EcritureLib","Debit","Credit","EcritureLet","DateLet","ValidDate","Montantdevise","Idevise"];
   const lines=[fecHeaders.join("\t")];
   let ecNum=0;
-  D.rows.filter(r=>r.cat&&r.yr==="2026").sort((a,b)=>(a.dt||"").localeCompare(b.dt||"")).forEach(r=>{
+  D.rows.filter(r=>r.cat&&anEq(r.yr,"2026")).sort((a,b)=>(a.dt||"").localeCompare(b.dt||"")).forEach(r=>{
     ecNum++;
     const ecId=String(ecNum).padStart(6,"0");
     const dt=(r.dt||"").replace(/-/g,"");
@@ -4563,7 +4607,10 @@ function budgetMensuel(vi,net){
     let cibles=prods.filter(x=>x.net>0&&CPT_FINANCEMENT(catKey(x.b.cat)));
     if(!cibles.length)cibles=prods.filter(x=>x.net>0);
     const dispo=cibles.reduce((a,x)=>a+x.net,0);
-    if(dispo>0){const f=Math.min(1,sans/dispo);cibles.forEach(x=>{x.net-=x.net*f})}
+    // La part retirée est conservée ligne par ligne : sans elle, le détail
+    // affichait un budget annuel, un « identifié Airtable » à zéro, et un reste
+    // inférieur au budget, sans que rien n'explique la différence.
+    if(dispo>0){const f=Math.min(1,sans/dispo);cibles.forEach(x=>{const d=x.net*f;x.net-=d;x.prorata=(x.prorata||0)+d})}
   }
   prods.forEach(x=>{
     if(x.net<=0)return;
@@ -4571,7 +4618,7 @@ function budgetMensuel(vi,net){
     const parts=ventileParts(x.b,x.net);
     for(let i=0;i<12;i++)pr[i]+=parts[i];
     lignes.push({cat:x.b.cat,type:"produit",annuel:parseFloat(x.b.versions?.[vi])||0,
-                 identifie:x.identifie,net:x.net,parts,saison:saisonLabel(x.b)});
+                 identifie:x.identifie,prorata:x.prorata||0,net:x.net,parts,saison:saisonLabel(x.b)});
   });
   return {ch,pr,absent:false,bilan,lignes};
 }
@@ -4713,7 +4760,7 @@ function tresLignesBudget(mks,type){
     if(vi<0)return;
     bm.lignes.filter(l=>l.type===type&&l.parts[mi]>0.004).forEach(l=>{
       out.push({mois:mk,exo:y,ver:D.budgetVersions[vi],cat:l.cat,annuel:l.annuel,
-                identifie:l.identifie,net:l.net,saison:l.saison,part:l.parts[mi]});
+                identifie:l.identifie,prorata:l.prorata||0,net:l.net,saison:l.saison,part:l.parts[mi]});
     });
   });
   return out;
@@ -4729,14 +4776,22 @@ function tresCellDetail(kind,mks){
     // déduire) : la colonne n'apparaît que pour les produits, où elle explique
     // ce qu'Airtable a déjà pris en charge.
     const prod=type==="produit";
+    const prorataTotal=lig.reduce((a,l)=>a+(l.prorata||0),0);
     return {
       cols:["Mois","Compte","Saisonnalité","Budget annuel",
-            prod?"dont identifié Airtable":"",prod?"Reste réparti":"","Part du mois"],
+            prod?"− identifié Airtable":"",prod?"− financements sans compte":"",
+            prod?"= Reste réparti":"","Part du mois"],
       lignes:lig.map(l=>[tresMoisLabel(l.mois),l.cat,l.saison,fmt(l.annuel),
-                         prod?fmt(l.identifie):"",prod?fmt(l.net):"",fmt(l.part)]),
+                         prod?(l.identifie?"− "+fmt(l.identifie):"—"):"",
+                         prod?((l.prorata||0)>0.004?"− "+fmt(l.prorata):"—"):"",
+                         prod?fmt(l.net):"",fmt(l.part)]),
       total:lig.reduce((a,l)=>a+l.part,0),
       note:type==="produit"
-        ?"Chaque ligne est le budget du compte moins ce qu'Airtable identifie déjà nominativement, réparti selon sa saisonnalité. Une ligne entièrement couverte par Airtable n'apparaît pas."
+        ?"Chaque ligne part du budget annuel du compte, en retire deux choses, puis répartit le reste selon sa saisonnalité — pour ne jamais compter deux fois le même euro."
+          +"<br><strong>− identifié Airtable</strong> : les financements qu'Airtable rattache nominativement à ce compte. Une ligne entièrement couverte n'apparaît pas."
+          +"<br><strong>− financements sans compte</strong> : les financements Airtable dont on ignore quelle ligne de budget ils couvrent."
+          +(prorataTotal>0.004?" Ils pèsent "+fmt(prorataTotal)+" sur ce mois et sont répartis au prorata entre les comptes de financement. C'est cette colonne qui explique un « reste réparti » inférieur au budget annuel alors qu'Airtable n'a rien identifié sur la ligne. Le total du mois est juste ; seule la ventilation entre comptes est conventionnelle. Pour la supprimer, renseignez le compte comptable de ces financements dans Airtable.":" Aucun sur ce mois.")
+          +"<br>Une ligne sur un seul mois voit toute sa « part du mois » égale à son reste réparti — c'est bien ce que fait la saisonnalité."
         :"Le montant annuel de chaque ligne de budget, réparti selon sa saisonnalité. Le prévisionnel ne déduit pas le réalisé : c'est le plan, pas le solde.",
       vide:"Aucune ligne de budget n'alimente ce mois."
     };
@@ -4869,7 +4924,7 @@ function openTresCell(kind,mk){
     : `<tr><td colspan="${cols.length}" style="font-size:10px;color:var(--text-3);padding:12px">${d.vide}</td></tr>`;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:1040px">
     <h3>${TRES_LIB[kind]} — ${titreMois}</h3>
-    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px">${d.note}</p>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">${d.note}</p>
     <div style="overflow:auto;max-height:56vh"><table><thead><tr>${
       cols.map((c,i)=>`<th${i===cols.length-1?' style="text-align:right"':""}>${c}</th>`).join("")
     }</tr></thead><tbody>${corps}
@@ -5470,7 +5525,7 @@ function srDelRegul(id){
 function srBloc(){
   srNorm();
   const pts=D.soldesRef;
-  let h=`<details ${pts.length?"":""} style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
+  let h=`<details data-det="srPoints" style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
     📍 Points de contrôle bancaires ${pts.length?"("+pts.length+")":"— vérifier que l'outil retrouve vos soldes réels"}</summary>
     <div style="font-size:9px;color:var(--text-2);line-height:1.7;padding:6px 4px 0">
       Saisissez ici le solde du compte courant tel qu'il figure sur vos relevés, à quelques dates clés.
@@ -5822,7 +5877,7 @@ function rTreasury(el){
     }
   }
 
-  h+=`<details style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
+  h+=`<details data-det="tresPourquoi" style="margin-bottom:8px"><summary style="font-size:9px;color:var(--accent-l);cursor:pointer">
     ℹ️ Pourquoi cet onglet et ⚖️ Prévi. vs Réalisé n'affichent pas les mêmes montants</summary>
     <div style="font-size:9px;color:var(--text-2);line-height:1.8;padding:6px 4px 2px">
     Les deux sont justes : ils ne répondent pas à la même question.<br>
@@ -6790,7 +6845,26 @@ function checkSolde(){
 }
 
 // ─── MAIN RENDER ───
+// Les <details> sont reconstruits à chaque rendu, donc refermés : un rendu
+// déclenché en arrière-plan — la fin de la lecture d'Airtable, par exemple —
+// refermait le bloc qu'on venait d'ouvrir, d'où l'impression qu'il faut cliquer
+// plusieurs fois. Leur état est désormais mémorisé et remis après chaque rendu.
+let _detOuverts=(()=>{try{return JSON.parse(localStorage.getItem("litup_details")||"{}")||{}}catch(e){return{}}})();
+function detRestaure(){
+  document.querySelectorAll("details[data-det]").forEach(d=>{
+    const k=d.dataset.det;
+    if(_detOuverts[k]&&!d.open)d.open=true;
+    d.addEventListener("toggle",()=>{
+      if(d.open)_detOuverts[k]=1;else delete _detOuverts[k];
+      try{localStorage.setItem("litup_details",JSON.stringify(_detOuverts))}catch(e){}
+    });
+  });
+}
 function render(){
+  renderCorps();
+  detRestaure();
+}
+function renderCorps(){
   invalidateActCache();
   // Compute stats
   // Cartes de gauche : périmètre = année sélectionnée (statsYear). Les soldes bancaires restent toutes années.
@@ -6890,8 +6964,9 @@ function render(){
     h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
     h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")} — double-clic pour modifier" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'" ondblclick="editCell('${r.id}','lib')">${r.lib}</td>`;
     h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" list="dl_four" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" id="cat_${r.id}" style="max-width:160px${!r.cat?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','cat',this.value)"><option value="">— Comptable —</option>${r.cat&&!D.cats.includes(r.cat)?`<option selected>${r.cat}</option>`:""}${D.cats.map(c=>`<option${c===r.cat?" selected":""}>${c}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:150px"><select class="ms" id="act_${r.id}" style="max-width:160px${!r.act?";border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','act',this.value)">${actOptions(r.act)}</select></td>`;
+    const orangeSi=v=>"max-width:160px"+(v?"":";border-color:#f97316;color:#f97316");
+    h+=`<td style="min-width:150px">${selLazy("cat_"+r.id,r.id,"cat",r.cat,"cats",orangeSi(r.cat))}</td>`;
+    h+=`<td style="min-width:150px">${selLazy("act_"+r.id,r.id,"act",r.act,"acts",orangeSi(r.act))}</td>`;
     h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
     h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
     h+=finCellBtn(r);
@@ -6901,9 +6976,9 @@ function render(){
       :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Ouvrir sur le Drive${r.numj?" : "+r.numj:""}">📄 ${njShort(r.numj)||"Drive"}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
       :a?`<td><button class="att" style="border-color:#ef4444;color:#ef4444" onclick="viewAtt('${r.id}')" title="Copie locale de ${a.name} — ce fichier n'est PAS sur le Drive et sera perdu au rechargement. Réattachez-le.">⚠️ ${njShort(a.nj)} local</button><button class="att" onclick="deleteJustif('${r.id}')" title="Retirer cette copie locale" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
         :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier, ou rattachez la pièce existante via ⚠️ Justif. → Rattraper les liens Drive." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
-    h+=`<td style="min-width:55px"><select class="ms" id="mod_${r.id}" style="${!r.modal?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','modal',this.value)"><option value="">—</option>${MODS.map(o=>`<option${o===r.modal?" selected":""}>${o}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:75px"><select class="ms" id="stat_${r.id}" style="${(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":""}" onchange="upd('${r.id}','stat',this.value)"><option value="">—</option>${STS.map(o=>`<option${o===r.stat?" selected":""}>${o}</option>`).join("")}</select></td>`;
-    h+=`<td style="min-width:60px"><select class="ms" onchange="upd('${r.id}','resp',this.value)"><option value="">—</option>${RESPS.map(o=>`<option${o===r.resp?" selected":""}>${o}</option>`).join("")}</select></td>`;
+    h+=`<td style="min-width:55px">${selLazy("mod_"+r.id,r.id,"modal",r.modal,"mods",!r.modal?"border-color:#f97316;color:#f97316":"")}</td>`;
+    h+=`<td style="min-width:75px">${selLazy("stat_"+r.id,r.id,"stat",r.stat,"sts",(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":"")}</td>`;
+    h+=`<td style="min-width:60px">${selLazy("",r.id,"resp",r.resp,"resps","")}</td>`;
     h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
     h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
     h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
@@ -6925,7 +7000,7 @@ function rSynth(el){
   const yrs=[...new Set(D.rows.map(r=>r.yr))].filter(Boolean).sort();
   let h=`<div style="padding:8px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid #1e2030"><span style="font-size:9px;color:#94a3b8">Année :</span>
     <select id="sYr" class="ms" style="width:70px" onchange="render()"><option value="">Toutes</option>${yrs.map(y=>`<option${y===($("sYr")?.value||"")?" selected":""}>${y}</option>`).join("")}</select></div>`;
-  const yrF=$("sYr")?.value||"";const fR=D.rows.filter(r=>!yrF||r.yr===yrF);
+  const yrF=$("sYr")?.value||"";const fR=D.rows.filter(r=>!yrF||anEq(r.yr,yrF));
   const g={};fR.forEach(r=>{if(isVirInterne(r))return;const t=r.act?r.act.split(" ")[0].replace(/[0-9]/g,"")||"?":"⚠";if(!g[t])g[t]={ch:0,pr:0,n:0};g[t].ch+=r.deb||0;g[t].pr+=r.cre||0;g[t].n++});
   const s=Object.entries(g).sort((a,b)=>b[1].ch-a[1].ch);const mx=Math.max(...s.map(([,d])=>d.ch),1);
   h+='<div class="sg">';s.forEach(([t,d])=>{const p=(d.ch/mx*100).toFixed(1);
@@ -6944,7 +7019,7 @@ function rSuivi(el){
     <select class="ms" style="width:120px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.map(a=>`<option>${a}</option>`).join("")}</select>`;
   suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${c}<span class="x">×</span></span>`);
   h+='</div>';
-  const fR=D.rows.filter(r=>{if(suiviFilt.yr&&r.yr!==suiviFilt.yr)return false;
+  const fR=D.rows.filter(r=>{if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
     if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length){const p=(r.act||"").split(" - ")[0].trim();if(!suiviFilt.codes.includes(p))return false}return true});
   const bc={};fR.forEach(r=>{if(!r.cat)return;if(!bc[r.cat])bc[r.cat]={deb:0,cre:0,n:0,bm:{}};bc[r.cat].deb+=r.deb||0;bc[r.cat].cre+=r.cre||0;bc[r.cat].n++;
