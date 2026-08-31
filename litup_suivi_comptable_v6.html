@@ -99,6 +99,15 @@ td{padding:5px 8px;border-bottom:1px solid rgba(37,45,63,.4);vertical-align:midd
 tr:hover{background:rgba(99,102,241,.03)}
 tr.ndf{background:rgba(251,191,36,.04)}
 tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,241,.3)}
+/* Ligne de synthèse d'un éclatement : reconnaissable au premier regard, et sans
+   aucun champ de saisie — on déplie pour agir. */
+tr.grp-mere{background:var(--accent-bg);border-left:3px solid var(--accent)}
+/* box-shadow et non border-left : chaque ligne porte déjà un border-left en
+   style EN LIGNE (vert si classée, orange si justificatif manquant), qui gagne
+   toujours contre une classe. Le liseré d'appartenance passait donc inaperçu. */
+tr.grp-sub td{box-shadow:inset 0 1px 0 rgba(99,102,241,.10)}
+tr.grp-sub td:first-child{padding-left:9px;box-shadow:inset 4px 0 0 rgba(99,102,241,.45)}
+tr.grp-sub td:first-child::before{content:"\21b3\a0";color:var(--accent);opacity:.55;font-size:10px}
 .ci{background:transparent;color:var(--text-1);border:none;font-size:12px;width:100%;padding:2px 0;outline:none;font-family:var(--sans)}
 .cj{background:transparent;color:var(--text-1);border:1px solid var(--border);border-radius:4px;font-size:11px;width:100%;padding:3px 5px;outline:none;font-family:var(--sans);transition:border .2s}.cj:focus{border-color:var(--accent)}
 .ms{background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:11px;width:100%;outline:none;font-family:var(--sans)}.ms:focus{border-color:var(--accent)}
@@ -184,7 +193,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31j <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31k <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -8739,6 +8748,127 @@ function render(){
   detRestaure();
   figerEntetes();
 }
+// Rendu d'une écriture du tableau de classement. Extrait de renderCorps pour
+// servir aussi bien une ligne isolée qu'une sous-ligne dépliée sous sa ligne de
+// synthèse — le regroupement ne devait pas dupliquer ce rendu.
+function ligneClassement(r,sousLigne){
+    let h="";const a=D.att[r.id];
+    // Row highlighting based on justificatif status
+    const isClasse=(r.stat||"").startsWith("Classé")&&(r.numj||(r.stat||"").includes("Bulletin"));
+    const isManquant=(r.stat||"")==="Justificatif manquant"||((r.deb>0||r.cre>0)&&!r.stat&&r.src==="banque");
+    const isUnclassed=!isClasse&&!isManquant&&(r.cat||r.act)&&r.stat&&!r.stat.startsWith("Classé");
+    const rowBg=isManquant?"background:rgba(251,146,60,.08);border-left:3px solid #f97316":isClasse?"background:rgba(22,163,74,.06);border-left:3px solid #16a34a":isUnclassed?"background:rgba(250,204,21,.08);border-left:3px solid #facc15":"";
+    const cls=[r.src==="ndf"?"ndf":"",r.src==="ndf-split"?"ndf-split":"",sousLigne?"grp-sub":""].filter(Boolean).join(" ");
+    h+=`<tr${cls?' class="'+cls+'"':""} style="${rowBg}">`;    h+=`<td style="white-space:nowrap;font-size:10px;color:#5c6a80;min-width:65px;cursor:pointer" ondblclick="editCell('${r.id}','dt')" title="Double-clic pour modifier la date">${r.dt}</td>`;
+    h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
+    h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")} — double-clic pour modifier" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'" ondblclick="editCell('${r.id}','lib')">${r.lib}</td>`;
+    h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" list="dl_four" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
+    const orangeSi=v=>"max-width:160px"+(v?"":";border-color:#f97316;color:#f97316");
+    h+=`<td style="min-width:150px">${selLazy("cat_"+r.id,r.id,"cat",r.cat,"cats",orangeSi(r.cat))}</td>`;
+    h+=`<td style="min-width:150px">${selLazy("act_"+r.id,r.id,"act",r.act,"acts",orangeSi(r.act))}</td>`;
+    h+=splitCellBtn(r);
+    h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
+    h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
+    h+=finCellBtn(r);
+    // Colonne 📎 : un seul libellé, le n° de pièce, et un état qui ne mente pas
+    const up=uploadState[r.id];
+    h+=up?`<td><span class="att" style="color:#fb923c" title="Téléversement de ${up.name} (${up.ko} Ko) en cours vers JUSTIFICATIFS CLASSÉS. N'y touchez pas : la ligne se met à jour toute seule.">⏳ envoi…</span></td>`
+      :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Ouvrir sur le Drive${r.numj?" : "+r.numj:""}">📄 ${njShort(r.numj)||"Drive"}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
+      :a?`<td><button class="att" style="border-color:#ef4444;color:#ef4444" onclick="viewAtt('${r.id}')" title="Copie locale de ${a.name} — ce fichier n'est PAS sur le Drive et sera perdu au rechargement. Réattachez-le.">⚠️ ${njShort(a.nj)} local</button><button class="att" onclick="deleteJustif('${r.id}')" title="Retirer cette copie locale" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
+        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier, ou rattachez la pièce existante via ⚠️ Justif. → Rattraper les liens Drive." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
+    h+=`<td style="min-width:55px">${selLazy("mod_"+r.id,r.id,"modal",r.modal,"mods",!r.modal?"border-color:#f97316;color:#f97316":"")}</td>`;
+    h+=`<td style="min-width:75px">${selLazy("stat_"+r.id,r.id,"stat",r.stat,"sts",(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":"")}</td>`;
+    h+=`<td style="min-width:60px">${selLazy("",r.id,"resp",r.resp,"resps","")}</td>`;
+    h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
+    h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
+    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`;
+    return h;
+}
+// ─── REGROUPEMENT DES ÉCRITURES ÉCLATÉES ───
+// Une répartition sur une famille de projets, ou une note de frais éclatée,
+// produit plusieurs écritures pour UN SEUL mouvement bancaire. Les afficher
+// toutes rendait Classement illisible et impossible à rapprocher du relevé :
+// un virement de 6 000 € y apparaissait en trois lignes de 2 000 €.
+// On les replie donc en une ligne de synthèse portant le total, dépliable d'un
+// clic. Les écritures ne changent pas en base : le FEC, le suivi analytique et
+// les exports continuent de voir les vraies sous-lignes, donc aucun chiffre ne
+// bouge ailleurs. C'est un regroupement d'affichage, rien de plus.
+let _grpOuvert={},_grpCles=[];
+function grpCleDe(r){
+  if(!r)return "";
+  if(r.split)return "s:"+r.split;
+  if(r.src==="ndf-split"&&r.ndf)return "n:"+r.ndf;
+  return "";
+}
+function grpToggle(i){const c=_grpCles[i];if(!c)return;
+  if(_grpOuvert[c])delete _grpOuvert[c];else _grpOuvert[c]=1;render()}
+// On repart des écritures et non de _grpCles : au premier rendu ce tableau est
+// encore vide, et « déplier tout » n'aurait rien déplié.
+function grpTout(ouvrir){
+  _grpOuvert={};
+  if(ouvrir)(D.rows||[]).forEach(r=>{const c=grpCleDe(r);if(c)_grpOuvert[c]=1});
+  render();
+}
+// Taille réelle du groupe, toutes écritures confondues. Sert à dire « 2 sur 3 »
+// quand un filtre de colonne n'en laisse voir qu'une partie : sans ça, le total
+// affiché aurait paru faux.
+function grpTaille(cle){return (D.rows||[]).filter(r=>grpCleDe(r)===cle).length}
+function grpConstruit(flt){
+  const par={};
+  (flt||[]).forEach(r=>{const c=grpCleDe(r);if(!c)return;
+    if(!par[c])par[c]={cle:c,type:c.charAt(0)==="s"?"split":"ndf",rows:[]};
+    par[c].rows.push(r)});
+  // Un groupe dont une seule écriture est visible n'a rien à replier.
+  Object.keys(par).forEach(c=>{if(par[c].rows.length<2)delete par[c]});
+  return par;
+}
+// Ligne de synthèse : volontairement NON modifiable. Éditer un total n'a pas de
+// sens, et un champ qui vaudrait « plusieurs » ne pourrait pas être enregistré
+// sans écraser en silence des valeurs différentes. Pour agir, on déplie.
+function ligneGroupe(g,i,ouvert){
+  const L=g.rows;
+  const deb=Math.round(L.reduce((a,r)=>a+(r.deb||0),0)*100)/100;
+  const cre=Math.round(L.reduce((a,r)=>a+(r.cre||0),0)*100)/100;
+  const meme=ch=>{const v=L.map(r=>String(r[ch]||""));return v.every(x=>x===v[0])?v[0]:null};
+  const plus='<span style="color:var(--text-3);font-style:italic">plusieurs</span>';
+  // null = valeurs différentes ; "" = même valeur, vide partout.
+  const cell=ch=>{const m=meme(ch);return m===null?plus:escHtml(m)};
+  const nTot=grpTaille(g.cle), part=nTot>L.length?" sur "+nTot:"";
+  const lib=g.type==="split"?(meme("lib")||L[0].lib||"")
+    :("Note de frais "+(L[0].ndf||"")+(meme("lib")?" \u2014 "+meme("lib"):""));
+  const codes=[...new Set(L.map(r=>actCode(r.act)).filter(Boolean))];
+  const pieces=L.filter(r=>r.driveUrl);
+  const numjs=[...new Set(L.map(r=>r.numj).filter(Boolean))].sort();
+  const chev=ouvert?"\u25be":"\u25b8";
+  const quoi=g.type==="split"?(L.length+" projet"+(L.length>1?"s":"")+part)
+                             :(L.length+" ligne"+(L.length>1?"s":"")+part);
+  const ti=g.type==="split"
+    ?"Un seul mouvement bancaire, réparti sur "+L.length+" projet(s) : "+codes.join(", ")
+      +". Cliquez pour déplier les sous-lignes."
+    :"Une note de frais éclatée en "+L.length+" ligne(s). Cliquez pour déplier.";
+  let h=`<tr class="grp-mere"><td style="white-space:nowrap;font-size:10px;color:var(--text-2);min-width:65px">${meme("dt")||L[0].dt||""}</td>`;
+  h+=`<td style="font-size:10px;text-align:center">${cell("yr")}</td>`;
+  h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="${String(lib).replace(/"/g,"&quot;")}">${escHtml(lib)}</td>`;
+  h+=`<td style="font-size:10px">${cell("four")}</td>`;
+  h+=`<td style="font-size:9px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cell("cat")}</td>`;
+  h+=`<td><button class="b bd" style="font-size:9px;padding:2px 7px;width:100%;text-align:left" onclick="grpToggle(${i})" title="${ti}">${chev} ${quoi}</button></td>`;
+  h+=g.type==="split"?splitCellBtn(L[0]):`<td class="cs"></td>`;
+  h+=`<td class="deb" style="min-width:65px;font-weight:700">${deb?fmt(deb):""}</td>`;
+  h+=`<td class="cre" style="min-width:65px;font-weight:700">${cre?fmt(cre):""}</td>`;
+  h+=`<td></td>`;
+  h+=`<td style="font-size:9px;white-space:nowrap">${pieces.length
+      ?`<button class="att has" onclick="window.open('${pieces[0].driveUrl}','_blank')" title="${pieces.length>1?pieces.length+" pièces sur ce groupe — celle de la première sous-ligne s\u2019ouvre ici. Dépliez pour les autres.":"Ouvrir la pièce sur le Drive"}">📄 ${pieces.length>1?pieces.length+" pièces":njShort(pieces[0].numj)||"Drive"}</button>`
+      :`<span style="color:var(--text-3)">—</span>`}</td>`;
+  h+=`<td style="font-size:10px">${cell("modal")}</td>`;
+  h+=`<td style="font-size:9px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cell("stat")}</td>`;
+  h+=`<td style="font-size:9px">${cell("resp")}</td>`;
+  h+=`<td style="font-size:9px;white-space:nowrap">${numjs.length?escHtml(numjs.map(njShort).join(" ")):""}</td>`;
+  const comBrut=meme("comment");
+  const com=comBrut===null?null:String(comBrut).replace(/\s*·?\s*Réparti depuis .*$/,"").trim();
+  h+=`<td style="font-size:9px;color:var(--text-3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${com?String(com).replace(/"/g,"&quot;"):""}">${com===null?plus:(com||(g.type==="split"?"réparti":""))}</td>`;
+  h+=`<td></td></tr>`;
+  return h;
+}
 function renderCorps(){
   invalidateActCache();
   // Compute stats
@@ -8794,6 +8924,11 @@ function renderCorps(){
   const flt=getFilt();
   // Default sort: most recent first
   flt.sort((a,b)=>(b.dt||"").localeCompare(a.dt||""));
+  const nGrp=Object.keys(grpConstruit(flt)).length;
+  if(nGrp){
+    const ouverts=Object.keys(_grpOuvert).length;
+    tb+=`<button class="fb" onclick="grpTout(${ouverts?"false":"true"})" title="Les écritures d'un même éclatement — répartition sur une famille, note de frais — sont repliées en une ligne portant le total. Rien n'est modifié : c'est un regroupement d'affichage.">${ouverts?"\u25be":"\u25b8"} ${nGrp} éclatement${nGrp>1?"s":""}</button>`;
+  }
   tb+=`<div style="margin-left:auto;font-size:7px;color:#64748b">${flt.length}/${D.rows.length}</div>`;
   $("toolbar").innerHTML=tb;
 
@@ -8832,38 +8967,23 @@ function renderCorps(){
       </div></td>`}
   });
   h+="</tr></thead><tbody>";
-  flt.forEach(r=>{const a=D.att[r.id];
-    // Row highlighting based on justificatif status
-    const isClasse=(r.stat||"").startsWith("Classé")&&(r.numj||(r.stat||"").includes("Bulletin"));
-    const isManquant=(r.stat||"")==="Justificatif manquant"||((r.deb>0||r.cre>0)&&!r.stat&&r.src==="banque");
-    const isUnclassed=!isClasse&&!isManquant&&(r.cat||r.act)&&r.stat&&!r.stat.startsWith("Classé");
-    const rowBg=isManquant?"background:rgba(251,146,60,.08);border-left:3px solid #f97316":isClasse?"background:rgba(22,163,74,.06);border-left:3px solid #16a34a":isUnclassed?"background:rgba(250,204,21,.08);border-left:3px solid #facc15":"";
-    h+=`<tr${r.src==="ndf"?' class="ndf"':(r.src==="ndf-split"?' class="ndf-split"':"")} style="${rowBg}">`;    h+=`<td style="white-space:nowrap;font-size:10px;color:#5c6a80;min-width:65px;cursor:pointer" ondblclick="editCell('${r.id}','dt')" title="Double-clic pour modifier la date">${r.dt}</td>`;
-    h+=`<td><input class="yr" value="${r.yr||""}" onchange="upd('${r.id}','yr',this.value)"></td>`;
-    h+=`<td style="min-width:260px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${(r.lib||"").replace(/"/g,"&quot;")} — double-clic pour modifier" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal';this.style.maxWidth=this.style.whiteSpace==='normal'?'none':'360px'" ondblclick="editCell('${r.id}','lib')">${r.lib}</td>`;
-    h+=`<td style="min-width:70px"><input class="ci" id="f_${r.id}" list="dl_four" value="${(r.four||"").replace(/"/g,"&quot;")}" onchange="upd('${r.id}','four',this.value)"></td>`;
-    const orangeSi=v=>"max-width:160px"+(v?"":";border-color:#f97316;color:#f97316");
-    h+=`<td style="min-width:150px">${selLazy("cat_"+r.id,r.id,"cat",r.cat,"cats",orangeSi(r.cat))}</td>`;
-    h+=`<td style="min-width:150px">${selLazy("act_"+r.id,r.id,"act",r.act,"acts",orangeSi(r.act))}</td>`;
-    h+=splitCellBtn(r);
-    h+=`<td class="deb" style="min-width:65px"><input class="ni" style="color:${(r.deb||0)<0?"#fb923c":"#f87171"};width:65px" value="${r.deb||''}"${(r.deb||0)<0?' title="Montant négatif : annulation / remboursement de charge. Il vient en déduction des charges."':""} onchange="upd('${r.id}','deb',parseFloat(this.value)||null)"></td>`;
-    h+=`<td class="cre" style="min-width:65px"><input class="ni" style="color:#4ade80;width:65px" value="${r.cre||''}" onchange="upd('${r.id}','cre',parseFloat(this.value)||null)"></td>`;
-    h+=finCellBtn(r);
-    // Colonne 📎 : un seul libellé, le n° de pièce, et un état qui ne mente pas
-    const up=uploadState[r.id];
-    h+=up?`<td><span class="att" style="color:#fb923c" title="Téléversement de ${up.name} (${up.ko} Ko) en cours vers JUSTIFICATIFS CLASSÉS. N'y touchez pas : la ligne se met à jour toute seule.">⏳ envoi…</span></td>`
-      :r.driveUrl?`<td><button class="att has" onclick="window.open('${r.driveUrl}','_blank')" title="Ouvrir sur le Drive${r.numj?" : "+r.numj:""}">📄 ${njShort(r.numj)||"Drive"}</button><button class="att" onclick="deleteJustif('${r.id}')" title="Supprimer ce justificatif (fichier Drive inclus, le numéro sera réutilisé)" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
-      :a?`<td><button class="att" style="border-color:#ef4444;color:#ef4444" onclick="viewAtt('${r.id}')" title="Copie locale de ${a.name} — ce fichier n'est PAS sur le Drive et sera perdu au rechargement. Réattachez-le.">⚠️ ${njShort(a.nj)} local</button><button class="att" onclick="deleteJustif('${r.id}')" title="Retirer cette copie locale" style="color:var(--red);margin-left:2px;font-size:8px">✕</button></td>`
-        :`<td class="drop-zone" ondragover="event.preventDefault();this.style.background='rgba(99,102,241,.15)'" ondragleave="this.style.background=''" ondrop="event.preventDefault();this.style.background='';dropJustif(event,'${r.id}')">${r.numj?`<span title="Numéro de pièce ${r.numj} inscrit, mais aucun fichier sur le Drive : la pièce n'a jamais été téléversée. Réattachez le fichier, ou rattachez la pièce existante via ⚠️ Justif. → Rattraper les liens Drive." style="color:#ef4444;font-size:9px;margin-right:2px">⚠️</span>`:""}<button class="att" onclick="attRow('${r.id}')">📎+</button></td>`;
-    h+=`<td style="min-width:55px">${selLazy("mod_"+r.id,r.id,"modal",r.modal,"mods",!r.modal?"border-color:#f97316;color:#f97316":"")}</td>`;
-    h+=`<td style="min-width:75px">${selLazy("stat_"+r.id,r.id,"stat",r.stat,"sts",(!r.stat||(r.stat||"").includes("manquant"))&&(r.deb||r.cre)?"border-color:#f97316;color:#f97316":"")}</td>`;
-    h+=`<td style="min-width:60px">${selLazy("",r.id,"resp",r.resp,"resps","")}</td>`;
-    h+=`<td style="min-width:55px"><input class="cj" value="${r.numj||""}" placeholder="Auto" onchange="upd('${r.id}','numj',this.value)"></td>`;
-    h+=`<td style="min-width:80px"><input class="cj" value="${r.comment||""}" placeholder="" style="font-size:9px" onchange="upd('${r.id}','comment',this.value)"></td>`;
-    h+=`<td style="white-space:nowrap"><button class="ib" onclick="dup('${r.id}')" title="Dupliquer">📋</button><button class="ib" onclick="del('${r.id}')" title="Supprimer">🗑</button>${parseNDF(r.lib)?`<button class="ib" onclick="splitNDF('${r.id}')" title="Éclater en sous-lignes NDF">✂️</button>`:""}</td></tr>`});
+  // Les écritures d'un même éclatement sont rendues à la position de la
+  // première d'entre elles, repliées par défaut.
+  const grp=grpConstruit(flt);
+  _grpCles=Object.keys(grp);
+  const vus={};
+  flt.forEach(r=>{
+    const c=grpCleDe(r), g=c?grp[c]:null;
+    if(!g){h+=ligneClassement(r,false);return}
+    if(vus[c])return;
+    vus[c]=1;
+    const i=_grpCles.indexOf(c), ouvert=!!_grpOuvert[c];
+    h+=ligneGroupe(g,i,ouvert);
+    if(ouvert)g.rows.forEach(x=>{h+=ligneClassement(x,true)});
+  });
   // Sous-totaux
   const stDeb=flt.reduce((s,r)=>s+(r.deb||0),0);const stCre=flt.reduce((s,r)=>s+(r.cre||0),0);
-  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="7" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes)</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
+  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700;background:#151724"><td colspan="7" style="text-align:right;padding:4px 6px;font-size:10px">Sous-total filtré (${flt.length} lignes${_grpCles.length?" · "+_grpCles.length+" éclatement(s) regroupé(s)":""})</td><td class="deb" style="font-size:11px">${fmt(stDeb)}</td><td class="cre" style="font-size:11px">${fmt(stCre)}</td><td colspan="8"></td></tr>`;
   h+="</tbody></table></div>";ct.innerHTML=h;
   applyColWidths(ct.querySelector("table"),"class");
   // Autocomplétion fournisseur : UNE seule datalist pour tout le tableau.
