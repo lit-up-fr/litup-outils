@@ -173,7 +173,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26f <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26g <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3322,19 +3322,19 @@ function rhCouverture(lib,y){
 // réclame, l'ordre ci-dessous faisant loi. Ce qui ne correspond à rien reste
 // accessible sous « Autres », pour ne jamais rendre un code insélectionnable.
 const RH_GROUPES=[
-  {zone:"National",      lib:"LAB",                       pfx:["LU","LAB"],                 terr:["NAT",""]},
-  {zone:"National",      lib:"FG",                        pfx:["FG"],                       terr:null},
-  {zone:"National",      lib:"IU",                        pfx:["IU"],                       terr:["NAT",""]},
-  {zone:"Sud",           lib:"FV",                        pfx:["FV"],                       terr:null},
-  {zone:"Sud",           lib:"Action Jeunes Sud",         pfx:["EXP","BU","ME","UTY","LU"], terr:["SUD"]},
-  {zone:"Sud",           lib:"Accompagnement pro Sud",    pfx:["F2F"],                      terr:["SUD"]},
-  {zone:"Sud",           lib:"Suivi Service Civique Sud", pfx:["SU"],                       terr:["SUD"]},
-  {zone:"Sud",           lib:"Suivi Impact uP Sud",       pfx:["IU"],                       terr:["SUD"]},
-  {zone:"\u00cele-de-France", lib:"FP",                        pfx:["FP"],                       terr:null},
-  {zone:"\u00cele-de-France", lib:"Action Jeunes IDF",         pfx:["EXP","BU","ME","UTY","LU"], terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Accompagnement pro IDF",    pfx:["F2F"],                      terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Suivi Service Civique IDF", pfx:["SU"],                       terr:["IDF"]},
-  {zone:"\u00cele-de-France", lib:"Suivi Impact uP IDF",       pfx:["IU"],                       terr:["IDF"]}
+  {zone:"National",      lib:"LAB", k:"nat-lab",                       pfx:["LU","LAB"],                 terr:["NAT",""]},
+  {zone:"National",      lib:"FG", k:"nat-fg",                        pfx:["FG"],                       terr:null},
+  {zone:"National",      lib:"IU", k:"nat-iu",                        pfx:["IU"],                       terr:["NAT",""]},
+  {zone:"Sud",           lib:"FV", k:"sud-fv",                        pfx:["FV"],                       terr:null},
+  {zone:"Sud",           lib:"Action Jeunes Sud", k:"sud-jeunes",         pfx:["EXP","BU","ME","UTY","LU"], terr:["SUD"]},
+  {zone:"Sud",           lib:"Accompagnement pro Sud", k:"sud-pro",    pfx:["F2F"],                      terr:["SUD"]},
+  {zone:"Sud",           lib:"Suivi Service Civique Sud", k:"sud-sc", pfx:["SU"],                       terr:["SUD"]},
+  {zone:"Sud",           lib:"Suivi Impact uP Sud", k:"sud-impact",       pfx:["IU"],                       terr:["SUD"]},
+  {zone:"\u00cele-de-France", lib:"FP", k:"idf-fp",                        pfx:["FP"],                       terr:null},
+  {zone:"\u00cele-de-France", lib:"Action Jeunes IDF", k:"idf-jeunes",         pfx:["EXP","BU","ME","UTY","LU"], terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Accompagnement pro IDF", k:"idf-pro",    pfx:["F2F"],                      terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Suivi Service Civique IDF", k:"idf-sc", pfx:["SU"],                       terr:["IDF"]},
+  {zone:"\u00cele-de-France", lib:"Suivi Impact uP IDF", k:"idf-impact",       pfx:["IU"],                       terr:["IDF"]}
 ];
 // Codes qu'on n'affecte jamais à du temps de travail : « RH » désigne la
 // fonction employeur elle-même, pas une activité sur laquelle on passe des
@@ -3369,11 +3369,14 @@ function actOptionsRH(current){
     if(i===-2)anciens.push(l);else if(i<0)autres.push(l);else paniers[i].push(l)});
   const opt=l=>`<option${l===cur?" selected":""}>${escHtml(l)}</option>`;
   const tri=(a,b)=>actCode(a).localeCompare(actCode(b),"fr",{numeric:true});
-  const inconnu=cur&&labels.indexOf(cur)<0;
+  const inconnu=cur&&!estFam(cur)&&labels.indexOf(cur)<0;
   let h=`<option value="">— Code projet —</option>`+(inconnu?`<option selected>${escHtml(cur)}</option>`:"");
   RH_GROUPES.forEach((g,i)=>{
     if(!paniers[i].length)return;
-    h+=`<optgroup label="${escHtml(g.zone+" \u2014 "+g.lib)}">`+paniers[i].sort(tri).map(opt).join("")+`</optgroup>`;
+    const jeton=FAM_PFX+g.k;
+    h+=`<optgroup label="${escHtml(g.zone+" \u2014 "+g.lib)}">`
+      +`<option value="${escHtml(jeton)}"${cur===jeton?" selected":""}>\u25b8 ${escHtml(g.lib)} \u2014 toute la famille</option>`
+      +paniers[i].sort(tri).map(opt).join("")+`</optgroup>`;
   });
   if(autres.length)h+=`<optgroup label="Hors regroupement \u2014 \u00e0 classer">`+autres.sort(tri).map(opt).join("")+`</optgroup>`;
   if(anciens.length)h+=`<optgroup label="Exercices ant\u00e9rieurs">`+anciens.sort(tri).map(opt).join("")+`</optgroup>`;
@@ -3394,6 +3397,37 @@ function actSetTerr(label,t){
   else D.acts[i].t=t;
   invalidateActCache();autoSave();render();
   toast("« "+actCode(label)+" » rattaché au territoire "+(t||"(aucun)")+". Annulable avec ↩️.","var(--green)");
+}
+// ─── AFFECTATION À UNE FAMILLE ENTIÈRE ───
+// Répartir le temps d'un coordinateur entre quinze parcours un par un n'a pas de
+// sens : il suit « les actions jeunes ». On peut donc affecter à une famille, et
+// le coût du mois se partage entre les projets de cette famille QUI ONT UNE
+// ÉCRITURE CE MOIS-LÀ — les projets en cours, pas ceux du catalogue. À parts
+// égales : rien dans les données ne dit qu'un parcours mobilise plus de temps
+// qu'un autre, et une pondération par les dépenses dirait autre chose.
+const FAM_PFX="@FAM:";
+const estFam=v=>String(v||"").indexOf(FAM_PFX)===0;
+const famCle=v=>String(v||"").substring(FAM_PFX.length);
+const famGroupe=cle=>RH_GROUPES.find(g=>g.k===cle)||null;
+function famLib(v){const g=famGroupe(famCle(v));return g?g.zone+" \u2014 "+g.lib:"famille inconnue"}
+function famProjets(cle){
+  const g=famGroupe(cle);if(!g)return [];
+  const i=RH_GROUPES.indexOf(g);
+  return actLabels().filter(l=>!rhExclu(l)&&rhGroupeDe(l)===i);
+}
+// Projets de la famille portant au moins une écriture sur ce mois.
+function famActifs(cle,y,m){
+  const proj=famProjets(cle);if(!proj.length)return [];
+  const mk=y+"-"+String(m+1).padStart(2,"0");
+  const vus=new Set();
+  (D.rows||[]).forEach(r=>{if(r.act&&moKey(r.dt)===mk)vus.add(actCode(r.act))});
+  return proj.filter(l=>vus.has(actCode(l)));
+}
+// Les projets actifs sur toute la période de l'affectation, pour l'afficher.
+function famActifsPeriode(cle,a,y){
+  const out=new Set();
+  allocCouv(a,y).forEach((cv,m)=>{if(cv>0)famActifs(cle,y,m).forEach(l=>out.add(l))});
+  return [...out].sort((x,z)=>actCode(x).localeCompare(actCode(z),"fr",{numeric:true}));
 }
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
@@ -3786,6 +3820,16 @@ function rRH(el){
           <button class="ib" onclick="rhAllocDel(${idx})" title="Supprimer cette affectation">🗑</button>
           ${souci?`<span style="font-size:9px;color:var(--red)">⚠️ ${souci}</span>`:""}
         </div>`;
+        if(estFam(a.act)){
+          const act=famActifsPeriode(famCle(a.act),a,rhYear);
+          const tous=famProjets(famCle(a.act));
+          h+=`<div style="font-size:9px;color:var(--text-3);margin:-1px 0 5px 224px;line-height:1.6">
+            ${act.length
+              ? "se partage à parts égales, mois par mois, entre les projets de la famille qui ont une écriture ce mois-là — sur cette période : <strong>"
+                +act.map(l=>escHtml(actCode(l))).join(", ")+"</strong> ("+act.length+" sur "+tous.length+")"
+              : `<span style="color:var(--amber)">⚠️ aucun projet de cette famille n'a d'écriture sur la période : le coût resterait non réparti. Choisissez un projet précis, ou attendez que des écritures existent.</span>`}
+          </div>`;
+        }
       });
       h+=`<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
         <button class="b bd" style="font-size:9px" onclick="rhAllocAjout(${pi},'${rhYear}')">+ Ajouter projet</button>
@@ -3813,15 +3857,40 @@ function rRH(el){
     }
     // Synthèse
     const byP={};
+    const pose=(act,cout,libDet)=>{
+      if(!byP[act])byP[act]={cout:0,det:{}};
+      byP[act].cout+=cout;
+      byP[act].det[libDet]=(byP[act].det[libDet]||0)+cout;
+    };
     rhAllocArr().forEach(a=>{
       if(!a.act||!a.pct)return;
       const pi=D.rhPostes.findIndex(p=>p.lib===a.sal);if(pi<0)return;
-      const c=allocCout(a,rhYear,(res2.parPoste[pi]||{cout:0}).cout);
-      if(c<=0)return;
-      if(!byP[a.act])byP[a.act]={cout:0,det:[]};
+      const coutAn=(res2.parPoste[pi]||{cout:0}).cout;
+      const pct=parseFloat(a.pct)||0;
       const b=allocBornes(a,rhYear),plein=b.duEx===rhYear+"-01-01"&&b.auEx===rhYear+"-12-31";
-      byP[a.act].cout+=c;
-      byP[a.act].det.push((D.rhPostes[pi].lib||"?")+" "+a.pct+" %"+(plein?"":" ("+b.duEx.substring(5)+"→"+b.auEx.substring(5)+")"));
+      const per=plein?"":" ("+b.duEx.substring(5)+"\u2192"+b.auEx.substring(5)+")";
+      const qui=(D.rhPostes[pi].lib||"?")+" "+a.pct+" %"+per;
+      if(!estFam(a.act)){
+        const c=allocCout(a,rhYear,coutAn);
+        if(c>0)pose(a.act,c,qui);
+        return;
+      }
+      // Famille : le coût de chaque mois se partage entre ses projets en cours ce
+      // mois-là. Un mois sans projet actif n'est pas absorbé en silence, il est
+      // rangé sous une entrée qui le dit.
+      const cle=famCle(a.act);
+      allocCouv(a,rhYear).forEach((cv,m)=>{
+        if(cv<=0)return;
+        const coutMois=coutAn/12*cv*pct/100;
+        if(coutMois<=0)return;
+        const actifs=famActifs(cle,rhYear,m);
+        if(!actifs.length){
+          pose("\u26a0\ufe0f "+famLib(a.act)+" \u2014 aucun projet en cours",coutMois,qui+" \u00b7 "+MONAMES[m]);
+          return;
+        }
+        const part=coutMois/actifs.length;
+        actifs.forEach(l=>pose(l,part,qui+" \u00b7 via "+famLib(a.act)));
+      });
     });
     if(Object.keys(byP).length){
       h+=`<h4 style="font-size:12px;margin:16px 0 6px">Synthèse par code projet</h4>
@@ -3831,7 +3900,8 @@ function rRH(el){
         h+=`<tr><td style="font-weight:600;font-size:10px">${act}</td>
           <td style="text-align:right;font-family:'JetBrains Mono';font-weight:700;font-size:10px;color:var(--amber)">${fmt(d.cout)}</td>
           <td style="text-align:right;font-family:'JetBrains Mono';font-size:10px">${fmt(d.cout/12)}</td>
-          <td style="font-size:9px;color:var(--text-3)">${d.det.join(", ")}</td></tr>`;
+          <td style="font-size:9px;color:var(--text-3)">${Object.keys(d.det).sort()
+            .map(k=>escHtml(k)+" — "+fmt(d.det[k])).join("<br>")}</td></tr>`;
       });
       h+='</tbody></table></div>';
     }
