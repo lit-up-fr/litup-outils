@@ -1,7 +1,13 @@
-# À faire — page « Engagements financeurs »
+# Page « Engagements financeurs »
 
 *Note prise le 31/08/2026, à la demande de Laetitia. Complétée le même jour avec la
-sélection d'indicateurs et la maille d'agrégation. Rien n'est développé.*
+sélection d'indicateurs et la maille d'agrégation.*
+
+> **Construit le 31/08/2026** — un onglet de test 🤝 Engagements existe désormais,
+> avec les trois parties demandées : Définir, Suivre à date, Bilans passés. La
+> structure de données réellement implémentée est décrite en fin de note.
+> Les indicateurs qualitatifs demandent l'action `getIndicateurs` du backend
+> (version 2026-08-31d, à redéployer) puis un ☁️ Charger → Airtable.
 
 ## Le besoin, tel qu'exprimé
 
@@ -239,3 +245,63 @@ suivi.
 - **Vérifier le taux de remplissage des sept indicateurs retenus** sur les
   parcours 2026 *avant* de construire la page. Si l'un d'eux est vide presque
   partout, mieux vaut le savoir maintenant que le découvrir dans un bilan.
+
+## Ce qui a été implémenté — 31/08/2026
+
+Trois parties, dans l'ordre où le travail se fait, sur la maquette proposée par
+Laetitia : *« une partie pour renseigner et associer à un financement existant,
+une partie pour suivre à date avec un tableau de bord par rapport à l'attendu à
+date (figeable pour un bilan), une dernière pour retrouver les bilans passés. »*
+
+```javascript
+D.engagements = [{
+  id, financeur, libelle, ref, du, au,     // la PÉRIODE est la maille, pas l'exercice
+  rids: ["rec…"],                          // financements Airtable rattachés (0..n)
+  mtEngage,
+  perimFin:  { codes:[], familles:[] },
+  perimQual: { memeQueFin:true, codes:[], familles:[] },
+  cibles: [{ cle, lib, unite, cumul:"somme"|"moyenne",
+             portee:{ pfx:["BU"] },        // A1/A5 sur les BU, A10 sur les F2F
+             total }],
+  bilans: [{ date, libelle, codes:[], valeurs:{}, fin:{…}, note, fige }],
+  notes
+}]
+D.actIndic      = { "BU91": { "fldkCI8uAlpfWT04G": 12, … } }   // repris d'Airtable
+D.actIndicDates = { "BU91": { du:"2026-09-01", au:"2026-12-15" } }
+```
+
+### Décisions prises pendant la construction
+
+- **L'attendu à date** est un prorata linéaire du temps écoulé, faute de jalons
+  déclarés par le financeur. C'est écrit dans la page : sur une activité
+  saisonnière, un été creux fera toujours apparaître un retard. Des jalons
+  explicites restent à ajouter si un financeur en impose.
+- **Le perçu ne se devine pas.** Il est calculé sur les crédits portant la trace
+  d'un des financements rattachés. Sans rattachement il reste à zéro et la page
+  le dit, plutôt que de gonfler le perçu avec les recettes d'un autre financeur.
+- **Une note se lit en moyenne, pas en somme**, et le nombre de parcours notés
+  est affiché à côté : un seul parcours noté 4,8 donnerait l'illusion d'un
+  excellent programme.
+- **Une cellule Airtable vide n'est pas un zéro.** Chaque cible affiche sa
+  couverture (« 3 / 5 renseignés »), parce qu'un total qui agrège du vide est
+  plausible et faux.
+- **Coupe à la date, des deux côtés.** Un parcours qui n'a pas commencé à la date
+  du bilan ne compte pas — sinon le financier s'arrêtait à la date et le
+  qualitatif comptait l'avenir : deux moitiés du même bilan qui ne parlaient pas
+  du même moment.
+- **Un parcours est retenu s'il CHEVAUCHE la période**, pas si ses deux bornes y
+  tombent : tester les bornes écartait un parcours démarré avant et fini après,
+  c'est-à-dire celui qui couvre le mieux la période.
+- **Un bilan figé ne se reconstitue pas.** Sa suppression est refusée sans
+  confirmation explicite, et supprimer un engagement qui en porte est refusé
+  tout court.
+
+### Ce qui reste ouvert
+
+- `getIndicateurs` doit être redéployé côté Apps Script pour que six des sept
+  indicateurs remontent (seules les heures de formation sont déjà rapatriées).
+- Les **jalons** du financeur, si l'attendu linéaire ne suffit pas.
+- Les **engagements en nature** (mise à disposition, valorisation du bénévolat) :
+  ni dans la compta ni dans Airtable, à saisir à la main et à marquer comme tel.
+- Un **export du bilan en document** plutôt qu'en CSV, si un financeur impose un
+  format.

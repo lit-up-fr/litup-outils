@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-08-31c";
+var BACKEND_VERSION = "2026-08-31d";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -79,6 +79,7 @@ function handleRequest(e) {
       case "getCodesCompta": result = getCodesCompta(); break;
       case "setCodesCompta": result = setCodesCompta(postData); break;
       case "getAirtableData": result = getAirtableData(); break;
+      case "getIndicateurs": result = getIndicateurs(); break;
       case "listJustifFiles": result = listJustifFiles(); break;
       case "getCodesProjets": result = getCodesProjets(params); break;
       case "version": result = { version: BACKEND_VERSION }; break;
@@ -676,6 +677,20 @@ var F_PAR = {
   heures: "fld8ZxcAC074NVHx3"    // Nb heures formation
 };
 
+// Indicateurs qualitatifs retenus pour les bilans financeurs (choix du 31/08).
+// Tous sont des rollups DEJA calcules sur "4. Parcours" : rien a creer dans
+// Airtable, il suffit de les demander. On renvoie null pour une cellule vide et
+// jamais zero : un total qui agrege du vide comme du zero est plausible et faux.
+var F_INDIC = {
+  "fldkCI8uAlpfWT04G": "Nb jeunes",
+  "fldDJjEJCqEnYNddu": "Nb jeunes >= 3 seances ou realisation du projet",
+  "fldamIUcuiv5UcRRJ": "Nb professionnels formes",
+  "fld8ZxcAC074NVHx3": "Nb heures formation",
+  "fldBNuqKffFQ6BbdS": "Nombre de seances prevues",
+  "fld3esPRw1A4M8tov": "Note globale",
+  "fldauy8SrQZynRLuo": "Cout reel programme"
+};
+
 // Codes transversaux : toujours proposes, jamais issus d'Airtable.
 var CODES_TRANSVERSAUX = [
   { l: "FG2026 - Fonctionnement National",  t: "NAT" },
@@ -783,6 +798,36 @@ function getCodesProjets(params) {
   return { ok: true, codes: codes, transversaux: res.transversaux,
            source: "airtable", lus: res.lus, retenus: res.retenus,
            syncedAt: new Date().toISOString() };
+}
+
+// Indicateurs qualitatifs par code projet, avec les dates du parcours.
+// Les dates servent la coupe par periode d'un engagement : un rollup Airtable
+// n'est pas date, on retient donc le parcours dont les dates tombent dans la
+// periode et on prend son total en entier.
+function getIndicateurs() {
+  var ids = Object.keys(F_INDIC);
+  var champs = [F_PAR.label, F_PAR.debut, F_PAR.fin].concat(ids);
+  var recs = airtableFetchAll(AIRTABLE_TBL_PARCOURS, champs, true);
+  var val = {}, dates = {}, doublons = [];
+  recs.forEach(function(r) {
+    var f = r.fields || {};
+    var l = String(f[F_PAR.label] || "").replace(/\s+/g, " ").trim();
+    if (!l || l.charAt(0) === "-") return;
+    var code = l.split(" - ")[0].trim().toUpperCase();
+    if (!code) return;
+    if (val[code]) { if (doublons.indexOf(code) < 0) doublons.push(code); }
+    var o = {};
+    ids.forEach(function(id) {
+      var v = f[id];
+      o[id] = (v === "" || v === null || v === undefined) ? null : (isNaN(Number(v)) ? null : Number(v));
+    });
+    val[code] = o;
+    dates[code] = { du: String(f[F_PAR.debut] || "").substring(0, 10),
+                    au: String(f[F_PAR.fin] || "").substring(0, 10) };
+  });
+  return { ok: true, indic: val, dates: dates, doublons: doublons,
+           champs: F_INDIC, n: Object.keys(val).length,
+           backendVersion: BACKEND_VERSION };
 }
 
 function airtableFetchAll(tableId, fields, byId) {

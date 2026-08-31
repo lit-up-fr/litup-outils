@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31p <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31q <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -664,6 +664,9 @@ let D={
   // .push sur undefined et échouait sans rien dire à l'écran.
   rhAlloc:[],
   detIgnore:{vi:{},dbl:{}},   // décisions prises sur les détecteurs, pour ne plus reposer la question
+  engagements:[],             // conventions financeurs : cibles, périmètres, bilans figés
+  actIndic:{},                // indicateurs qualitatifs par code projet, repris d'Airtable
+  actIndicDates:{},           // dates de début / fin de chaque parcours, pour la coupe par période
   airtableSync:"2026-04-21",
   airtableSubs:[
     {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
@@ -1080,7 +1083,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -1150,7 +1153,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -1181,6 +1184,7 @@ async function saveComptaToSheet(){
       // Deux champs de ligne que les colonnes de la feuille ne portent pas
       // encore. Seules les lignes concernées sont listées : quelques dizaines
       // d'entrées, pas 525.
+      engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,
       lignesPlus:(()=>{const o={};(D.rows||[]).forEach(r=>{
         if(r.split||r.driveFileId)o[r.id]={split:r.split||"",driveFileId:r.driveFileId||""}});return o})(),
       rhAlloc:D.rhAlloc,savedBy:qui,
@@ -1664,6 +1668,9 @@ async function loadComptaFromSheet(){
       if(m.actHeuresSrc!==undefined)D.actHeuresSrc=m.actHeuresSrc||{};
       if(m.actRid!==undefined)D.actRid=m.actRid||{};
       if(m.splits!==undefined)D.splits=m.splits||{};
+      if(m.engagements!==undefined)D.engagements=Array.isArray(m.engagements)?m.engagements:[];
+      if(m.actIndic!==undefined)D.actIndic=m.actIndic||{};
+      if(m.actIndicDates!==undefined)D.actIndicDates=m.actIndicDates||{};
       invalidateActCache();
     }
     fusSnapshot();   // version commune de départ pour une fusion ultérieure
@@ -8507,11 +8514,13 @@ async function autoSyncAirtable(){
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
     if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
     const bf=finBackfillRids();
+    const ind=await engIndicDepuisAirtable();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
     atStatSet("✅ Airtable","#16a34a",
       (res.subs?.length||0)+" subvention(s) · "+(res.prestas?.length||0)+" presta(s) · "+
       (res.acts?.length||0)+" code(s) projet"+(added?" dont "+added+" nouveau(x)":"")+
+      (ind?" · indicateurs : "+ind.n+" parcours":"")+
       (heu?" · heures d'action : "+heu.maj+" reprise(s)"+(heu.vides.length?", "+heu.vides.length+" cellule(s) vide(s) dans Airtable":"")
         +(heu.doublons.length?", "+heu.doublons.length+" code(s) en doublon":""):"")+
       " — sync "+D.airtableSync);
@@ -8545,6 +8554,7 @@ async function syncAirtable(){
     if(res.subs){gardes+=fusionneManuels(D.airtableSubs,res.subs);D.airtableSubs=res.subs}
     if(res.prestas){gardes+=fusionneManuels(D.airtablePrestas,res.prestas);D.airtablePrestas=res.prestas}
     const bf=finBackfillRids();
+    const ind=await engIndicDepuisAirtable();
     D.airtableSync=new Date().toISOString().split("T")[0];
     autoSave();render();
     // Les nouveaux projets d'abord : un financement reajuste change les montants,
@@ -9107,6 +9117,562 @@ function ligneGroupe(g,i,ouvert){
   h+=`<td></td></tr>`;
   return h;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENGAGEMENTS FINANCEURS
+// ═══════════════════════════════════════════════════════════════════════════
+// Trois parties, dans l'ordre où le travail se fait :
+//   1. DÉFINIR  — la convention, sa période, son périmètre, ses cibles, et les
+//                 financements Airtable qui la servent (zéro, un ou plusieurs :
+//                 une convention signée dont rien n'est encore arrivé est un
+//                 engagement valide).
+//   2. SUIVRE   — où on en est par rapport à l'attendu À DATE, et le bouton qui
+//                 fige un bilan.
+//   3. BILANS   — les photos figées, en lecture seule.
+//
+// Deux principes qui décident de tout le reste :
+//   • le réalisé n'est JAMAIS stocké. Il se recalcule depuis les écritures
+//     (financier) et depuis Airtable (qualitatif). Une seule source de vérité.
+//   • un bilan, lui, est figé : il garde sa date, la liste des projets retenus
+//     ce jour-là et les valeurs lues. Le suivi continue d'évoluer à côté sans
+//     le réécrire — c'est indispensable puisque certains bilans sont demandés
+//     avant la fin de la période.
+
+// Les sept indicateurs retenus. « portee » est le filtre de projets : « Nb
+// jeunes » ne vaut que sur les BU, « Nb professionnels formés » que sur les F2F.
+// Sans ce filtre on agrégerait des cellules vides et le total serait faux sans
+// que rien ne le signale.
+const ENG_INDIC=[
+  {cle:"fldkCI8uAlpfWT04G",lib:"Nb jeunes",unite:"personnes",pfx:["BU"],cumul:"somme"},
+  {cle:"fldDJjEJCqEnYNddu",lib:"Nb jeunes ≥ 3 séances ou réalisation du projet",unite:"personnes",pfx:["BU"],cumul:"somme"},
+  {cle:"fldamIUcuiv5UcRRJ",lib:"Nb professionnels formés",unite:"personnes",pfx:["F2F"],cumul:"somme"},
+  {cle:"fld8ZxcAC074NVHx3",lib:"Nb heures formation",unite:"heures",pfx:[],cumul:"somme",local:"actHeures"},
+  {cle:"fldBNuqKffFQ6BbdS",lib:"Nombre de séances prévues",unite:"séances",pfx:[],cumul:"somme"},
+  {cle:"fld3esPRw1A4M8tov",lib:"Note globale",unite:"",pfx:[],cumul:"moyenne"},
+  {cle:"fldauy8SrQZynRLuo",lib:"Coût réel programme",unite:"€",pfx:[],cumul:"somme"}
+];
+const engIndicDe=c=>ENG_INDIC.find(x=>x.cle===c)||null;
+
+function engArr(){if(!Array.isArray(D.engagements))D.engagements=[];return D.engagements}
+// Rapatriement des indicateurs qualitatifs. Appelé par les deux chemins de
+// synchro Airtable — l'automatique au démarrage et le manuel. L'action peut ne
+// pas exister sur un backend plus ancien : on ne fait pas échouer la synchro
+// pour autant, l'onglet Engagements dit simplement que la donnée manque.
+async function engIndicDepuisAirtable(){
+  try{
+    const ri=await sheetAPI("getIndicateurs");
+    if(!ri||!ri.indic)return null;
+    D.actIndic=ri.indic;D.actIndicDates=ri.dates||{};
+    return {n:ri.n||Object.keys(ri.indic).length,doublons:(ri.doublons||[]).length};
+  }catch(e){return null}
+}
+function engIndicMap(){if(!D.actIndic||typeof D.actIndic!=="object")D.actIndic={};return D.actIndic}
+function engIndicDates(){if(!D.actIndicDates||typeof D.actIndicDates!=="object")D.actIndicDates={};return D.actIndicDates}
+let engVue="def", engSel=null;
+function engSetVue(v){engVue=v;render()}
+function engChoisir(i){engSel=i;engVue="suivi";render()}
+
+const _J=d=>String(d||"").substring(0,10);
+// Un engagement de juin à juin traverse deux exercices : la coupe se fait sur la
+// DATE, jamais sur l'année d'affectation. C'est pour ça que le total d'un
+// engagement ne se retrouvera dans aucun tableau annuel de l'outil — c'est
+// normal, et c'est écrit dans la page pour que ça ne passe pas pour une erreur.
+function engDansPeriode(dt,e){
+  const d=_J(dt);if(!d)return false;
+  if(e.du&&d<_J(e.du))return false;
+  if(e.au&&d>_J(e.au))return false;
+  return true;
+}
+// Part de la période écoulée à une date donnée : c'est l'« attendu à date ».
+// Prorata linéaire, faute de jalons déclarés par le financeur — et on l'écrit,
+// parce qu'un prorata linéaire sur une activité saisonnière est une convention
+// de lecture, pas une vérité.
+// Chevauchement de deux périodes. Une borne absente vaut « ouverte » : un
+// parcours sans date de fin est en cours, donc concerné.
+function engChevauche(d,e){
+  const du=_J(d.du), au=_J(d.au), edu=_J(e.du), eau=_J(e.au);
+  if(au&&edu&&au<edu)return false;   // fini avant le début de l'engagement
+  if(du&&eau&&du>eau)return false;   // commencé après sa fin
+  return true;
+}
+function engEcoule(e,auJour){
+  const d1=Date.parse(_J(e.du)+"T12:00:00"), d2=Date.parse(_J(e.au)+"T12:00:00");
+  const dj=Date.parse(_J(auJour||new Date().toISOString())+"T12:00:00");
+  if(isNaN(d1)||isNaN(d2)||d2<=d1)return {part:1,jours:0,total:0};
+  const total=Math.round((d2-d1)/86400000)+1;
+  const jours=Math.max(0,Math.min(total,Math.round((dj-d1)/86400000)+1));
+  return {part:jours/total,jours,total};
+}
+// Codes projets d'un périmètre : les codes choisis un par un, plus tous ceux des
+// familles retenues. Une famille est un périmètre VIVANT — un parcours qui la
+// rejoint entre dans le suivi. C'est voulu pour le suivi courant, et c'est
+// exactement pourquoi un bilan doit figer la liste.
+function engCodes(perim){
+  const out=new Set();
+  (perim&&perim.codes||[]).forEach(c=>{if(c)out.add(actCode(c))});
+  (perim&&perim.familles||[]).forEach(k=>famProjets(k).forEach(l=>out.add(actCode(l))));
+  return [...out];
+}
+function engPerimQual(e){
+  const p=e.perimQual||{};
+  return p.memeQueFin===false?engCodes(p):engCodes(e.perimFin||{});
+}
+// Réalisé financier : une coupe des écritures sur la période et le périmètre.
+// La ventilation des salaires est appliquée, sinon le coût d'un programme
+// n'inclurait pas la masse salariale qui le produit.
+function engFin(e,auJour){
+  const codes=new Set(engCodes(e.perimFin||{}));
+  const v=ventilRows(D.rows||[]);
+  let charges=0,produits=0,percu=0;
+  const rids=new Set((e.rids||[]).filter(Boolean));
+  v.rows.forEach(r=>{
+    if(!engDansPeriode(r.dt,e))return;
+    if(auJour&&_J(r.dt)>_J(auJour))return;
+    if(!codes.has(actCode(r.act)))return;
+    charges+=(r.deb||0);produits+=(r.cre||0);
+  });
+  // Perçu : les crédits portant la trace d'un des financements rattachés. On ne
+  // devine pas — un crédit sans trace n'est pas compté, et le dire vaut mieux
+  // que gonfler le perçu avec des recettes d'un autre financeur.
+  if(rids.size)(D.rows||[]).forEach(r=>{
+    if(!(r.cre>0))return;
+    if(!engDansPeriode(r.dt,e))return;
+    if(auJour&&_J(r.dt)>_J(auJour))return;
+    if(finTrace(r).some(t=>t.rid&&rids.has(t.rid)))percu+=(r.cre||0);
+  });
+  const r2=x=>Math.round(x*100)/100;
+  return {charges:r2(charges),produits:r2(produits),percu:r2(percu),
+    codes:[...codes],sansTrace:!rids.size};
+}
+// Valeur d'un indicateur sur un périmètre. Les rollups Airtable ne sont pas
+// datés : on retient les parcours dont les DATES tombent dans la période et on
+// prend leur total. Un parcours à cheval sur une borne est donc dedans ou
+// dehors, en entier — approximation assumée, affichée comme telle.
+function engIndicVal(e,cible,auJour){
+  const ind=engIndicDe(cible.cle)||{};
+  const pfx=(cible.portee&&cible.portee.pfx&&cible.portee.pfx.length)?cible.portee.pfx:(ind.pfx||[]);
+  const M=engIndicMap(),DT=engIndicDates();
+  // rhPfxMatch attend le préfixe en CHAÎNE : lui passer [p] faisait calculer la
+  // longueur du tableau (1) au lieu de celle du préfixe, donc « BU91 » était
+  // testé sur « U91 » et ne matchait rien — tandis que « F2F19 » passait par
+  // accident sur « 2F19 ». Un filtre faux dans les deux sens.
+  const codes=engPerimQual(e).filter(c=>!pfx.length||pfx.some(p=>rhPfxMatch(c,String(p))));
+  let somme=0,n=0,vides=[],horsPeriode=0,pasCommence=0;
+  codes.forEach(c=>{
+    // Un parcours est retenu s'il CHEVAUCHE la période, pas si ses bornes y
+    // tombent : tester les deux bornes écartait un parcours qui englobe toute la
+    // période (démarré avant, fini après), c'est-à-dire le cas le plus favorable
+    // au financeur.
+    const d=DT[c];
+    if(d&&(d.du||d.au)&&!engChevauche(d,e)){horsPeriode++;return}
+    // À la date d'un bilan, un parcours qui n'a pas encore commencé n'a rien
+    // produit. Sans cette coupe, un bilan au 31/12 comptait les jeunes d'un
+    // parcours démarrant en février suivant — et le financier, lui, s'arrêtait
+    // bien à la date. Deux moitiés du même bilan qui ne parlaient pas du même
+    // moment.
+    if(auJour&&d&&d.du&&_J(d.du)>_J(auJour)){pasCommence++;return}
+    let val=null;
+    if(ind.local==="actHeures"){const h=actHeures(c);if(h>0)val=h}
+    else if(M[c]&&M[c][cible.cle]!==undefined&&M[c][cible.cle]!==null&&M[c][cible.cle]!=="")val=Number(M[c][cible.cle]);
+    if(val===null||isNaN(val)){vides.push(c);return}
+    somme+=val;n++;
+  });
+  const cumul=cible.cumul||ind.cumul||"somme";
+  const valeur=cumul==="moyenne"?(n?somme/n:null):(n?somme:null);
+  // « total » ne compte que les parcours réellement concernés à cette date :
+  // afficher « 2 / 5 » en incluant des parcours écartés ferait croire à des
+  // cellules vides qui n'en sont pas.
+  const retenus=codes.length-horsPeriode-pasCommence;
+  return {valeur,cumul,n,total:retenus,vides,horsPeriode,pasCommence,codes,
+    dispo:!!(ind.local||Object.keys(M).length)};
+}
+
+// ─── PARTIE 1 : DÉFINIR ───
+function engNouveau(){
+  engArr().push({id:"e"+Date.now().toString(36),financeur:"",libelle:"",ref:"",
+    du:new Date().getFullYear()+"-01-01",au:new Date().getFullYear()+"-12-31",
+    rids:[],mtEngage:0,perimFin:{codes:[],familles:[]},
+    perimQual:{memeQueFin:true,codes:[],familles:[]},cibles:[],bilans:[],notes:""});
+  engSel=engArr().length-1;engVue="def";autoSave();render();
+}
+function engSet(i,champ,v){const e=engArr()[i];if(!e)return;
+  e[champ]=(champ==="mtEngage")?(parseFloat(v)||0):v;autoSave();render()}
+function engSuppr(i){const e=engArr()[i];if(!e)return;
+  if((e.bilans||[]).length){alert("Cet engagement porte "+e.bilans.length+" bilan(s) figé(s).\n\nUn bilan figé est la copie de ce qui a été transmis au financeur : il ne doit pas disparaître avec l'engagement. Supprimez d'abord les bilans si c'est vraiment ce que vous voulez.");return}
+  if(!confirm("Supprimer l'engagement « "+(e.libelle||e.financeur||"sans nom")+" » ?"))return;
+  pushUndo();engArr().splice(i,1);if(engSel===i)engSel=null;autoSave();render();
+}
+function engFamToggle(i,quoi,k){
+  const e=engArr()[i];if(!e)return;
+  const p=quoi==="fin"?(e.perimFin=e.perimFin||{codes:[],familles:[]}):(e.perimQual=e.perimQual||{codes:[],familles:[]});
+  p.familles=p.familles||[];
+  const j=p.familles.indexOf(k);
+  if(j>=0)p.familles.splice(j,1);else p.familles.push(k);
+  autoSave();render();
+}
+function engCodeToggle(i,quoi,ci){
+  const e=engArr()[i];if(!e)return;
+  const code=actCode(actLabels()[ci]||"");if(!code)return;
+  const p=quoi==="fin"?(e.perimFin=e.perimFin||{codes:[],familles:[]}):(e.perimQual=e.perimQual||{codes:[],familles:[]});
+  p.codes=p.codes||[];
+  const j=p.codes.indexOf(code);
+  if(j>=0)p.codes.splice(j,1);else p.codes.push(code);
+  autoSave();render();
+}
+function engQualMeme(i,v){const e=engArr()[i];if(!e)return;
+  e.perimQual=e.perimQual||{codes:[],familles:[]};e.perimQual.memeQueFin=!!v;autoSave();render()}
+function engRidToggle(i,fi){
+  const e=engArr()[i];if(!e)return;
+  const f=finList()[fi];if(!f||!f.rid)return;
+  e.rids=e.rids||[];
+  const j=e.rids.indexOf(f.rid);
+  if(j>=0)e.rids.splice(j,1);else e.rids.push(f.rid);
+  autoSave();render();
+}
+function engCibleAjout(i,cle){
+  const e=engArr()[i];if(!e||!cle)return;
+  const ind=engIndicDe(cle);if(!ind)return;
+  e.cibles=e.cibles||[];
+  if(e.cibles.some(c=>c.cle===cle))return;
+  e.cibles.push({cle,lib:ind.lib,unite:ind.unite,cumul:ind.cumul,
+    portee:{pfx:(ind.pfx||[]).slice()},total:0});
+  autoSave();render();
+}
+function engCibleSet(i,ci,champ,v){
+  const e=engArr()[i];if(!e||!e.cibles||!e.cibles[ci])return;
+  const c=e.cibles[ci];
+  if(champ==="total")c.total=parseFloat(v)||0;
+  else if(champ==="pfx")c.portee={pfx:String(v||"").split(",").map(x=>x.trim().toUpperCase()).filter(Boolean)};
+  else c[champ]=v;
+  autoSave();render();
+}
+function engCibleDel(i,ci){const e=engArr()[i];if(!e||!e.cibles)return;
+  e.cibles.splice(ci,1);autoSave();render()}
+
+// ─── PARTIE 2 : FIGER UN BILAN ───
+// Un bilan enregistre la liste des projets retenus CE JOUR-LÀ et les valeurs
+// lues. C'est ce qui permet au périmètre de continuer à vivre sans réécrire ce
+// qui a été transmis au financeur.
+function engFigerBilan(i){
+  const e=engArr()[i];if(!e)return;
+  const dt=prompt("Date du bilan (AAAA-MM-JJ) — celle de l'envoi au financeur :",
+    new Date().toISOString().substring(0,10));
+  if(!dt||!/^\d{4}-\d{2}-\d{2}$/.test(dt)){if(dt)alert("Date non reconnue. Format attendu : 2026-12-31.");return}
+  const lib=prompt("Intitulé du bilan (ex. « Bilan intermédiaire au 31/12/2026 ») :",
+    "Bilan au "+dt.split("-").reverse().join("/"))||("Bilan au "+dt);
+  const fin=engFin(e,dt);
+  const valeurs={};
+  (e.cibles||[]).forEach(c=>{
+    const v=engIndicVal(e,c,dt);
+    valeurs[c.cle]={valeur:v.valeur,cumul:v.cumul,n:v.n,total:v.total,
+      vides:v.vides.slice(),cible:c.total,lib:c.lib,unite:c.unite,
+      portee:(c.portee&&c.portee.pfx||[]).slice()};
+  });
+  e.bilans=e.bilans||[];
+  e.bilans.push({date:dt,libelle:lib,codes:fin.codes.slice(),
+    fin:{charges:fin.charges,produits:fin.produits,percu:fin.percu,
+         mtEngage:e.mtEngage||0,sansTrace:fin.sansTrace},
+    valeurs,note:"",fige:new Date().toISOString()});
+  e.bilans.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  autoSave();engVue="bilans";render();
+  toast("Bilan figé au "+dt+" — le suivi continue d'évoluer à côté.");
+}
+function engBilanNote(i,bi,v){const e=engArr()[i];if(!e||!e.bilans||!e.bilans[bi])return;
+  e.bilans[bi].note=v;autoSave()}
+function engBilanSuppr(i,bi){
+  const e=engArr()[i];if(!e||!e.bilans||!e.bilans[bi])return;
+  const b=e.bilans[bi];
+  if(!confirm("Supprimer le bilan « "+b.libelle+" » ?\n\nC'est la copie de ce qui a été transmis au financeur le "+b.date+". Une fois supprimée, elle n'est pas reconstituable : le suivi courant a bougé depuis."))return;
+  pushUndo();e.bilans.splice(bi,1);autoSave();render();
+}
+function engBilanCSV(i,bi){
+  const e=engArr()[i];if(!e||!e.bilans||!e.bilans[bi])return;
+  const b=e.bilans[bi];
+  const L=[["Engagement",e.libelle||""],["Financeur",e.financeur||""],["Référence",e.ref||""],
+    ["Période",_J(e.du)+" au "+_J(e.au)],["Bilan",b.libelle],["Date du bilan",b.date],[""],
+    ["— FINANCIER —"],["Montant conventionné",String(b.fin.mtEngage).replace(".",",")],
+    ["Perçu à la date du bilan",String(b.fin.percu).replace(".",",")],
+    ["Charges sur le périmètre",String(b.fin.charges).replace(".",",")],
+    ["Produits sur le périmètre",String(b.fin.produits).replace(".",",")],[""],
+    ["— QUALITATIF —"],["Indicateur","Réalisé","Cible","Parcours renseignés","Portée"]];
+  Object.keys(b.valeurs||{}).forEach(k=>{const v=b.valeurs[k];
+    L.push([v.lib,v.valeur===null?"":String(v.valeur).replace(".",","),
+      String(v.cible||"").replace(".",","),v.n+" / "+v.total,(v.portee||[]).join(" ")||"tous"]);});
+  L.push([""],["— PROJETS RETENUS —"],...b.codes.map(c=>[c]));
+  if(b.note)L.push([""],["Note"],[b.note]);
+  const csv="﻿"+L.map(r=>r.map(x=>'"'+String(x===undefined?"":x).replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="Bilan_"+(e.financeur||"financeur").replace(/[^A-Za-z0-9]/g,"_")+"_"+b.date+".csv";
+  a.click();
+}
+
+
+// ─── RENDU ───
+const _pc=(a,b)=>b>0?Math.round(a/b*1000)/10:null;
+function engJauge(fait,attendu,cible,unite){
+  // Deux repères sur la même barre : la cible (100 %) et l'attendu à date. Voir
+  // « 40 % de la cible » ne dit rien ; voir « 40 % pour 55 % attendu » dit tout.
+  const pc=cible>0?Math.max(0,Math.min(140,fait/cible*100)):0;
+  const pa=cible>0?Math.max(0,Math.min(140,attendu/cible*100)):0;
+  const av=attendu>0?fait/attendu:null;
+  const col=av===null?"var(--text-3)":av>=0.95?"var(--green)":av>=0.75?"var(--amber)":"var(--red)";
+  return `<div style="min-width:150px">
+    <div style="position:relative;height:7px;background:var(--bg-3);border-radius:4px;overflow:visible">
+      <div style="height:7px;border-radius:4px;background:${col};width:${Math.min(100,pc)}%"></div>
+      ${cible>0?`<div title="Attendu à date : ${fmt(attendu)}" style="position:absolute;top:-2px;left:${Math.min(100,pa)}%;width:2px;height:11px;background:var(--text-1);opacity:.75"></div>`:""}
+    </div>
+    <div style="font-size:8px;color:var(--text-3);margin-top:2px">
+      ${cible>0?`${(fait/cible*100).toFixed(0)} % de la cible`:"pas de cible"}
+      ${attendu>0?` · <span style="color:${col};font-weight:700">${(fait/attendu*100).toFixed(0)} % de l’attendu</span>`:""}</div></div>`;
+}
+function engListeFamilles(i,quoi,perim){
+  const zones=[...new Set(RH_GROUPES.map(g=>g.zone))];
+  return zones.map(z=>`<div style="margin-bottom:3px"><span style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px">${escHtml(z)}</span><br>`
+    +RH_GROUPES.filter(g=>g.zone===z).map(g=>{
+      const on=(perim.familles||[]).indexOf(g.k)>=0;
+      return `<button class="fb${on?" on":""}" style="${on?"color:var(--accent);border-color:var(--accent)":""}" onclick="engFamToggle(${i},'${quoi}','${g.k}')" title="${famProjets(g.k).length} projet(s)">${on?"✓ ":""}${escHtml(g.lib)} <span style="opacity:.6">${famProjets(g.k).length}</span></button>`;
+    }).join(" ")+`</div>`).join("");
+}
+function engPartDef(e,i){
+  const inp="width:100%;padding:4px 6px;background:var(--bg-1);border:1px solid var(--border);border-radius:5px;color:var(--text-1);font-size:11px;font-family:var(--sans)";
+  const pf=e.perimFin||{codes:[],familles:[]}, pq=e.perimQual||{codes:[],familles:[]};
+  const meme=pq.memeQueFin!==false;
+  const fins=finList();
+  const cf=engCodes(pf), cq=engPerimQual(e);
+  let h=`<div class="scard" style="margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+      <div><label style="font-size:8px;color:var(--text-3)">FINANCEUR</label>
+        <input style="${inp}" value="${escHtml(e.financeur)}" onchange="engSet(${i},'financeur',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">INTITULÉ DE LA CONVENTION</label>
+        <input style="${inp}" value="${escHtml(e.libelle)}" onchange="engSet(${i},'libelle',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">N° DE CONVENTION</label>
+        <input style="${inp}" value="${escHtml(e.ref)}" onchange="engSet(${i},'ref',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">DU</label>
+        <input type="date" style="${inp}" value="${_J(e.du)}" onchange="engSet(${i},'du',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">AU</label>
+        <input type="date" style="${inp}" value="${_J(e.au)}" onchange="engSet(${i},'au',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">MONTANT CONVENTIONNÉ (€)</label>
+        <input type="number" step="0.01" style="${inp}" value="${e.mtEngage||0}" onchange="engSet(${i},'mtEngage',this.value)"></div>
+    </div>
+    <div style="font-size:9px;color:var(--text-3);margin-top:5px;line-height:1.7">
+      La période peut aller de juin à juin et traverser deux exercices : c'est elle qui sert de maille, pas l'exercice comptable.
+      Le total d'un tel engagement ne se retrouvera donc dans aucun tableau annuel de l'outil — c'est normal.
+    </div></div>`;
+
+  h+=`<div class="scard" style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;margin-bottom:4px">Financements Airtable rattachés</div>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:5px;line-height:1.7">
+      Un engagement peut porter plusieurs versements, ou <strong>aucun</strong> : une convention signée dont rien n'est encore arrivé est un engagement valide.
+      C'est le rattachement qui permet de calculer le <strong>perçu</strong> : sans lui, le perçu reste à zéro et l'outil le dit plutôt que de deviner.</div>`;
+  if(!fins.length)h+=`<div style="font-size:10px;color:var(--amber)">Aucun financement Airtable chargé. Faites ☁️ Charger → Airtable.</div>`;
+  else{
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`+fins.map((fx,fi)=>{
+      if(!fx.rid)return "";
+      const on=(e.rids||[]).indexOf(fx.rid)>=0;
+      return `<button class="fb${on?" on":""}" style="${on?"color:var(--accent);border-color:var(--accent)":""}" onclick="engRidToggle(${i},${fi})" title="${escHtml(fx.type)} · ${fmt(fx.mt)} · ${escHtml(fx.s||"")}">${on?"✓ ":""}${escHtml(String(fx.n||"").substring(0,34))} <span style="opacity:.6">${fmt(fx.mt)}</span></button>`;
+    }).join("")+`</div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="scard" style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;margin-bottom:2px">Périmètre financier — sur quoi la subvention est imputée</div>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:5px">Une famille est un périmètre <strong>vivant</strong> : un parcours qui la rejoint entre dans le suivi. C'est ce qu'on veut pour un suivi courant, et c'est exactement pourquoi un bilan figera la liste.</div>
+    ${engListeFamilles(i,"fin",pf)}
+    <div style="font-size:9px;margin-top:5px">${cf.length} code(s) projet dans ce périmètre${cf.length?" : "+escHtml(cf.slice(0,18).join(", "))+(cf.length>18?"…":""):""}</div>
+  </div>`;
+
+  h+=`<div class="scard" style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;margin-bottom:2px">Périmètre qualitatif — sur quoi les indicateurs sont comptés</div>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:5px">Souvent le même que le financier, pas toujours : « financé sur 11 parcours, rendre compte sur tous les parcours du Var ».</div>
+    <label style="font-size:10px;display:inline-flex;gap:5px;align-items:center;cursor:pointer">
+      <input type="checkbox" ${meme?"checked":""} onchange="engQualMeme(${i},this.checked)"> le même que le périmètre financier</label>
+    ${meme?"":`<div style="margin-top:6px">${engListeFamilles(i,"qual",pq)}</div>`}
+    <div style="font-size:9px;margin-top:5px">${cq.length} code(s) projet${cq.length?" : "+escHtml(cq.slice(0,18).join(", "))+(cq.length>18?"…":""):""}</div>
+  </div>`;
+
+  const dispos=ENG_INDIC.filter(x=>!(e.cibles||[]).some(c=>c.cle===x.cle));
+  h+=`<div class="scard">
+    <div style="font-size:11px;font-weight:700;margin-bottom:2px">Cibles qualitatives</div>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:6px">Chaque cible porte une <strong>portée</strong> : « Nb jeunes » ne vaut que sur les BU, « Nb professionnels formés » que sur les F2F. Sans ce filtre on agrégerait des cellules vides et le total serait faux sans que rien ne le signale.</div>`;
+  if((e.cibles||[]).length){
+    h+=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr>
+      <th>Indicateur</th><th style="text-align:right">Cible</th><th>Unité</th><th>Cumul</th><th>Portée (préfixes)</th><th></th></tr></thead><tbody>`;
+    e.cibles.forEach((c,ci)=>{
+      h+=`<tr><td style="font-size:10px">${escHtml(c.lib)}</td>
+        <td><input type="number" step="0.01" class="cj" style="width:80px;text-align:right" value="${c.total||0}" onchange="engCibleSet(${i},${ci},'total',this.value)"></td>
+        <td style="font-size:9px;color:var(--text-3)">${escHtml(c.unite||"")}</td>
+        <td style="font-size:9px;color:var(--text-3)" title="${c.cumul==="moyenne"?"Une note ne s'additionne pas : elle se lit en moyenne, sur le nombre de parcours renseignés.":"Somme sur les parcours du périmètre."}">${c.cumul==="moyenne"?"moyenne":"somme"}</td>
+        <td><input class="cj" style="width:110px" value="${escHtml((c.portee&&c.portee.pfx||[]).join(", "))}" placeholder="tous" onchange="engCibleSet(${i},${ci},'pfx',this.value)" title="Préfixes de code séparés par des virgules. Vide = tous les projets du périmètre qualitatif."></td>
+        <td><button class="ib" onclick="engCibleDel(${i},${ci})" title="Retirer cette cible">🗑</button></td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  if(dispos.length){
+    h+=`<div style="margin-top:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:9px;color:var(--text-3)">Ajouter :</span>`
+      +dispos.map(x=>`<button class="fb" onclick="engCibleAjout(${i},'${x.cle}')">+ ${escHtml(x.lib)}</button>`).join("")+`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function engPartSuivi(e,i){
+  const auj=new Date().toISOString().substring(0,10);
+  const ec=engEcoule(e,auj);
+  const fin=engFin(e,auj);
+  const attendu=Math.round((e.mtEngage||0)*ec.part*100)/100;
+  const reste=Math.round(((e.mtEngage||0)-fin.percu)*100)/100;
+  let h=`<div class="scard" style="margin-bottom:10px">
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <div><div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Période écoulée</div>
+        <div style="font-size:15px;font-weight:700">${(ec.part*100).toFixed(0)} %</div>
+        <div style="font-size:9px;color:var(--text-3)">${ec.jours} jour(s) sur ${ec.total} · du ${_J(e.du)} au ${_J(e.au)}</div></div>
+      <div><div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Conventionné</div>
+        <div style="font-size:15px;font-weight:700;font-family:var(--mono)">${fmt(e.mtEngage||0)}</div></div>
+      <div><div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Perçu</div>
+        <div style="font-size:15px;font-weight:700;font-family:var(--mono);color:var(--green)">${fmt(fin.percu)}</div>
+        <div style="font-size:9px;color:${reste>0.005?"var(--amber)":"var(--text-3)"}">reste à percevoir ${fmt(reste)}</div></div>
+      <div><div style="font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Attendu à date</div>
+        <div style="font-size:15px;font-weight:700;font-family:var(--mono);color:var(--accent-l)">${fmt(attendu)}</div>
+        <div style="font-size:9px;color:var(--text-3)">prorata linéaire de la période</div></div>
+      <div style="flex:1;min-width:150px">${engJauge(fin.percu,attendu,e.mtEngage||0)}</div>
+      <button class="b bp" onclick="engFigerBilan(${i})" title="Enregistre une copie de ce tableau : date, projets retenus, valeurs lues. Le suivi continue d'évoluer à côté sans réécrire cette copie.">📌 Figer un bilan à une date</button>
+    </div>
+    <div style="font-size:9px;color:var(--text-3);margin-top:7px;line-height:1.7">
+      L'<strong>attendu à date</strong> est un prorata linéaire du temps écoulé, faute de jalons déclarés par le financeur.
+      Sur une activité saisonnière c'est une convention de lecture, pas une vérité : un été creux fera toujours apparaître un retard.
+      ${fin.sansTrace?`<br><span style="color:var(--amber)">Aucun financement Airtable n'est rattaché : le perçu reste à zéro. Rattachez-les dans « Définir » — l'outil ne devine pas quel crédit appartient à quel financeur.</span>`:""}
+    </div></div>`;
+
+  h+=`<div class="scard" style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;margin-bottom:4px">Financier sur le périmètre et la période</div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:11px">
+      <div>Charges <strong style="font-family:var(--mono);color:var(--red)">${fmt(fin.charges)}</strong></div>
+      <div>Produits <strong style="font-family:var(--mono);color:var(--green)">${fmt(fin.produits)}</strong></div>
+      <div>Solde <strong style="font-family:var(--mono)">${fmt(Math.round((fin.produits-fin.charges)*100)/100)}</strong></div>
+      <div style="color:var(--text-3);font-size:9px">${fin.codes.length} code(s) projet · salaires ventilés inclus</div>
+    </div></div>`;
+
+  const cibles=e.cibles||[];
+  h+=`<div class="scard">
+    <div style="font-size:11px;font-weight:700;margin-bottom:4px">Qualitatif</div>`;
+  if(!cibles.length)h+=`<div style="font-size:10px;color:var(--text-3)">Aucune cible définie. Ajoutez-les dans « Définir ».</div>`;
+  else{
+    h+=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr>
+      <th>Indicateur</th><th>Portée</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Cible</th>
+      <th style="text-align:right">Attendu à date</th><th>Avancement</th><th>Couverture</th></tr></thead><tbody>`;
+    cibles.forEach(c=>{
+      const v=engIndicVal(e,c,auj);
+      const att=c.cumul==="moyenne"?(c.total||0):Math.round((c.total||0)*ec.part*100)/100;
+      const manque=v.total-v.n;
+      h+=`<tr><td>${escHtml(c.lib)}</td>
+        <td style="font-size:9px;color:var(--text-3)">${escHtml((c.portee&&c.portee.pfx||[]).join(" ")||"tous")}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:700">${v.valeur===null?'<span style="color:var(--amber)">—</span>':(Math.round(v.valeur*100)/100).toLocaleString("fr-FR")}</td>
+        <td style="text-align:right;font-family:var(--mono)">${c.total?c.total.toLocaleString("fr-FR"):"—"}</td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--accent-l)">${c.cumul==="moyenne"?"—":(att?att.toLocaleString("fr-FR"):"—")}</td>
+        <td>${c.cumul==="moyenne"
+              ?(v.valeur===null?'<span style="font-size:9px;color:var(--text-3)">moyenne, pas de cumul</span>':`<span style="font-size:10px">moyenne sur ${v.n} parcours</span>`)
+              :engJauge(v.valeur||0,att,c.total||0)}</td>
+        <td style="font-size:9px;${manque?"color:var(--amber)":"color:var(--text-3)"}" title="${manque?"Cellules vides dans Airtable : "+escHtml(v.vides.slice(0,14).join(", ")):"Tous les parcours du périmètre sont renseignés."}">${v.n} / ${v.total} renseigné(s)${manque?" ⚠️":""}</td></tr>`;
+    });
+    h+=`</tbody></table></div>
+    <div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.7">
+      Une cellule vide dans Airtable <strong>n'est pas un zéro</strong> : la colonne « couverture » dit sur combien de parcours le chiffre est réellement construit. Un total qui agrège du vide est plausible et faux.
+      <br>Les rollups Airtable ne sont pas datés : un parcours est retenu si ses dates tombent dans la période, et son total est pris <strong>en entier</strong>. Un parcours à cheval sur une borne est donc dedans ou dehors, sans prorata.
+      ${!Object.keys(engIndicMap()).length?`<br><span style="color:var(--amber)">Seules les heures de formation sont rapatriées aujourd'hui. Les six autres indicateurs demandent l'action <code>getIndicateurs</code> côté Apps Script (ajoutée au dépôt, à redéployer) puis un ☁️ Charger → Airtable.</span>`:""}
+    </div></div>`;
+  }
+  return h;
+}
+function engPartBilans(e,i){
+  const bs=e.bilans||[];
+  if(!bs.length)return `<div class="scard"><div style="font-size:10px;color:var(--text-3)">Aucun bilan figé pour cet engagement. Depuis « Suivre à date », le bouton 📌 enregistre une copie de ce qui a été transmis au financeur.</div></div>`;
+  const auj=new Date().toISOString().substring(0,10);
+  let h="";
+  bs.forEach((b,bi)=>{
+    const finAuj=engFin(e,auj);
+    h+=`<div class="scard" style="margin-bottom:10px;border-left:3px solid var(--accent)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div><strong style="font-size:11px">${escHtml(b.libelle)}</strong>
+          <span style="font-size:9px;color:var(--text-3)"> — figé le ${_J(b.fige)} · ${(b.codes||[]).length} projet(s) retenu(s)</span></div>
+        <div style="display:flex;gap:4px">
+          <button class="b bd" style="font-size:9px" onclick="engBilanCSV(${i},${bi})">⬇️ CSV</button>
+          <button class="ib" onclick="engBilanSuppr(${i},${bi})" title="Supprimer ce bilan figé">🗑</button></div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:10px;margin-top:5px">
+        <div>Conventionné <strong style="font-family:var(--mono)">${fmt(b.fin.mtEngage)}</strong></div>
+        <div>Perçu <strong style="font-family:var(--mono);color:var(--green)">${fmt(b.fin.percu)}</strong></div>
+        <div>Charges <strong style="font-family:var(--mono);color:var(--red)">${fmt(b.fin.charges)}</strong></div>
+        <div style="color:var(--text-3)">aujourd'hui : charges ${fmt(finAuj.charges)} · perçu ${fmt(finAuj.percu)}</div>
+      </div>`;
+    const ks=Object.keys(b.valeurs||{});
+    if(ks.length){
+      h+=`<div style="overflow-x:auto;margin-top:6px"><table style="font-size:10px"><thead><tr>
+        <th>Indicateur</th><th style="text-align:right">Transmis</th><th style="text-align:right">Cible</th>
+        <th>Couverture</th><th style="text-align:right">Aujourd'hui</th></tr></thead><tbody>`;
+      ks.forEach(k=>{
+        const v=b.valeurs[k];
+        const c=(e.cibles||[]).find(x=>x.cle===k);
+        const now=c?engIndicVal(e,c,auj):null;
+        const bouge=now&&now.valeur!==null&&v.valeur!==null&&Math.abs(now.valeur-v.valeur)>0.005;
+        h+=`<tr><td>${escHtml(v.lib)}</td>
+          <td style="text-align:right;font-family:var(--mono);font-weight:700">${v.valeur===null?"—":(Math.round(v.valeur*100)/100).toLocaleString("fr-FR")}</td>
+          <td style="text-align:right;font-family:var(--mono)">${v.cible?Number(v.cible).toLocaleString("fr-FR"):"—"}</td>
+          <td style="font-size:9px;color:var(--text-3)">${v.n} / ${v.total}</td>
+          <td style="text-align:right;font-family:var(--mono);color:${bouge?"var(--amber)":"var(--text-3)"}" title="${bouge?"Le suivi a bougé depuis l'envoi. C'est normal : le bilan transmis reste figé.":"Inchangé depuis l'envoi."}">${!now||now.valeur===null?"—":(Math.round(now.valeur*100)/100).toLocaleString("fr-FR")}${bouge?" ↗":""}</td></tr>`;
+      });
+      h+=`</tbody></table></div>`;
+    }
+    h+=`<input class="cj" style="margin-top:6px;font-size:10px" placeholder="Note sur ce bilan (à qui, comment, ce qui a été dit)" value="${escHtml(b.note||"")}" onchange="engBilanNote(${i},${bi},this.value)">
+      <div style="font-size:8px;color:var(--text-3);margin-top:4px">Projets retenus au moment de l'envoi : ${escHtml((b.codes||[]).join(", ").substring(0,300))}</div>
+    </div>`;
+  });
+  return h;
+}
+function rEngagements(ct){
+  const L=engArr();
+  let h=`<div style="padding:10px 14px 4px">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button class="b ${engVue==="def"?"bp":"bd"}" onclick="engSetVue('def')">1 · Définir</button>
+      <button class="b ${engVue==="suivi"?"bp":"bd"}" onclick="engSetVue('suivi')">2 · Suivre à date</button>
+      <button class="b ${engVue==="bilans"?"bp":"bd"}" onclick="engSetVue('bilans')">3 · Bilans passés</button>
+      <div style="flex:1"></div>
+      <button class="b bg" onclick="engNouveau()">+ Nouvel engagement</button>
+    </div>
+    <div class="warn" style="font-size:10px;line-height:1.7;margin:0 0 10px">
+      <strong>Onglet de test.</strong> Le réalisé n'est jamais stocké : il se recalcule depuis les écritures et depuis Airtable.
+      Seuls les <strong>bilans</strong> sont figés, avec leur date et la liste des projets retenus — c'est ce qui permet de transmettre un bilan
+      en cours de période et de continuer à faire vivre le projet avec d'autres financeurs et d'autres charges, sans réécrire ce qui a été envoyé.
+    </div>`;
+  if(!L.length){
+    h+=`<div class="empty" style="padding:30px"><div style="font-size:28px;opacity:.3">🤝</div>
+      <h3>Aucun engagement</h3><p style="font-size:10px">Créez-en un pour associer une convention à ses financements, ses projets et ses cibles.</p></div></div>`;
+    ct.innerHTML=h;return;
+  }
+  // Liste des engagements : sélection par clic, et un aperçu de l'avancement.
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">`;
+  L.forEach((e,i)=>{
+    const ec=engEcoule(e);
+    const on=engSel===i;
+    h+=`<button class="fb${on?" on":""}" style="${on?"color:var(--accent);border-color:var(--accent)":""}" onclick="engChoisir(${i})">
+      ${on?"✓ ":""}${escHtml(e.financeur||"(financeur ?)")} — ${escHtml(String(e.libelle||"sans intitulé").substring(0,28))}
+      <span style="opacity:.6">${fmt(e.mtEngage||0)} · ${(ec.part*100).toFixed(0)} %${(e.bilans||[]).length?" · "+e.bilans.length+" bilan(s)":""}</span></button>`;
+  });
+  h+=`</div>`;
+  if(engSel===null||!L[engSel]){
+    h+=`<div style="font-size:10px;color:var(--text-3)">Choisissez un engagement ci-dessus.</div></div>`;
+    ct.innerHTML=h;return;
+  }
+  const e=L[engSel],i=engSel;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+    <div style="font-size:12px;font-weight:700">${escHtml(e.financeur||"(financeur ?)")} — ${escHtml(e.libelle||"sans intitulé")}
+      ${e.ref?`<span style="font-size:9px;color:var(--text-3)">· ${escHtml(e.ref)}</span>`:""}</div>
+    ${engVue==="def"?`<button class="ib" onclick="engSuppr(${i})" title="Supprimer cet engagement">🗑</button>`:""}</div>`;
+  h+=engVue==="def"?engPartDef(e,i):engVue==="suivi"?engPartSuivi(e,i):engPartBilans(e,i);
+  h+=`</div>`;
+  ct.innerHTML=h;
+}
+
 function renderCorps(){
   invalidateActCache();
   // Compute stats
@@ -9149,7 +9715,7 @@ function renderCorps(){
   // No alerts banner — stats cards are sufficient
 
   majCloudBadge();
-  const tabs=[{id:"class",l:"📋 Classement"},{id:"suivi",l:"📈 Suivi analytique"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."}];
+  const tabs=[{id:"class",l:"📋 Classement"},{id:"suivi",l:"📈 Suivi analytique"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"eng",l:"🤝 Engagements"},{id:"missing",l:"⚠️ Justif."}];
   let tb='';tabs.forEach(t=>{
     tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="switchTab('${t.id}')">${t.l}</button>`});
   tb+=`<div style="width:1px;height:14px;background:#2d3148;margin:0 1px"></div>`;
@@ -9176,6 +9742,7 @@ function renderCorps(){
   if(curTab==="comp"){rComp(ct);return}
   if(curTab==="treasury"){rTreasury(ct);return}
   if(curTab==="rh"){rRH(ct);return}
+  if(curTab==="eng"){rEngagements(ct);return}
   if(curTab==="missing"){rMissing(ct);return}
 
   // Classement tab
