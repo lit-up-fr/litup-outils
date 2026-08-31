@@ -59,40 +59,75 @@ rattachés à un engagement**. Le backend devra les demander dans
 `getAirtableData` (ou une action dédiée `getIndicateurs`), comme on l'a fait pour
 « Nb heures formation ».
 
-## Décisions à prendre avant de coder
+## Décisions — tranchées le 31/08/2026
 
-Ces trois choix déterminent la structure ; y répondre évite de tout refaire.
+Les trois réponses vont toutes vers le cas général. Aucune simplification n'est
+donc possible sur ces trois axes ; autant le savoir avant de commencer.
 
-1. **La maille d'un engagement.** Un engagement porte-t-il sur *un* financement
-   Airtable, sur *plusieurs* (une convention pluriannuelle versée en tranches),
-   ou existe-t-il indépendamment (une convention signée dont aucun versement
-   n'est encore arrivé) ? La réponse décide si l'engagement est un objet propre
-   avec ses propres identifiants, ou une extension des financements existants.
+1. **Un engagement est un objet propre.** « Il peut y avoir plusieurs versements
+   pour un même engagement. » Il porte donc une liste de financements Airtable
+   (par `rid`), et peut en porter **zéro** — une convention signée dont rien
+   n'est encore arrivé est un engagement valide. Conséquence : le « reste à
+   percevoir » est une donnée à part entière, et l'engagement ne peut pas être
+   une simple extension de `D.airtableSubs`.
 
-2. **Le rattachement aux projets.** Un engagement vise-t-il des **codes projets**,
-   des **familles**, ou les deux ? Les répartitions mémorisées donnent déjà le
-   lien financier ; reste à savoir si le périmètre qualitatif est le même
-   (« les 11 parcours financés ») ou plus large (« tous les parcours du Var »).
+2. **Deux périmètres distincts, chacun en codes et/ou familles.** « Ça dépend des
+   financements, les deux sont possibles. » Il faut donc *deux* sélections :
+   - le **périmètre financier** — sur quoi la subvention est imputée ;
+   - le **périmètre qualitatif** — sur quoi les indicateurs sont comptés.
+   Ils coïncident souvent, mais pas toujours (« financé sur 11 parcours, rendre
+   compte sur tous les parcours du Var »). L'interface doit permettre de dire
+   « le même que le financier » en un clic, sinon la saisie sera pénible.
 
-3. **Le pluriannuel.** Un engagement sur 2026-2028 se suit-il comme un tout, ou
-   par exercice ? Cela conditionne l'affichage de l'avancement et la façon dont
-   le budget prévisionnel s'y raccroche.
+3. **Pluriannuel.** L'engagement porte une période qui peut couvrir plusieurs
+   exercices. Conséquence structurante : **les cibles doivent être ventilables
+   par exercice** — un financeur écrit « 300 jeunes sur trois ans, dont 100 en
+   2026 ». Il faut donc, pour chaque cible, une valeur totale *et* une valeur
+   par exercice, et un avancement lisible dans les deux vues. Le réalisé
+   financier suit la même règle : par exercice et cumulé.
+
+### Le piège du périmètre dynamique
+
+Un périmètre défini par **famille** est vivant : un parcours qui rejoint la
+famille entre automatiquement dans le périmètre de l'engagement. C'est ce qu'on
+veut pour un suivi courant (« tous les parcours du Var »), mais c'est un problème
+pour un bilan déjà transmis à un financeur : le chiffre change après l'envoi.
+
+D'où la règle : **le suivi est vivant, le bilan est figé**. Un bilan produit
+enregistre la liste des projets retenus et les valeurs lues, avec sa date. Le
+suivi continue d'évoluer à côté, sans réécrire le bilan.
 
 ## Esquisse de structure de données (à valider)
 
 ```javascript
 D.engagements = [{
-  id, financeur, libelle,
-  rids: ["rec…"],              // financements Airtable rattachés
-  du, au,                       // période de l'engagement
-  mtEngage,                     // montant conventionné
-  projets: ["BU91 - …"],        // codes projets visés
-  familles: ["sud-jeunes"],     // ou familles
-  cibles: [{ cle:"fldkCI8uAlpfWT04G", lib:"Nb jeunes", valeur:120, unite:"personnes" }],
+  id, financeur, libelle, ref,        // ref = n° de convention
+  du, au,                              // période, éventuellement pluriannuelle
+  exercices: ["2026","2027","2028"],  // dérivable de du/au, mais explicite = plus sûr
+
+  // ── financier ──
+  rids: ["rec…"],                      // financements Airtable rattachés (0..n)
+  mtEngage,                            // montant total conventionné
+  parExercice: { "2026": 40000, "2027": 40000, "2028": 20000 },
+  perimFin:  { projets:[], familles:[] },
+
+  // ── qualitatif ──
+  perimQual: { memeQueFin:true, projets:[], familles:[] },
+  cibles: [{
+    cle:"fldkCI8uAlpfWT04G",           // champ Airtable, ou "manuel"
+    lib:"Nb jeunes", unite:"personnes",
+    total:300, parExercice:{ "2026":100, "2027":100, "2028":100 }
+  }],
+
   jalons: [{ date, libelle, fait:false }],
+  bilans: [{ date, exercice, projets:[], valeurs:{}, mtPercu, note }],  // photos figées
   notes
 }]
 ```
+
+Le **réalisé courant** n'est jamais stocké : il se recalcule depuis les écritures
+(financier) et depuis Airtable (qualitatif). Seuls les **bilans** sont figés, et
+ils le sont explicitement, avec leur date et la liste des projets retenus.
 
 Le **réalisé** ne serait jamais stocké : il se recalcule à la demande depuis les
 écritures (financier) et depuis Airtable (qualitatif). Même principe que partout
