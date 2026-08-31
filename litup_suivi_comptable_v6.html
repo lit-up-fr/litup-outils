@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31a <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31b <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3546,27 +3546,43 @@ function actHeuresDepuisAirtable(acts){
 }
 // Codes projets qui servent de cle de repartition et n'ont aucun volume
 // d'heures : ceux-la font basculer un partage en parts egales.
+// Un projet SEUL dans sa famille est ecarte : il recoit 100 % quoi qu'il
+// arrive, ses heures ne changeraient rien. C'est le cas des codes de
+// fonctionnement (FG2026, FV2026, FP2026), qui n'ont d'ailleurs aucun parcours
+// Airtable — les reclamer enverrait chercher un chiffre qui n'existe pas.
+function heuresUtiles(label){
+  const gi=rhGroupeDe(label);
+  if(gi<0)return false;
+  return famProjets(RH_GROUPES[gi].k).length>1;
+}
 function heuresManquantes(){
-  return actLabels().filter(l=>!rhExclu(l)&&!actEstAncien(l)&&rhGroupeDe(l)>=0&&actHeures(actCode(l))<=0)
+  return actLabels().filter(l=>!rhExclu(l)&&!actEstAncien(l)&&heuresUtiles(l)&&actHeures(actCode(l))<=0)
     .map(l=>({code:actCode(l),lib:l}));
 }
 function openHeuresManquantes(){
   const L=heuresManquantes();
+  // Avant le premier chargement Airtable, aucun code n'a d'identifiant : dire
+  // « aucun parcours » serait faux pour tous. On ne le dit qu'apres une synchro.
+  const synchro=Object.keys(actRidMap()).length>0;
+  const orphelins=synchro?L.filter(x=>!actRid(x.code)).length:0;
   const lignes=L.length?L.map(x=>`<tr>
       <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(x.code)}</td>
       <td style="padding:3px 6px;font-size:9px">${escHtml(actNom(x.lib).substring(0,44))}</td>
       <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(actTerr(x.lib)||"—"))}</td>
       <td style="padding:3px 6px"><input class="ni" style="width:70px" placeholder="heures"
         onchange="setActHeures('${x.code}',this.value)"></td>
-      <td style="padding:3px 6px"><a href="${actAirtableUrl(x.code)}" target="_blank" rel="noopener"
-        style="font-size:9px;color:var(--accent-l)">Ouvrir dans Airtable ↗</a></td>
+      <td style="padding:3px 6px">${synchro&&!actRid(x.code)
+        ? `<span style="font-size:9px;color:var(--amber)" title="Le dernier chargement Airtable n'a renvoyé aucun parcours sous ce code : soit le libellé diffère dans la base, soit le parcours n'existe pas (ou plus). Les heures ne pourront jamais venir d'Airtable pour ce code — corrigez le libellé dans la base, ou saisissez la valeur ci-contre.">aucun parcours sous ce code ⚠️</span>`
+        : `<a href="${actAirtableUrl(x.code)}" target="_blank" rel="noopener" style="font-size:9px;color:var(--accent-l)">Ouvrir dans Airtable ↗</a>`}</td>
     </tr>`).join("")
     :`<tr><td colspan="5" style="padding:14px;font-size:10px;color:var(--text-3)">Tous les projets ont un volume d'heures.</td></tr>`;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:820px">
     <h3>⏱ Heures d'action manquantes</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
       ${L.length} projet(s) sans volume d'heures. Le champ de référence est <strong>« Nb heures formation »</strong> dans la table <em>4. Parcours</em> d'Airtable : remplissez-le là-bas, puis <strong>☁️ Charger → Airtable</strong> pour le reprendre ici.
-      <br><span style="color:var(--text-3)">Sans heures, une répartition sur une famille se fait à <strong>parts égales</strong> : un parcours de six heures pèse alors autant qu'un parcours de soixante. La colonne ci-dessous permet aussi de saisir la valeur à la main, en attendant.</span>
+      <br><span style="color:var(--text-3)">Sans heures, une répartition sur une famille se fait à <strong>parts égales</strong> : un parcours de six heures pèse alors autant qu'un parcours de soixante. La colonne ci-dessous permet aussi de saisir la valeur à la main, en attendant.
+      <br>Ne sont listés que les projets où la pondération change quelque chose : un projet seul dans sa famille reçoit 100 % de toute façon, ses heures ne serviraient à rien.</span>
+      ${orphelins?`<br><span style="color:var(--amber)">${orphelins} code(s) ne correspondent à aucun parcours du dernier chargement Airtable : pour ceux-là les heures ne viendront jamais de la base. Vérifiez le libellé dans <em>4. Parcours</em>, ou saisissez la valeur à la main.</span>`:""}
     </p>
     <div style="overflow:auto;max-height:56vh;border:1px solid var(--border);border-radius:6px">
       <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
@@ -3839,6 +3855,7 @@ function famSplitDessine(){
       </tbody></table></div>
       <p style="font-size:9px;color:var(--text-3);margin:8px 0 0;line-height:1.7">
         ${!nCoch?'<span style="color:var(--amber)">Aucun projet coché : rien à répartir.</span>'
+        :nCoch===1?"Un seul projet retenu : il reçoit la totalité de l\u2019écriture, les heures d\u2019action n\u2019entrent pas en jeu."
         :c.mode==="heures"
           ?"Pondération par les <strong>heures d’action</strong> (« Nb heures formation » d’Airtable), ramenées au nombre de mois d’activité de chaque projet."
           :"Parts <strong>égales</strong>"+(c.sans.length?' : '+c.sans.length+" projet(s) sans heures ("+escHtml(c.sans.map(actCode).join(", "))+"). Remplissez « Nb heures formation » dans Airtable puis ☁️ Charger → Airtable, ou saisissez-les via <button class=\"b bd\" style=\"font-size:8px\" onclick=\"openHeuresManquantes()\">⏱ la liste</button>.":" — aucune heure d’action renseignée.")}
@@ -4339,7 +4356,9 @@ function rRH(el){
           }else{
             h+=`se répartit mois par mois entre les projets de la famille qui ont une écriture ce mois-là
               — ${act.length} sur ${tous.length} sur cette période.
-              ${sans.length
+              ${act.length===1
+                ? `Un seul projet actif : il reçoit la totalité, les heures n'entrent pas en jeu.`
+                : sans.length
                 ? `<span style="color:var(--amber)">Parts égales</span> : ${sans.length} projet(s) sans volume d'heures. Renseignez-les tous pour passer au prorata des heures.`
                 : `<span style="color:var(--green)">Au prorata des heures d'action.</span>`}
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">${act.map(l=>{
