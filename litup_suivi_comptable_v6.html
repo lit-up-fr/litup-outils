@@ -158,7 +158,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26a <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26b <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -5513,10 +5513,159 @@ function tagVirInternes(){
 // contrôle. Alternative assumée à la réimportation : le solde et le chemin
 // mensuel redeviennent justes, le détail par compte et par financement reste
 // absent — ce que la ligne dit d'elle-même dans son libellé.
+// ─── DÉCALAGE DE DATE AUX BORNES ───
+// Un paiement carte du 30 juin est comptabilisé par la banque le 1er juillet.
+// Daté du 30 chez nous, il tombe avant le point de contrôle du 30 ; en banque,
+// après. L'écart entre deux points n'est alors pas un manque d'écritures mais le
+// net des écritures des tout derniers jours de chaque période, décalé d'un cran.
+// Vérifié sur ses trois écarts de mai, juin et juillet 2026 : la règle les
+// explique tous les trois au centime.
+//   écart = net(derniers jours de la période précédente) − net(derniers jours de celle-ci)
+function srFinNet(dISO,jours){
+  const fin=String(dISO||"").substring(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fin))return {net:0,rows:[]};
+  const t=Date.parse(fin+"T12:00:00");
+  if(isNaN(t))return {net:0,rows:[]};
+  const debut=new Date(t-(jours-1)*86400000).toISOString().substring(0,10);
+  const rows=(D.rows||[]).filter(r=>{
+    if(estLivret(r)||!toucheBanque(r)||estRegul(r))return false;
+    const d=String(r.dt||"").substring(0,10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>=debut&&d<=fin;
+  });
+  return {net:Math.round(rows.reduce((a,r)=>a+(r.cre||0)-(r.deb||0),0)*100)/100,rows,debut,fin};
+}
+// Le net de toute la fenêtre ne suffit pas : elle contient aussi des écritures
+// que la banque a bien comptabilisées dans la même période. Il faut trouver le
+// sous-ensemble exact des écritures décalées. Deux effets, de signes opposés :
+//   • une écriture datée juste avant la borne de FIN, comptabilisée après :
+//     l'outil la compte, la banque pas encore → elle ajoute −net à l'écart ;
+//   • une écriture datée juste avant la borne de DÉBUT, comptabilisée après :
+//     la banque la compte dans la période, l'outil non → elle ajoute +net.
+// Recherche par programmation dynamique sur les centimes, bornée. Coûteuse :
+// lancée à la demande, jamais pendant un rendu.
+const SR_FENETRE=3, SR_MAX_CAND=44, SR_MAX_SOMMES=250000;
+function srCandidatsDecalage(aISO,bISO){
+  const c=[];
+  const dist=(dt,borne)=>{
+    const t=Date.parse(String(dt).substring(0,10)+"T12:00:00"),u=Date.parse(String(borne).substring(0,10)+"T12:00:00");
+    return (isNaN(t)||isNaN(u))?99:Math.round(Math.abs(u-t)/86400000);
+  };
+  srFinNet(bISO,SR_FENETRE).rows.forEach(r=>c.push({r,cote:"fin",d:dist(r.dt,bISO),v:-Math.round(((r.cre||0)-(r.deb||0))*100)}));
+  srFinNet(aISO,SR_FENETRE).rows.forEach(r=>c.push({r,cote:"debut",d:dist(r.dt,aISO),v:Math.round(((r.cre||0)-(r.deb||0))*100)}));
+  // Les écritures collées à la borne d'abord : ce sont celles qui basculent
+  // vraiment. La reconstruction du chemin privilégie les premiers indices, donc
+  // cet ordre oriente la solution proposée vers la plus plausible — plusieurs
+  // combinaisons peuvent totaliser le même montant.
+  c.sort((x,y)=>x.d-y.d||Math.abs(y.v)-Math.abs(x.v));
+  return c.filter(x=>x.v!==0).slice(0,SR_MAX_CAND);
+}
+function srDecalage(aISO,bISO,manque){
+  if(Math.abs(manque)<0.5)return null;
+  const cand=srCandidatsDecalage(aISO,bISO);
+  if(!cand.length)return null;
+  const cible=Math.round(manque*100),tol=50;
+  let atteint=new Map([[0,null]]);
+  for(let i=0;i<cand.length;i++){
+    const suiv=new Map(atteint);
+    for(const s of atteint.keys()){
+      const ns=s+cand[i].v;
+      if(!suiv.has(ns))suiv.set(ns,{prev:s,idx:i});
+      if(suiv.size>SR_MAX_SOMMES)break;
+    }
+    atteint=suiv;
+    if(atteint.has(cible))break;
+  }
+  let best=null;
+  for(const s of atteint.keys())
+    if(Math.abs(s-cible)<=tol&&(best===null||Math.abs(s-cible)<Math.abs(best-cible)))best=s;
+  if(best===null)return null;
+  const pris=[];let s=best;
+  while(s!==0){const st=atteint.get(s);if(!st)break;pris.push(cand[st.idx]);s=st.prev}
+  if(!pris.length)return null;
+  return {explique:best/100,pris,
+    fin:pris.filter(x=>x.cote==="fin"),debut:pris.filter(x=>x.cote==="debut")};
+}
+function srManqueDe(i){
+  srNorm();const a=D.soldesRef[i-1],b=D.soldesRef[i];if(!a||!b)return null;
+  const varB=Math.round((b.mt-a.mt)*100)/100;
+  const ra=soldeReconstitue(a.d),rb=soldeReconstitue(b.d);
+  return {a,b,manque:Math.round((varB-(rb.s-ra.s))*100)/100};
+}
+function srVoirDecalage(i){
+  const m=srManqueDe(i);if(!m)return;
+  const a=m.a,b=m.b,manque=m.manque;
+  const d=srDecalage(a.d,b.d,manque);
+  if(!d){
+    alert("📅 Aucun décalage de date n'explique cet écart de "+fmt(Math.abs(manque))+".\n\n"
+      +"Aucune combinaison d'écritures datées des "+SR_FENETRE+" jours précédant l'une des deux bornes\n"
+      +"ne totalise ce montant. Il s'agit donc probablement d'écritures réellement absentes :\n"
+      +"réimportez le relevé de la période, ou créez l'écriture de régularisation.");
+    return;
+  }
+  const bloc=(titre,expl,L)=>L.length?`<div style="margin-top:10px"><strong>${titre}</strong>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:3px">${expl}</div>
+    <div style="overflow:auto;max-height:24vh;border:1px solid var(--border);border-radius:6px">
+    <table style="width:100%;border-collapse:collapse">${L.slice().sort((p,q)=>String(p.r.dt).localeCompare(String(q.r.dt))).map(x=>`<tr>
+      <td style="padding:2px 6px;font-size:9px;font-family:var(--mono);white-space:nowrap">${String(x.r.dt).substring(0,10)}</td>
+      <td style="padding:2px 6px;font-size:9px">${escHtml(String(x.r.lib||"").substring(0,60))}</td>
+      <td style="padding:2px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:${(x.r.cre||0)>0?"var(--green)":"var(--red)"}">${fmt((x.r.cre||0)-(x.r.deb||0))}</td>
+      <td style="padding:2px 6px"><button class="b bd" style="font-size:8px;padding:1px 5px"
+        title="Décaler d'un jour, pour coïncider avec la date de comptabilisation bancaire"
+        onclick="srDecalerJour('${x.r.id}',1)">→ +1 j</button></td>
+    </tr>`).join("")}</table></div></div>`:"";
+  $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:900px">
+    <h3>📅 Un décalage de date explique cet écart de ${fmt(Math.abs(manque))}</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
+      Un paiement par carte du 30 juin est comptabilisé par la banque le 1er juillet. Daté du 30 chez vous, il tombe
+      <em>avant</em> le point de contrôle du 30 ; en banque, <em>après</em>. L'écriture existe des deux côtés, mais pas
+      dans la même période — et l'écart entre deux points la compte comme manquante.
+      <br>Les <strong>${d.pris.length}</strong> écriture(s) ci-dessous, datées des ${SR_FENETRE} jours précédant l'une des bornes,
+      totalisent <strong>${fmt(d.explique)}</strong> : exactement l'écart constaté.
+      <br><span style="color:var(--amber)">Ne créez pas d'écriture de régularisation avant d'avoir vérifié</span> : si ces écritures
+      sont bien dans votre relevé, à une date voisine, elles existent déjà et régulariser les compterait deux fois.
+      <br><span style="color:var(--text-3)">D'autres combinaisons peuvent donner le même total : l'outil propose celles qui
+      collent le plus aux bornes. Vérifiez sur le relevé. Une écriture datée de la fin du mois <em>absente</em> du relevé est
+      un autre cas — un paiement passé en banque le mois suivant : sa date est juste, il n'y a rien à corriger, et
+      l'écart se résorbera au prochain point de contrôle.</span>
+    </p>
+    ${bloc("Borne de fin — "+b.d+" ("+d.fin.length+" écriture(s))",
+           "Datées chez vous avant le "+b.d+", comptabilisées par la banque après : l'outil les compte, la banque pas encore.",d.fin)}
+    ${bloc("Borne de début — "+a.d+" ("+d.debut.length+" écriture(s))",
+           "Datées chez vous avant le "+a.d+", comptabilisées par la banque après : la banque les compte dans cette période, l'outil non.",d.debut)}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="b bd" style="margin-left:auto" onclick="closeM()">Fermer</button>
+    </div></div></div>`;
+}
+function srDecalerJour(id,n){
+  const r=(D.rows||[]).find(x=>String(x.id)===String(id));if(!r)return;
+  const d=String(r.dt||"").substring(0,10);
+  const t=Date.parse(d+"T12:00:00");if(isNaN(t))return;
+  pushUndo();
+  const av=d;
+  r.dt=new Date(t+n*86400000).toISOString().substring(0,10);
+  // L'année d'affectation ne suit que si elle suivait déjà la date.
+  const y=yrOf(r.dt);
+  if(y&&(!r.yr||String(r.yr)===yrOf(av)))r.yr=y;
+  autoSave();render();
+  toast("Date décalée du "+av+" au "+r.dt+". Annulable avec ↩️.","var(--green)");
+}
 function srRegul(i){
   srNorm();
   const a=D.soldesRef[i-1],b=D.soldesRef[i];
   if(!a||!b)return;
+  {
+    const varB=Math.round((b.mt-a.mt)*100)/100;
+    const rA=soldeReconstitue(a.d),rB=soldeReconstitue(b.d);
+    const mq=Math.round((varB-(rB.s-rA.s))*100)/100;
+    const dec=srDecalage(a.d,b.d,mq);
+    if(dec&&!confirm("⚠️ Cet écart de "+fmt(Math.abs(mq))+" s'explique par un DÉCALAGE DE DATE, pas par des écritures absentes.\n\n"
+      +dec.pris.length+" écriture(s) datées des "+SR_FENETRE+" jours précédant l'une des bornes totalisent\n"
+      +"exactement ce montant ("+fmt(dec.explique)+").\n\n"
+      +"Créer une régularisation ajouterait ce montant à des données déjà complètes : vos charges,\n"
+      +"vos produits et votre solde deviendraient faux de "+fmt(Math.abs(mq))+".\n\n"
+      +"Le bouton « 📅 Voir les écritures concernées » corrige les dates une à une.\n\n"
+      +"Créer la régularisation quand même ?"))return;
+  }
   const manque=Math.round(((b.mt-a.mt)-(soldeReconstitue(b.d).s-soldeReconstitue(a.d).s))*100)/100;
   if(Math.abs(manque)<0.5){alert("Aucun écart à régulariser sur cette période.");return}
   const deb=manque<0;   // écart négatif : il manque des débits
@@ -5609,10 +5758,14 @@ function srBloc(){
         ${ok?"Les écritures de cette période sont complètes."
             :`<strong style="color:var(--amber)">Il manque ${fmt(manque)} d'écritures sur cette période</strong>
               ${manque>0?"(des crédits absents, ou des débits en trop)":"(des débits absents, ou des crédits en trop)"}.
-              <br>Deux réparations : <strong>réimporter les relevés</strong> de la période — le dédoublonnage ne réajoutera que ce qui manque,
-              et vous gardez le détail par compte, par projet et le rapprochement Airtable —
-              ou <strong>une écriture de régularisation</strong> qui comble l'écart en bloc, sans ce détail.
-              <br><button class="b bd" style="font-size:8px;margin-top:4px" onclick="srRegul(${i})">➕ Écriture de régularisation de ${fmt(Math.abs(manque))}</button>`}
+              <br><strong>Avant de régulariser, vérifiez le décalage de date :</strong> un paiement carte du 30 juin est
+              comptabilisé le 1<sup>er</sup> juillet et bascule de période. L'écriture existe alors des deux côtés — régulariser
+              la compterait deux fois.
+              <br>Si ce n'est pas un décalage, deux réparations : <strong>réimporter les relevés</strong> de la période — le
+              dédoublonnage ne réajoutera que ce qui manque, et vous gardez le détail par compte, par projet et le
+              rapprochement Airtable — ou <strong>une écriture de régularisation</strong> qui comble l'écart en bloc.
+              <br><button class="b bb" style="font-size:8px;margin-top:4px" onclick="srVoirDecalage(${i})">📅 Est-ce un décalage de date ?</button>
+              <button class="b bd" style="font-size:8px;margin-top:4px" onclick="srRegul(${i})">➕ Écriture de régularisation de ${fmt(Math.abs(manque))}</button>`}
         ${(()=>{const rg=(D.rows||[]).filter(x=>estRegul(x)&&String(x.dt||"")>a.d&&String(x.dt||"")<=b.d);
           return rg.length?"<br>"+rg.map(x=>`<span style="color:var(--text-2)">↳ régularisation en place : ${fmt(x.deb||x.cre)} ${x.deb?"(charge)":"(produit)"} au ${String(x.dt).substring(0,10)}</span>
             <button class="b bd" style="font-size:8px;padding:1px 4px;color:var(--red)" onclick="srDelRegul('${x.id}')" title="À supprimer si vous réimportez les relevés de la période">🗑</button>`).join("<br>"):""})()}
