@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31n <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31o <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -1438,6 +1438,7 @@ function fusEtatLocal(){
 }
 function fusAppliquer(out){
   D.rows=out.rows;
+  _piecePropFait=false;try{piecePropage()}catch(e){}
   FUS_REGLAGES.forEach(([k])=>{if(out.meta[k]!==undefined&&out.meta[k]!==null)D[k]=out.meta[k]});
   D.detIgnore=out.meta.detIgnore||{vi:{},dbl:{}};
   if(typeof normBudget==="function")normBudget();
@@ -1635,6 +1636,7 @@ async function loadComptaFromSheet(){
       if(m.rhDriveFolder!==undefined)D.rhDriveFolder=m.rhDriveFolder;
     }
     fusSnapshot();   // version commune de départ pour une fusion ultérieure
+    _piecePropFait=false;try{piecePropage()}catch(e){}
     autoSave();render();
     if($("fusWarn"))$("fusWarn").style.display="none";
     const info=res.meta?.savedBy?" (sauvé par "+res.meta.savedBy+" le "+(res.meta.savedAt||"?").split("T")[0]+")":"";
@@ -2026,25 +2028,45 @@ function ensureFour(row){
   if(!t){alert("Le fournisseur est nécessaire pour nommer la pièce : attachement annulé.");return false}
   row.four=t;return true;
 }
+// Une note de frais éclatée porte un justificatif PAR LIGNE : un ticket de train,
+// un reçu de repas. Une subvention répartie sur plusieurs projets n'a qu'UNE
+// pièce — la convention — pour toutes ses sous-lignes.
+// La pièce est donc partagée : un seul téléversement, un seul numéro consommé,
+// une seule référence recopiée sur chaque sous-ligne. Recopier plutôt que
+// déplacer dans un objet à part n'est pas un raccourci : c'est ce qui garde le
+// FEC, les exports et le comptage des pièces manquantes justes sans qu'aucun
+// d'eux ait à connaître la notion de groupe. En comptabilité, plusieurs
+// écritures d'une même opération partagent légitimement un numéro de pièce ;
+// aujourd'hui une seule sous-ligne le portait et les autres restaient vides.
+function pieceGroupe(row){
+  if(!row||!row.split)return [row];
+  const L=splitLignes(row.split);
+  return L.length?L:[row];
+}
 async function attachJustif(rowId,prefix,customName,file,suffix,forcedNum){
   const row=D.rows.find(r=>r.id===rowId);
   if(!row||!file)return false;
   if(!ensureFour(row))return false;
   const pfx=prefix||"F";
   const seq=customName?"":(forcedNum?reserveN(pfx,forcedNum):nextN(pfx));
+  const cible=pieceGroupe(row);
   const dt=(row.dt||"").split("T")[0].replace(/-/g,"");
   const four=(row.four||"INCONNU").toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,20);
-  const amt=String(Math.abs(row.deb||row.cre||0)).replace(".",",");
+  // Le nom de la pièce porte le montant de l'OPÉRATION, pas celui d'une
+  // sous-ligne : une convention de 6 000 € ne s'appelle pas « 2000 ».
+  const mtOp=cible.reduce((a,x)=>a+Math.abs((x.deb||0)-(x.cre||0)),0);
+  const amt=String(Math.round(mtOp*100)/100).replace(".",",");
   // Suffixe choisi dans la modale produit, sinon date-fournisseur-montant
   const suf=suffix===undefined||suffix===null?[dt,four,amt].filter(Boolean).join("-"):String(suffix);
   const nj=customName||(seq+(suf?"-"+suf:""));
   const ext=(String(file.name||"").split(".").pop()||"pdf").toLowerCase();
   const fileName=nj+"."+ext;
-  const prevNumj=row.numj||"",prevStat=row.stat||"";
+  const avant=cible.map(x=>({r:x,numj:x.numj||"",stat:x.stat||""}));
   const dataUrl=await readFile(file,"url");
-  D.att[rowId]={data:await readFile(file,"buf"),name:fileName,orig:file.name,type:file.type,ext,nj};
-  row.numj=nj;
-  row.stat=STAT_BY_PREFIX[pfx]||"Classé - Facture";
+  const buf=await readFile(file,"buf");
+  const stat=STAT_BY_PREFIX[pfx]||"Classé - Facture";
+  cible.forEach(x=>{D.att[x.id]={data:buf,name:fileName,orig:file.name,type:file.type,ext,nj};
+    x.numj=nj;x.stat=stat});
   // Le téléversement d'un gros fichier via Apps Script prend du temps : la ligne l'affiche
   const ko=Math.round((file.size||0)/1024);
   uploadState[rowId]={name:fileName,ko};
@@ -2055,7 +2077,7 @@ async function attachJustif(rowId,prefix,customName,file,suffix,forcedNum){
       new Promise(r=>setTimeout(()=>r({error:"délai dépassé (3 min) — fichier probablement trop lourd pour Apps Script"}),UPLOAD_TIMEOUT))
     ]);
     if(res&&(res.ok||res.fileUrl)){
-      row.driveUrl=res.fileUrl||"";row.driveFileId=res.fileId||"";
+      cible.forEach(x=>{x.driveUrl=res.fileUrl||"";x.driveFileId=res.fileId||""});
       delete uploadState[rowId];
       autoSave();render();
       return true;
@@ -2063,8 +2085,8 @@ async function attachJustif(rowId,prefix,customName,file,suffix,forcedNum){
     throw new Error((res&&res.error)||"réponse inattendue du Drive");
   }catch(e){
     // Rien sur le Drive : aucune trace ne doit laisser croire que la pièce est classée
-    row.numj=prevNumj;row.stat=prevStat;
-    delete D.att[rowId];delete uploadState[rowId];
+    avant.forEach(v=>{v.r.numj=v.numj;v.r.stat=v.stat;delete D.att[v.r.id]});
+    delete uploadState[rowId];
     if(!customName&&seq){if(!D.freedN[pfx])D.freedN[pfx]=[];D.freedN[pfx].push(seq)}
     autoSave();render();
     alert("❌ Le justificatif n'a PAS été enregistré sur le Drive.\n\n"+(e.message||e)
@@ -3383,6 +3405,34 @@ function rhSetPresentation(v){pushUndo();D.rhPresentation=v;autoSave();render()}
 // Reecrit @FAM:sud-sc en @FAM:sc, etc. En memoire seulement : la prochaine
 // sauvegarde la fixera, et la migration se rejoue a chaque chargement — donc le
 // comportement est correct meme si rien n'est sauvegarde entre-temps.
+// Les répartitions créées avant le partage de pièce ont mis la convention sur
+// UNE sous-ligne et laissé les autres vides : le FEC n'en portait la référence
+// qu'une fois sur trois, et le comptage des pièces manquantes comptait des trous
+// qui n'en étaient pas. On propage, une fois, quand le groupe ne contient qu'une
+// seule pièce distincte — sinon on ne touche à rien, ce sont des pièces par
+// ligne et c'est légitime.
+let _piecePropFait=false;
+function piecePropage(){
+  if(_piecePropFait)return 0;
+  _piecePropFait=true;
+  let n=0;
+  Object.keys(splitsMap()).forEach(sid=>{
+    const L=splitLignes(sid);if(L.length<2)return;
+    const avec=L.filter(r=>r.driveUrl||String(r.numj||"").trim());
+    if(!avec.length||avec.length===L.length)return;
+    const cles=[...new Set(avec.map(r=>(r.driveFileId||r.driveUrl||"")+"|"+(r.numj||"")))];
+    if(cles.length!==1)return;   // pièces différentes : on laisse
+    const src=avec[0];
+    L.forEach(r=>{
+      if(r===src||(r.driveUrl||String(r.numj||"").trim()))return;
+      r.numj=src.numj||"";r.driveUrl=src.driveUrl||"";r.driveFileId=src.driveFileId||"";
+      r.stat=src.stat||r.stat;
+      if(D.att[src.id])D.att[r.id]=D.att[src.id];
+      n++;
+    });
+  });
+  return n;
+}
 function famMigreAlloc(){
   if(_famMigreFait)return 0;
   _famMigreFait=true;
@@ -4219,6 +4269,15 @@ function splitSommeActuelle(sid){
   return {deb:Math.round(L.reduce((a,r)=>a+(r.deb||0),0)*100)/100,
           cre:Math.round(L.reduce((a,r)=>a+(r.cre||0),0)*100)/100};
 }
+// Une pièce est PARTAGÉE quand toutes les sous-lignes portent la même : c'est la
+// signature d'une convention couvrant l'opération, par opposition à des pièces
+// distinctes ligne par ligne (une note de frais).
+function piecePartagee(L){
+  if(!L||L.length<1)return null;
+  const cles=[...new Set(L.map(r=>(r.driveFileId||r.driveUrl||"")+"|"+(r.numj||"")))];
+  if(cles.length!==1||cles[0]==="|")return null;
+  return {numj:L[0].numj||"",driveUrl:L[0].driveUrl||"",driveFileId:L[0].driveFileId||"",stat:L[0].stat||""};
+}
 function splitFamLib(label){
   const gi=rhGroupeDe(label);
   return gi>=0?RH_GROUPES[gi].zone+" \u2014 "+RH_GROUPES[gi].lib:"famille";
@@ -4252,10 +4311,13 @@ function splitRecalc(sid,labels,dejaVerifie){
       "Réparti depuis « "+splitFamLib(l)+" » ("+(k.parts[i]*100).toFixed(2)+" %)"].filter(Boolean).join(" · ");
     const ex=L.find(r=>actCode(r.act)===actCode(l));
     if(ex){ex.act=l;ex.deb=d;ex.cre=c;ex.comment=com}
+    // Un projet qui rejoint une répartition rejoint aussi SA pièce : la
+    // convention couvre l'opération entière, pas les seules sous-lignes déjà
+    // créées. On ne la remet à zéro que si le groupe n'en partage pas une.
     else nouvelles.push(Object.assign({},modele,{
       id:"f"+Date.now().toString(36)+"_"+i+"_"+Math.random().toString(36).substr(2,4),
-      act:l,deb:d,cre:c,comment:com,
-      driveUrl:"",driveFileId:"",numj:""}));
+      act:l,deb:d,cre:c,comment:com},
+      piecePartagee(L)?{}:{driveUrl:"",driveFileId:"",numj:""}));
   });
   if(nouvelles.length&&idx>=0)D.rows.splice(idx+1,0,...nouvelles);
   rec.codes=labels.slice();
@@ -4483,9 +4545,15 @@ function splitModifier(sid){
 function splitAnnulerRepart(sid){
   const rec=splitsMap()[sid];if(!rec)return;
   const L=splitLignes(sid);if(!L.length)return;
+  // Une pièce PARTAGÉE par toutes les sous-lignes est la pièce de l'opération :
+  // défaire la répartition la remet simplement sur l'écriture rétablie, rien
+  // n'est perdu. Le refus ne vaut que pour des pièces DIFFÉRENTES d'une
+  // sous-ligne à l'autre — là, refusionner en perdrait.
   const avecPiece=L.filter(r=>r.driveUrl||String(r.numj||"").trim());
-  if(avecPiece.length){
-    alert("Impossible de défaire : "+avecPiece.length+" sous-ligne(s) portent un justificatif ou un numéro de pièce.\n\n"
+  const cles=[...new Set(avecPiece.map(r=>(r.driveFileId||r.driveUrl||"")+"|"+(r.numj||"")))];
+  const partagee=avecPiece.length===L.length&&cles.length===1;
+  if(avecPiece.length&&!partagee){
+    alert("Impossible de défaire : les sous-lignes portent des justificatifs différents ("+cles.length+").\n\n"
       +avecPiece.map(r=>"• "+actCode(r.act)+" — "+(r.numj||"pièce Drive")).join("\n")
       +"\n\nDétachez-les depuis le classement, puis recommencez.");
     return;
@@ -4498,6 +4566,10 @@ function splitAnnulerRepart(sid){
   const base=Object.assign({},L[0],{id:"u"+Date.now().toString(36),
     act:"",deb:rec.deb||0,cre:rec.cre||0,comment:String(rec.comment||"")});
   delete base.split;delete base._vent;
+  // La copie locale du fichier suit le nouvel identifiant, sinon la pièce
+  // s'afficherait « perdue » alors qu'elle est bien sur le Drive.
+  if(partagee&&D.att[L[0].id])D.att[base.id]=D.att[L[0].id];
+  L.forEach(r=>{delete D.att[r.id]});
   D.rows=D.rows.filter(r=>r.split!==sid);
   D.rows.splice(i<0?D.rows.length:i,0,base);
   delete splitsMap()[sid];
@@ -4709,6 +4781,11 @@ function famSplitValider(){
       "Réparti depuis « "+(c.parFam[x.act]||"famille")+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
   }));
   subs.forEach(x=>{delete x._vent});
+  // La convention se recopie sur chaque sous-ligne via Object.assign — c'est
+  // voulu : une pièce pour toute l'opération. Reste la copie locale du fichier,
+  // qui est indexée par identifiant de ligne et doit suivre.
+  if(D.att[base.id])subs.forEach(x=>{D.att[x.id]=D.att[base.id]});
+  delete D.att[base.id];
   D.rows.splice(i,1,...subs);
   const nf=(_famSplit.cles||[]).length;
   _famSplit=null;closeM();autoSave();render();
@@ -8964,7 +9041,10 @@ function ligneGroupe(g,i,ouvert){
   const lib=g.type==="split"?(meme("lib")||L[0].lib||"")
     :("Note de frais "+(L[0].ndf||"")+(meme("lib")?" \u2014 "+meme("lib"):""));
   const codes=[...new Set(L.map(r=>actCode(r.act)).filter(Boolean))];
-  const pieces=L.filter(r=>r.driveUrl);
+  // Les sous-lignes d'une même répartition partagent une pièce : la compter une
+  // fois. « 3 pièces » sur une convention unique était le pansement d'hier.
+  const pieces=L.filter(r=>r.driveUrl)
+    .filter((r,i,t)=>t.findIndex(x=>(x.driveFileId||x.driveUrl)===(r.driveFileId||r.driveUrl))===i);
   const numjs=[...new Set(L.map(r=>r.numj).filter(Boolean))].sort();
   const chev=ouvert?"\u25be":"\u25b8";
   const quoi=g.type==="split"?(L.length+" projet"+(L.length>1?"s":"")+part)
@@ -10128,9 +10208,13 @@ async function deleteJustif(rowId){
   }
   // Libérer le numéro pour la prochaine pièce chargée
   if(seqm){if(!D.freedN)D.freedN={};const pool=D.freedN[seqm[2]]=D.freedN[seqm[2]]||[];if(!pool.includes(seqm[1]))pool.push(seqm[1])}
-  // Remove local attachment
-  delete D.att[rowId];
-  row.numj="";row.stat="Justificatif manquant";row.driveUrl="";row.driveFileId="";
+  // Une pièce partagée par un groupe se retire du groupe entier : le fichier
+  // Drive est unique, laisser sa référence sur les autres sous-lignes pointerait
+  // vers un fichier supprimé.
+  pieceGroupe(row).forEach(x=>{
+    delete D.att[x.id];
+    x.numj="";x.stat="Justificatif manquant";x.driveUrl="";x.driveFileId="";
+  });
   autoSave();render();
 }
 
@@ -10252,6 +10336,10 @@ if(_secours&&"serviceWorker" in navigator){
 // Si le premier rendu échoue, on affiche l'erreur : une page blanche muette est le
 // pire des diagnostics, et elle ressemble à s'y méprendre à un chargement sans fin.
 try{
+  // Avant le premier rendu : reprendre les répartitions dont la convention ne
+  // figurait que sur une sous-ligne. Rien n'est écrit si le groupe porte des
+  // pièces différentes.
+  try{const np=piecePropage();if(np)console.log("Pièces de convention propagées sur "+np+" sous-ligne(s).")}catch(e){}
   render();
   appDemarree=true;majCloudBadge();
 }catch(e){
