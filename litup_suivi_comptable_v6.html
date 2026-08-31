@@ -158,7 +158,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-25z <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26a <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -167,12 +167,11 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
   <input type="file" id="fi_scan" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none">
   <!-- Dropdown menus -->
   <div class="dd-wrap">
-    <button class="b by dd-trigger" onclick="toggleDD('dd_actual')">🔄 Actualisation ▾</button>
+    <button class="b by dd-trigger" onclick="toggleDD('dd_actual')">☁️ Charger ▾</button>
     <div class="dd-menu" id="dd_actual">
       <button onclick="loadComptaFromSheet();closeDD()">☁️ Dernière sauvegarde</button>
       <button onclick="fusRecuperer();closeDD()" title="Récupérer le travail de l'autre personne en gardant le vôtre : ce qui ne se recouvre pas est additionné, et l'outil n'interroge que sur ce qui se contredit">🔀 Fusionner avec le Sheet</button>
       <button onclick="syncAirtable();closeDD()">☁️ Airtable (codes + financements)</button>
-      <button onclick="importAirtable();closeDD()">📥 Données Airtable (fichier)</button>
       <button onclick="loadNDFFromSheet();closeDD()">☁️ NDF Cloud</button>
       <button onclick="loadDepensesFromSheet();closeDD()">☁️ Dépenses Cloud</button>
       <button onclick="applyRulesToUnaffected();closeDD()">🔄 Appliquer les règles</button>
@@ -195,7 +194,7 @@ tr.ndf-split{background:rgba(99,102,241,.04);border-left:3px solid rgba(99,102,2
     </div>
   </div>
   <button class="b bg" onclick="saveComptaToSheet()" style="font-weight:700" title="Sauvegarder vers Google Sheet">☁️ Sauvegarder</button><span id="cloudBadge" style="font-size:11px;margin-left:1px;cursor:help;font-weight:700"></span>
-  <button class="b bd" onclick="undo()" title="Annuler">↩️</button>
+  <button class="b bd" onclick="undo()" title="Annuler la dernière modification">↩️ Annuler</button>
   <div class="dd-wrap">
     <button class="b bd dd-trigger" onclick="toggleDD('dd_export')">📤 Export ▾</button>
     <div class="dd-menu" id="dd_export">
@@ -679,7 +678,11 @@ const realiseProduit=r=>{const s=sensCompte(r.cat);
 const estCC=r=>!estLivret(r);
 const RESPS=["Claire SALEM","Clémentine CLAUDON","Laetitia DE BORDE","Laura BOURIGAULT","Léa BURELLO","Pauline GIRAUDO","Philippe DA PIEDADE"];
 
-let curTab="class",curFilt="",suiviFilt={codes:[],yr:"",terr:""},compYear="2026";
+let curTab="class",curFilt="",compYear="2026";
+// L'onglet Synthèse est fusionné dans le suivi analytique : ses cartes y sont
+// reprises en tête, regroupées par famille de projet. « col » retient la vue de
+// colonnes choisie (projets, familles, mois) d'une session à l'autre.
+let suiviFilt={codes:[],yr:"",terr:"",col:(()=>{try{return localStorage.getItem("litup_suiviCol")||"proj"}catch(e){return "proj"}})()};
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
 // Version du budget affichée (null = la plus récente). Préférence locale, pas une donnée partagée.
@@ -3871,19 +3874,33 @@ function rBudget(el){
     <button class="b bd" onclick="checkSolde()" title="Vérifier cohérence avec le fichier banque" style="font-size:7px">🔍 Vérif.</button>
   </div>`;
 
-  h+='<div style="overflow-x:auto;padding:0 0 12px"><table><thead><tr><th>Code comptable</th><th>Type</th>';
-  D.budgetVersions.forEach((v,vi)=>h+=`<th style="text-align:right;min-width:90px${vi===vIdx?";color:var(--accent);border-bottom:2px solid var(--accent)":""}">${v}${vi===vIdx?" ●":""}
+  const masq=D.budgetVersions.map((v,vi)=>vi).filter(vi=>!budVerVisible(vi));
+  h+=`<div style="padding:4px 14px 8px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:9px;color:var(--text-3)">
+    <span>Colonnes affichées :</span>
+    ${D.budgetVersions.map((v,vi)=>{const on=budVerVisible(vi),cur=vi===curVerIdx();
+      return `<button class="b ${on?"bb":"bd"}" style="font-size:8px;padding:2px 7px${on?"":";opacity:.55"}"
+        title="${cur?"Version affichée : elle reste toujours visible.":(on?"Masquer cette colonne — aucun montant n'est effacé.":"Réafficher cette colonne.")}"
+        onclick="budVerToggle(${vi})">${on?"👁":"🚫"} ${escHtml(v)}${cur?" ●":""}</button>`}).join("")}
+    ${masq.length?`<button class="b bd" style="font-size:8px;padding:2px 7px" onclick="budVerToutAfficher()">Tout afficher (${masq.length} masquée${masq.length>1?"s":""})</button>`:""}
+    <span style="margin-left:6px">Masquer n'efface rien : les montants restent dans le fichier et dans tous les calculs.</span>
+  </div>`;
+  const vv=D.budgetVersions.map((v,vi)=>({v,vi})).filter(x=>budVerVisible(x.vi));
+  h+='<div style="overflow-x:auto;padding:0 0 12px"><table id="tblBudget"><thead><tr class="hdr-row">';
+  h+=`<th style="min-width:180px">Code comptable<div class="col-resize" onmousedown="startResize(event,'budget')" ondblclick="resetColWidth(event,'budget')" title="Glisser pour redimensionner, double-clic pour réinitialiser"></div></th>`;
+  h+=`<th>Type<div class="col-resize" onmousedown="startResize(event,'budget')" ondblclick="resetColWidth(event,'budget')"></div></th>`;
+  vv.forEach(({v,vi})=>h+=`<th style="text-align:right;min-width:90px${vi===vIdx?";color:var(--accent);border-bottom:2px solid var(--accent)":""}">${v}${vi===vIdx?" ●":""}
     <div style="font-weight:400;font-size:8px;color:var(--text-3)">exercice
       <input class="cj" style="width:42px;font-size:8px;padding:1px 2px" value="${budgetVerYear(vi)}"
         title="Exercice couvert par cette version. La trésorerie glissante lit le budget de l'année de chaque mois."
-        onchange="setBudgetVerYear(${vi},this.value)"></div></th>`);
-  h+='<th style="min-width:180px">Saisonnalité (mois)</th><th></th></tr></thead><tbody>';
+        onchange="setBudgetVerYear(${vi},this.value)"></div>
+    <div class="col-resize" onmousedown="startResize(event,'budget')" ondblclick="resetColWidth(event,'budget')"></div></th>`);
+  h+=`<th style="min-width:180px">Saisonnalité (mois)<div class="col-resize" onmousedown="startResize(event,'budget')" ondblclick="resetColWidth(event,'budget')"></div></th><th></th></tr></thead><tbody>`;
 
   D.budget.forEach((b,i)=>{
     h+=`<tr><td style="min-width:180px"><div id="bc_${i}"></div></td>`;
     h+=`<td><select class="ms" style="width:65px" onchange="D.budget[${i}].type=this.value;autoSave();render()">
       <option value="charge"${b.type==="charge"?" selected":""}>Charge</option><option value="produit"${b.type==="produit"?" selected":""}>Produit</option></select></td>`;
-    D.budgetVersions.forEach((v,vi)=>{
+    vv.forEach(({vi})=>{
       const val=b.versions?.[vi]||0;
       h+=`<td><input class="ni" value="${val}" onchange="if(!D.budget[${i}].versions)D.budget[${i}].versions=[];D.budget[${i}].versions[${vi}]=parseFloat(this.value)||0;autoSave();render()"></td>`;
     });
@@ -3901,13 +3918,14 @@ function rBudget(el){
 
   // Totals
   h+='<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL CHARGES</td><td></td>';
-  D.budgetVersions.forEach((v,vi)=>{const t=D.budget.filter(b=>b.type==="charge").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="deb">${fmt(t)}</td>`});
+  vv.forEach(({vi})=>{const t=D.budget.filter(b=>b.type==="charge").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="deb">${fmt(t)}</td>`});
   h+='<td></td><td></td></tr>';
   h+='<tr style="font-weight:700"><td>TOTAL PRODUITS</td><td></td>';
-  D.budgetVersions.forEach((v,vi)=>{const t=D.budget.filter(b=>b.type==="produit").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="cre">${fmt(t)}</td>`});
+  vv.forEach(({vi})=>{const t=D.budget.filter(b=>b.type==="produit").reduce((s,b)=>s+(b.versions?.[vi]||0),0);h+=`<td class="cre">${fmt(t)}</td>`});
   h+='<td></td><td></td></tr>';
 
   h+='</tbody></table></div>';el.innerHTML=h;
+  applyColWidths(el.querySelector("#tblBudget"),"budget");
 
   // Init search selects for budget cats
   D.budget.forEach((b,i)=>{const e=$("bc_"+i);if(!e)return;
@@ -3970,6 +3988,26 @@ function budgetVerTotaux(vi){
 // ─── EXERCICE D'UNE VERSION DU BUDGET ───
 // Une version = un budget pour un exercice donné. La trésorerie glissante a
 // besoin de savoir quelle version lire pour les mois de 2027.
+// Colonnes de versions affichées. Masquer une version ne touche à aucun montant :
+// c'est un réglage d'affichage, mémorisé par navigateur, pour ne pas dérouler dix
+// colonnes quand on n'en compare que deux. La version affichée (●) reste toujours
+// visible : la masquer laisserait un tableau qui ne montre pas ce qu'il calcule.
+function budVerMasq(){
+  try{const v=JSON.parse(localStorage.getItem("litup_budVerMasq")||"[]");return Array.isArray(v)?v:[]}
+  catch(e){return []}
+}
+function budVerVisible(vi){return vi===curVerIdx()||budVerMasq().indexOf(String(vi))<0}
+function budVerToggle(vi){
+  if(vi===curVerIdx()){
+    toast("La version affichée (●) reste visible : c'est celle dont l'outil calcule la trésorerie. Choisissez-en une autre pour masquer celle-ci.","var(--amber)");
+    return;
+  }
+  const m=budVerMasq(),k=String(vi),i=m.indexOf(k);
+  if(i<0)m.push(k);else m.splice(i,1);
+  try{localStorage.setItem("litup_budVerMasq",JSON.stringify(m))}catch(e){}
+  render();
+}
+function budVerToutAfficher(){try{localStorage.setItem("litup_budVerMasq","[]")}catch(e){}render()}
 function budgetVerYear(vi){
   const y=(D.budgetVerYears||[])[vi];
   return /^\d{4}$/.test(String(y))?String(y):"2026";
@@ -5116,7 +5154,7 @@ function openFinBanque(coll,i){
         ${D.cats.map(c=>`<option${catKey(c)===catKey(r.cat||"")?" selected":""}>${c}</option>`).join("")}
       </select></td>
       <td><select class="ms" style="min-width:170px${r.act?"":";border-color:var(--amber)"}"
-        title="Code projet imputé. Il commande le suivi par action (📈 Suivi codes)."
+        title="Code projet imputé. Il commande le suivi par action (📈 Suivi analytique)."
         onchange="finSetRow('${r.id}','act',this.value,'${coll}',${i})">
         ${actOptions(r.act||"","— à affecter")}
       </select></td>
@@ -5173,7 +5211,7 @@ function openFinBanque(coll,i){
       ${Math.abs(ec)>0.5?`· <strong style="color:var(--amber)">écart ${fmt(ec)}</strong>`:""}
       <br>Compte comptable du financement : <strong>${ccAt.code||"⚠️ non renseigné"}</strong>${ccAt.src?" ("+ccAt.src+")":""}
       · mois de trésorerie : <strong>${mk==="hors"?"écarté":(mk?tresMoisLabel(mk):"non affecté")}</strong>
-      <br>Les deux sélecteurs modifient directement l'écriture bancaire : le compte comptable commande ⚖️ Prévi. vs Réalisé, le code projet commande 📈 Suivi codes.
+      <br>Les deux sélecteurs modifient directement l'écriture bancaire : le compte comptable commande ⚖️ Prévi. vs Réalisé, le code projet commande 📈 Suivi analytique.
     </p>
     ${diag}
     ${(rows.length||ambigus.length)?`<div style="overflow:auto;max-height:50vh"><table><thead><tr>
@@ -6906,16 +6944,16 @@ function renderCorps(){
   // No alerts banner — stats cards are sufficient
 
   majCloudBadge();
-  const tabs=[{id:"class",l:"📋 Classement"},{id:"synth",l:"📊 Synthèse"},{id:"suivi",l:"📈 Suivi codes"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."}];
+  const tabs=[{id:"class",l:"📋 Classement"},{id:"suivi",l:"📈 Suivi analytique"},{id:"budget",l:"📋 Budget prévi."},{id:"comp",l:"⚖️ Prévi. vs Réalisé"},{id:"treasury",l:"💰 Trésorerie"},{id:"rh",l:"👥 RH"},{id:"missing",l:"⚠️ Justif."}];
   let tb='';tabs.forEach(t=>{
     tb+=`<button class="tab ${curTab===t.id?"ta":"ti"}" onclick="switchTab('${t.id}')">${t.l}</button>`});
   tb+=`<div style="width:1px;height:14px;background:#2d3148;margin:0 1px"></div>`;
   tb+=`<input class="si" id="si" placeholder="🔍 Recherche globale" value="${$('si')?.value||''}" oninput="debouncedRender('si')">`;
   const nf=cfNbActifs();
   if(nf)tb+=`<button class="fb on" onclick="cfEffacerTout()" style="color:var(--accent)" title="Enlever tous les filtres de colonnes">▼ ${nf} filtre${nf>1?"s":""} ✕</button>`;
-  tb+=`<button class="fb${curFilt===""?" on":""}" onclick="tglF2('')" title="Toutes les lignes">Tout</button>`;
-  tb+=`<button class="fb${curFilt==="bank"?" on":""}" onclick="tglF2('bank')" title="Lignes bancaires">🏦</button>`;
-  tb+=`<button class="fb${curFilt==="ndf"?" on":""}" onclick="tglF2('ndf')" title="Lignes NDF">🧾</button>`;
+  tb+=`<button class="fb${curFilt===""?" on":""}" onclick="tglF2('')" title="Afficher toutes les écritures">Tout</button>`;
+  tb+=`<button class="fb${curFilt==="bank"?" on":""}" onclick="tglF2('bank')" title="N'afficher que les écritures venues du relevé bancaire">🏦 Banque</button>`;
+  tb+=`<button class="fb${curFilt==="ndf"?" on":""}" onclick="tglF2('ndf')" title="N'afficher que les écritures venues des notes de frais">🧾 NDF</button>`;
   const flt=getFilt();
   // Default sort: most recent first
   flt.sort((a,b)=>(b.dt||"").localeCompare(a.dt||""));
@@ -6923,7 +6961,6 @@ function renderCorps(){
   $("toolbar").innerHTML=tb;
 
   const ct=$("content");
-  if(curTab==="synth"){rSynth(ct);return}
   if(curTab==="suivi"){rSuivi(ct);return}
   if(curTab==="budget"){rBudget(ct);return}
   if(curTab==="comp"){rComp(ct);return}
@@ -6996,44 +7033,175 @@ function renderCorps(){
   },10);
 }
 
-function rSynth(el){
-  const yrs=[...new Set(D.rows.map(r=>r.yr))].filter(Boolean).sort();
-  let h=`<div style="padding:8px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid #1e2030"><span style="font-size:9px;color:#94a3b8">Année :</span>
-    <select id="sYr" class="ms" style="width:70px" onchange="render()"><option value="">Toutes</option>${yrs.map(y=>`<option${y===($("sYr")?.value||"")?" selected":""}>${y}</option>`).join("")}</select></div>`;
-  const yrF=$("sYr")?.value||"";const fR=D.rows.filter(r=>!yrF||anEq(r.yr,yrF));
-  const g={};fR.forEach(r=>{if(isVirInterne(r))return;const t=r.act?r.act.split(" ")[0].replace(/[0-9]/g,"")||"?":"⚠";if(!g[t])g[t]={ch:0,pr:0,n:0};g[t].ch+=r.deb||0;g[t].pr+=r.cre||0;g[t].n++});
-  const s=Object.entries(g).sort((a,b)=>b[1].ch-a[1].ch);const mx=Math.max(...s.map(([,d])=>d.ch),1);
-  h+='<div class="sg">';s.forEach(([t,d])=>{const p=(d.ch/mx*100).toFixed(1);
-    h+=`<div class="scard"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:700;font-size:11px">${t}</span><span style="font-size:7px;color:#64748b">${d.n}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#f87171;font-weight:600;font-size:10px">${fmt(d.ch)}</span>${d.pr>0?`<span style="color:#4ade80;font-weight:600;font-size:10px">+${fmt(d.pr)}</span>`:""}</div><div class="sbar"><div class="sbar-f" style="width:${p}%;background:linear-gradient(90deg,#6366f1,#818cf8)"></div></div></div>`});
-  h+='</div>';el.innerHTML=h}
+// ─── SUIVI ANALYTIQUE ───
+// Les codes projets portent une famille dans leurs premières lettres. On la lit
+// pour pouvoir replier 45 colonnes de projets en 8 colonnes de familles, sans
+// jamais toucher aux écritures.
+const SUIVI_CATS=[
+  {k:"BU",  l:"BU",             pfx:["BU"]},
+  {k:"EXP", l:"EXP",            pfx:["EXP"]},
+  {k:"F2F", l:"F2F",            pfx:["F2F"]},
+  {k:"LAB", l:"LAB",            pfx:["LU","LAB"]},
+  {k:"SU",  l:"SU",             pfx:["SU"]},
+  {k:"IU",  l:"IU",             pfx:["IU"]},
+  {k:"RH",  l:"RH",             pfx:["RH"]},
+  {k:"FONC",l:"Fonctionnement", pfx:["FG","FP","FV"]}
+];
+// actCode existe déjà plus haut : même découpage, en majuscules, et tolérant
+// à la forme objet des entrées de D.acts.
+const actNom=a=>{const i=String(a||"").indexOf(" - ");return i<0?String(a||""):String(a).substring(i+3).trim()};
+// Le préfixe le plus long gagne : « F2F15 » ne doit pas tomber dans « FG/FP/FV ».
+function actCat(act){
+  const c=actCode(act).toUpperCase();
+  if(!c)return "SANS";
+  let best=null;
+  SUIVI_CATS.forEach(g=>g.pfx.forEach(p=>{
+    if(c.indexOf(p)===0&&(!best||p.length>best.p.length))best={k:g.k,p:p};
+  }));
+  return best?best.k:"AUTRE";
+}
+const SUIVI_CAT_LIB=(()=>{const m={SANS:"Sans code projet",AUTRE:"Autres codes"};
+  SUIVI_CATS.forEach(g=>m[g.k]=g.l);return m})();
+function suiviCatOrdre(k){
+  const i=SUIVI_CATS.findIndex(g=>g.k===k);
+  return i<0?(k==="AUTRE"?98:99):i;
+}
+function suiviSetCol(v){suiviFilt.col=v;try{localStorage.setItem("litup_suiviCol",v)}catch(e){}render()}
 
 function rSuivi(el){
-  const yrs=[...new Set(D.rows.map(r=>r.yr))].filter(Boolean).sort();
-  const ua=[...new Set(D.rows.map(r=>(r.act||"").split(" - ")[0].trim()).filter(Boolean))].sort();
-  let h=`<div style="padding:6px 14px;display:flex;gap:5px;align-items:center;border-bottom:1px solid #1e2030;flex-wrap:wrap">
-    <span style="font-size:8px;color:#94a3b8">Année:</span>
-    <select class="ms" style="width:60px" onchange="suiviFilt.yr=this.value;render()"><option value="">—</option>${yrs.map(y=>`<option${y===suiviFilt.yr?" selected":""}>${y}</option>`).join("")}</select>
-    <span style="font-size:8px;color:#94a3b8">Territoire:</span>
-    <select class="ms" style="width:60px" onchange="suiviFilt.terr=this.value;render()"><option value="">Tous</option><option${suiviFilt.terr==="SUD"?" selected":""}>SUD</option><option${suiviFilt.terr==="IDF"?" selected":""}>IDF</option><option${suiviFilt.terr==="NAT"?" selected":""}>NAT</option></select>
-    <span style="font-size:8px;color:#94a3b8">Projets:</span>
-    <select class="ms" style="width:120px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.map(a=>`<option>${a}</option>`).join("")}</select>`;
-  suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${c}<span class="x">×</span></span>`);
+  const yrs=[...new Set(D.rows.map(r=>anStr(r.yr)))].filter(Boolean).sort();
+  const ua=[...new Set(D.rows.map(r=>actCode(r.act)).filter(Boolean))].sort();
+  const col=suiviFilt.col||"proj";
+  let h=`<div style="padding:6px 14px;display:flex;gap:5px;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <span style="font-size:8px;color:var(--text-3)">Exercice :</span>
+    <select class="ms" style="width:70px" onchange="suiviFilt.yr=this.value;render()"><option value="">Tous</option>${yrs.map(y=>`<option${y===suiviFilt.yr?" selected":""}>${y}</option>`).join("")}</select>
+    <span style="font-size:8px;color:var(--text-3)">Territoire :</span>
+    <select class="ms" style="width:65px" onchange="suiviFilt.terr=this.value;render()"><option value="">Tous</option>${["SUD","IDF","NAT"].map(t=>`<option${suiviFilt.terr===t?" selected":""}>${t}</option>`).join("")}</select>
+    <span style="font-size:8px;color:var(--text-3)">Colonnes :</span>
+    <select class="ms" style="width:110px" onchange="suiviSetCol(this.value)">
+      <option value="proj"${col==="proj"?" selected":""}>Projets</option>
+      <option value="cat"${col==="cat"?" selected":""}>Familles</option>
+      <option value="mois"${col==="mois"?" selected":""}>Mois</option>
+    </select>
+    <span style="font-size:8px;color:var(--text-3)">Projet :</span>
+    <select class="ms" style="width:110px" onchange="if(this.value){suiviFilt.codes.push(this.value);this.value='';render()}"><option value="">+</option>${ua.filter(a=>!suiviFilt.codes.includes(a)).map(a=>`<option>${escHtml(a)}</option>`).join("")}</select>`;
+  suiviFilt.codes.forEach(c=>h+=`<span class="chip" onclick="suiviFilt.codes=suiviFilt.codes.filter(x=>x!=='${c}');render()">${escHtml(c)}<span class="x">×</span></span>`);
   h+='</div>';
-  const fR=D.rows.filter(r=>{if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
+
+  const fR=D.rows.filter(r=>{
+    if(suiviFilt.yr&&!anEq(r.yr,suiviFilt.yr))return false;
     if(suiviFilt.terr){const t=actTerr(r.act);if(t&&t!==suiviFilt.terr)return false}
-    if(suiviFilt.codes.length){const p=(r.act||"").split(" - ")[0].trim();if(!suiviFilt.codes.includes(p))return false}return true});
-  const bc={};fR.forEach(r=>{if(!r.cat)return;if(!bc[r.cat])bc[r.cat]={deb:0,cre:0,n:0,bm:{}};bc[r.cat].deb+=r.deb||0;bc[r.cat].cre+=r.cre||0;bc[r.cat].n++;
-    const mk=moKey(r.dt);if(!bc[r.cat].bm[mk])bc[r.cat].bm[mk]={deb:0,cre:0};bc[r.cat].bm[mk].deb+=r.deb||0;bc[r.cat].bm[mk].cre+=r.cre||0});
-  const so=Object.entries(bc).sort((a,b)=>(b[1].deb+b[1].cre)-(a[1].deb+a[1].cre));
-  const mos=[...new Set(fR.map(r=>moKey(r.dt)))].filter(Boolean).sort();
+    if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
+    return true;
+  });
+
+  // ── Cartes de synthèse par famille (anciennement l'onglet Synthèse) ──
+  const parCat={};
+  fR.forEach(r=>{if(isVirInterne(r))return;const k=actCat(r.act);
+    if(!parCat[k])parCat[k]={ch:0,pr:0,n:0};
+    parCat[k].ch+=r.deb||0;parCat[k].pr+=r.cre||0;parCat[k].n++});
+  const cartes=Object.entries(parCat).sort((a,b)=>suiviCatOrdre(a[0])-suiviCatOrdre(b[0]));
+  if(cartes.length){
+    const mx=Math.max(...cartes.map(([,d])=>Math.max(d.ch,d.pr)),1);
+    h+='<div class="sg" style="padding:8px 14px 4px">';
+    cartes.forEach(([k,d])=>{
+      const solde=d.pr-d.ch;
+      h+=`<div class="scard" title="${escHtml(SUIVI_CAT_LIB[k]||k)} — ${d.n} écriture(s)&#10;Charges ${fmt(d.ch)}&#10;Produits ${fmt(d.pr)}&#10;Solde ${fmt(solde)}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+          <span style="font-weight:700;font-size:11px">${escHtml(SUIVI_CAT_LIB[k]||k)}</span>
+          <span style="font-size:7px;color:var(--text-3)">${d.n}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+          <span style="color:var(--red);font-weight:600;font-size:10px">${fmt(d.ch)}</span>
+          ${d.pr>0?`<span style="color:var(--green);font-weight:600;font-size:10px">${fmt(d.pr)}</span>`:""}</div>
+        <div class="sbar"><div class="sbar-f" style="width:${(d.ch/mx*100).toFixed(1)}%;background:var(--red)"></div></div>
+        <div class="sbar" style="margin-top:2px"><div class="sbar-f" style="width:${(d.pr/mx*100).toFixed(1)}%;background:var(--green)"></div></div>
+        <div style="font-size:9px;font-weight:700;margin-top:3px;color:${solde>=0?"var(--green)":"var(--red)"}">${fmt(solde)}</div>
+      </div>`;
+    });
+    h+='</div>';
+  }
+
+  // ── Colonnes : projets (regroupés par famille), familles, ou mois ──
+  let cols=[];   // [{k, nom, sous, cat}]
+  if(col==="mois"){
+    cols=[...new Set(fR.map(r=>moKey(r.dt)))].filter(Boolean).sort()
+      .map(m=>({k:m,nom:tresMoisLabel(m),sous:"",cat:""}));
+  }else if(col==="cat"){
+    cols=[...new Set(fR.map(r=>actCat(r.act)))].sort((a,b)=>suiviCatOrdre(a)-suiviCatOrdre(b))
+      .map(k=>({k,nom:SUIVI_CAT_LIB[k]||k,sous:"",cat:""}));
+  }else{
+    const vus={};
+    fR.forEach(r=>{const c=actCode(r.act)||"—";if(!vus[c])vus[c]={code:c,nom:actNom(r.act)||"(sans nom)",cat:actCat(r.act)}});
+    cols=Object.values(vus).sort((a,b)=>{
+      const o=suiviCatOrdre(a.cat)-suiviCatOrdre(b.cat);if(o)return o;
+      return a.code.localeCompare(b.code,"fr",{numeric:true});
+    }).map(x=>({k:x.code,nom:x.nom,sous:x.code,cat:x.cat}));
+  }
+  const cle=r=>col==="mois"?moKey(r.dt):col==="cat"?actCat(r.act):(actCode(r.act)||"—");
+
+  // ── Lignes : comptes comptables, dans l'ordre du plan comptable ──
+  const bc={};
+  fR.forEach(r=>{if(!r.cat)return;
+    if(!bc[r.cat])bc[r.cat]={deb:0,cre:0,n:0,par:{}};
+    const b=bc[r.cat];b.deb+=r.deb||0;b.cre+=r.cre||0;b.n++;
+    const k=cle(r);if(!k)return;
+    if(!b.par[k])b.par[k]={deb:0,cre:0};
+    b.par[k].deb+=r.deb||0;b.par[k].cre+=r.cre||0;
+  });
+  const so=Object.entries(bc).sort((a,b)=>catKey(a[0]).localeCompare(catKey(b[0]),"fr",{numeric:true}));
   const td=so.reduce((s,[,d])=>s+d.deb,0),tc=so.reduce((s,[,d])=>s+d.cre,0);
-  h+='<div style="overflow-x:auto"><table><thead><tr><th>Code</th><th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th>N</th>';
-  mos.forEach(m=>h+=`<th style="text-align:right;font-size:6px">${m.substring(5)}</th>`);
-  h+='</tr></thead><tbody>';
-  so.forEach(([c,d])=>{h+=`<tr><td style="font-weight:600;font-size:8px">${c}</td><td class="deb">${fmt(d.deb)}</td><td class="cre">${fmt(d.cre)}</td><td style="text-align:center;font-size:7px;color:#64748b">${d.n}</td>`;
-    mos.forEach(m=>{const md=d.bm[m];h+=md?`<td style="text-align:right;font-size:7px;color:${md.cre>md.deb?"#4ade80":"#f87171"}">${fmt(md.deb||md.cre)}</td>`:'<td></td>'});h+='</tr>'});
-  h+=`<tr style="border-top:2px solid #6366f1;font-weight:700"><td>TOTAL</td><td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
-  mos.forEach(()=>h+='<td></td>');h+='</tr></tbody></table></div>';el.innerHTML=h}
+
+  if(!so.length){
+    h+=`<div class="empty" style="padding:30px"><div style="font-size:26px;opacity:.3">📈</div>
+      <h3>Aucune écriture ne correspond aux filtres</h3>
+      <p style="font-size:10px">${suiviFilt.yr?"L'exercice « "+escHtml(suiviFilt.yr)+" » ne contient rien avec ces filtres. ":""}Élargissez l'exercice, le territoire ou les projets.</p></div>`;
+    el.innerHTML=h;return;
+  }
+
+  // Bandeau de familles au-dessus des projets : le regroupement se voit sans
+  // perdre le nom de chaque projet.
+  let bandeau="";
+  if(col==="proj"){
+    const grp=[];
+    cols.forEach(c=>{const d=grp[grp.length-1];
+      if(d&&d.cat===c.cat)d.n++;else grp.push({cat:c.cat,n:1})});
+    bandeau=`<tr><th colspan="4" style="border-bottom:none"></th>`
+      +grp.map(g=>`<th colspan="${g.n}" style="text-align:center;font-size:8px;color:var(--accent-l);background:var(--accent-bg);border-bottom:1px solid var(--border)">${escHtml(SUIVI_CAT_LIB[g.cat]||g.cat)}</th>`).join("")
+      +`<th style="border-bottom:none"></th></tr>`;
+  }
+
+  h+='<div style="overflow-x:auto"><table id="tblSuivi"><thead>'+bandeau+'<tr class="hdr-row">';
+  h+=`<th style="min-width:190px">Compte comptable<div class="col-resize" onmousedown="startResize(event,'suivi')" ondblclick="resetColWidth(event,'suivi')"></div></th>`;
+  h+='<th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th style="text-align:center">N</th>';
+  cols.forEach(c=>h+=`<th style="text-align:right;min-width:96px;font-size:8px;line-height:1.3" title="${escHtml(c.sous?c.sous+" — "+c.nom:c.nom)}">${escHtml(c.nom).substring(0,26)}${c.sous?`<div style="font-weight:400;color:var(--text-3);font-size:7px">${escHtml(c.sous)}</div>`:""}<div class="col-resize" onmousedown="startResize(event,'suivi')" ondblclick="resetColWidth(event,'suivi')"></div></th>`);
+  h+='<th style="text-align:right;min-width:90px">Solde ligne</th></tr></thead><tbody>';
+  so.forEach(([c,d])=>{
+    const solde=d.cre-d.deb;
+    h+=`<tr><td style="font-weight:600;font-size:9px" title="${escHtml(c)}">${escHtml(c).substring(0,42)}</td>`
+      +`<td class="deb">${d.deb?fmt(d.deb):""}</td><td class="cre">${d.cre?fmt(d.cre):""}</td>`
+      +`<td style="text-align:center;font-size:7px;color:var(--text-3)">${d.n}</td>`;
+    cols.forEach(x=>{const v=d.par[x.k];
+      if(!v){h+='<td></td>';return}
+      const net=v.cre-v.deb;
+      h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}" title="${escHtml(x.nom)}&#10;Débit ${fmt(v.deb)}&#10;Crédit ${fmt(v.cre)}">${fmt(net)}</td>`});
+    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);font-weight:700;color:${solde>=0?"var(--green)":"var(--red)"}">${fmt(solde)}</td></tr>`;
+  });
+  h+=`<tr style="border-top:2px solid var(--accent);font-weight:700"><td>TOTAL — ${so.length} compte(s)</td>`
+    +`<td class="deb">${fmt(td)}</td><td class="cre">${fmt(tc)}</td><td></td>`;
+  cols.forEach(x=>{
+    let dd=0,cc=0;so.forEach(([,d])=>{const v=d.par[x.k];if(v){dd+=v.deb;cc+=v.cre}});
+    const net=cc-dd;
+    h+=`<td style="text-align:right;font-size:8px;font-family:var(--mono);color:${net>=0?"var(--green)":"var(--red)"}">${(dd||cc)?fmt(net):""}</td>`});
+  h+=`<td style="text-align:right;font-family:var(--mono);color:${tc-td>=0?"var(--green)":"var(--red)"}">${fmt(tc-td)}</td></tr></tbody></table></div>`;
+  h+=`<div style="padding:6px 14px;font-size:9px;color:var(--text-3);line-height:1.7">
+    Chaque cellule est le <strong>net du mois</strong> (crédit moins débit) du compte, pour ce projet.
+    Vert = entrée nette, rouge = sortie nette. Les comptes sont dans l'ordre du plan comptable, les projets regroupés par famille.
+    <br>« Colonnes : Familles » replie les projets en ${SUIVI_CATS.length} familles ; « Mois » retrouve la vue chronologique.
+    Les virements internes sont comptés dans le tableau mais exclus des cartes, qui mesurent des charges et des produits réels.
+    <br>Les colonnes se redimensionnent en glissant leur bord droit ; double-clic pour revenir à la largeur d'origine.</div>`;
+  el.innerHTML=h;
+  applyColWidths(el.querySelector("#tblSuivi"),"suivi");
+}
 
 // Indemnités kilométriques : aucun reçu individuel n'existe, le récapitulatif de la NDF
 // fait justificatif. La même pièce est donc rattachée à toutes les lignes IK de la note.
@@ -7617,19 +7785,39 @@ window._colWidths=(()=>{
 })();
 function saveColWidths(){try{localStorage.setItem("litup_colw",JSON.stringify(window._colWidths))}catch(e){}}
 function colWidthsOf(tk){const w=window._colWidths;if(!w[tk])w[tk]={};return w[tk]}
+// Les largeurs passent par un <colgroup> et non par les cellules d'en-tête :
+// avec table-layout:fixed, c'est la PREMIÈRE ligne du tableau qui fixe les
+// colonnes. Le suivi analytique en a deux (un bandeau de familles avec des
+// colspan au-dessus des noms de projets) et le classement aussi (une ligne de
+// filtres) : écrire les largeurs sur la ligne d'en-têtes ne servait à rien dans
+// le premier cas, et écrasait la mise en page.
+function hdrRow(table){
+  return table?(table.querySelector('thead tr.hdr-row')||table.querySelector('thead tr:first-child')):null;
+}
+function colgroupDe(table){
+  const hdr=hdrRow(table);if(!hdr)return null;
+  const n=hdr.querySelectorAll('th').length;
+  let cg=table.querySelector(':scope > colgroup');
+  if(!cg){cg=document.createElement('colgroup');table.insertBefore(cg,table.firstChild)}
+  while(cg.children.length<n)cg.appendChild(document.createElement('col'));
+  while(cg.children.length>n)cg.removeChild(cg.lastChild);
+  return cg;
+}
 function applyColWidths(table,tk){
   const w=colWidthsOf(tk||"class");
   if(!table||!Object.keys(w).length)return;
+  const cg=colgroupDe(table);if(!cg)return;
   table.style.tableLayout='fixed';
-  table.querySelectorAll('thead tr:first-child th').forEach((t,i)=>{if(w[i])t.style.width=w[i]+'px'});
+  Array.from(cg.children).forEach((c,i)=>{c.style.width=w[i]?w[i]+'px':''});
 }
 function resetColWidth(e,tk){
   const th=e.target.parentElement;
   const idx=Array.from(th.parentElement.children).indexOf(th);
   const w=colWidthsOf(tk||"class");
   delete w[idx];saveColWidths();
-  th.style.width='';
-  if(!Object.keys(w).length){const t=th.closest('table');if(t)t.style.tableLayout='auto'}
+  const t=th.closest('table'),cg=colgroupDe(t);
+  if(cg&&cg.children[idx])cg.children[idx].style.width='';
+  if(!Object.keys(w).length&&t){t.style.tableLayout='auto';if(cg)cg.remove()}
 }
 function startResize(e,tk){
   e.preventDefault();
@@ -7640,15 +7828,24 @@ function startResize(e,tk){
   const handle=th.querySelector('.col-resize');
   if(handle)handle.style.background='rgba(99,102,241,.5)';
   const table=th.closest('table');
+  const cg=colgroupDe(table);
+  if(!cg)return;
+  // Toutes les colonnes reçoivent leur largeur courante avant de passer en
+  // table-layout:fixed, sinon elles se réattribuent l'espace au premier pixel.
+  const larg=Array.from(th.parentElement.querySelectorAll('th')).map(t=>t.offsetWidth);
+  Array.from(cg.children).forEach((c,i)=>{if(!c.style.width&&larg[i])c.style.width=larg[i]+'px'});
   if(table)table.style.tableLayout='fixed';
-  const ths=table?table.querySelectorAll('th'):[];
-  ths.forEach(t=>{if(!t.style.width)t.style.width=t.offsetWidth+'px'});
-  function onMove(ev){th.style.width=Math.min(COL_W_MAX,Math.max(COL_W_MIN,startW+(ev.pageX-startX)))+'px'}
+  const cible=cg.children[idx];
+  function onMove(ev){
+    const v=Math.min(COL_W_MAX,Math.max(COL_W_MIN,startW+(ev.pageX-startX)));
+    if(cible)cible.style.width=v+'px';
+    th.dataset.w=v;
+  }
   function onUp(){
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
     if(handle)handle.style.background='';
-    colWidthsOf(tk||"class")[idx]=parseInt(th.style.width)||th.offsetWidth;saveColWidths();
+    colWidthsOf(tk||"class")[idx]=parseInt(th.dataset.w||"")||th.offsetWidth;saveColWidths();
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
@@ -7698,10 +7895,9 @@ if(_secours){
 <div style="max-width:1200px;margin:20px auto;padding:16px 20px;border-radius:12px;border:1px solid var(--bd);background:var(--bg2);font-family:var(--sans);font-size:11px;line-height:2;color:var(--t2)">
   <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--t1)">📖 Légende</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
-    <div><strong>CHARGEMENT</strong></div><div></div>
+    <div><strong>CHARGER (menu ☁️ Charger)</strong></div><div></div>
     <div><strong style="color:var(--t1)">☁️ Dernière sauvegarde</strong> — Charger tout depuis le Google Sheet (remplace vos données)</div>
     <div><strong style="color:var(--t1)">🔀 Fusionner avec le Sheet</strong> — Récupérer le travail de l'autre <em>en gardant le vôtre</em></div>
-    <div><strong style="color:var(--t1)">📥 Airtable</strong> — Importer subventions et prestations (JSON)</div>
     <div><strong style="color:var(--t1)">☁️ NDF</strong> — Charger les NDF depuis le Google Sheet</div>
     <div><strong style="color:var(--t1)">☁️ Dépenses</strong> — Charger les dépenses depuis le Google Sheet</div>
     <div><strong style="color:var(--t1)">🔄 Règles</strong> — Appliquer les règles auto aux lignes non classées</div>
