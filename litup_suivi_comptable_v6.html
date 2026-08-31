@@ -173,7 +173,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26e <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-26f <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -722,7 +722,11 @@ function actLabels(){
   if(_actCache)return _actCache;
   _actCache=D.acts.map(a=>typeof a==="string"?a:a.l)
     .filter(x=>x!==undefined&&x!==null)
-    .sort((a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true,sensitivity:"base"}));
+    .sort((a,b)=>{
+      const aa=actEstAncien(a)?1:0,bb=actEstAncien(b)?1:0;
+      if(aa!==bb)return aa-bb;
+      return String(a).localeCompare(String(b),"fr",{numeric:true,sensitivity:"base"});
+    });
   return _actCache;
 }
 // Codes transversaux (fonctionnement National / Sud / IDF, RH, laboratoire) :
@@ -738,7 +742,9 @@ function actEstTransv(l){
 function actPartition(){
   if(_actPart)return _actPart;
   const labels=actLabels();
-  _actPart={tr:labels.filter(actEstTransv),pa:labels.filter(l=>!actEstTransv(l))};
+  _actPart={tr:labels.filter(l=>actEstTransv(l)&&!actEstAncien(l)),
+            pa:labels.filter(l=>!actEstTransv(l)&&!actEstAncien(l)),
+            anc:labels.filter(actEstAncien)};
   return _actPart;
 }
 // Options d'une liste déroulante Projet : « Transversal » puis « Parcours ».
@@ -786,7 +792,8 @@ function actOptions(current,placeholder){
   return(placeholder===null?"":`<option value="">${placeholder||"— Projet —"}</option>`)+
     (inconnu?`<option selected>${cur}</option>`:"")+
     (P.tr.length?'<optgroup label="Transversal">'+P.tr.map(opt).join("")+'</optgroup>':"")+
-    '<optgroup label="Parcours">'+P.pa.map(opt).join("")+'</optgroup>';
+    '<optgroup label="Parcours">'+P.pa.map(opt).join("")+'</optgroup>'+
+    (P.anc.length?'<optgroup label="Exercices antérieurs">'+P.anc.map(opt).join("")+'</optgroup>':"");
 }
 // Match NDF code to compta list by prefix (e.g. "BU85 - MIEJ MIEJ-9" → find "BU85" in actLabels)
 function matchAct(ndfCode){
@@ -829,12 +836,22 @@ const ACTS_TRANSV_FIXES=[
   {l:"FP2026 - Fonctionnement IDF",t:"IDF"},
   {l:"RH2026 - Ressources humaines",t:"NAT"}
 ];
+// Codes d'exercices révolus : nécessaires pour classer les écritures affectées à
+// 2025, inutiles au-delà. Ils existent donc comme les autres, mais toujours en
+// fin de liste, dans leur propre groupe — on ne les propose pas au milieu de
+// codes vivants.
+const ACTS_ANCIENS=[
+  {l:"FG2025 - Fonctionnement National 2025",t:"NAT"},
+  {l:"FV2025 - Fonctionnement Sud 2025",t:"SUD"},
+  {l:"FP2025 - Fonctionnement IDF 2025",t:"IDF"}
+];
+const actEstAncien=l=>ACTS_ANCIENS.some(a=>actCode(a)===actCode(l));
 // Comparaison sur le code seul : un libellé déjà personnalisé n'est pas dupliqué.
 function actCode(a){return String((typeof a==="string"?a:(a&&a.l))||"").split(" - ")[0].trim().toUpperCase()}
 function ensureActsTransv(){
   const codes=new Set(D.acts.map(actCode));
   let n=0;
-  ACTS_TRANSV_FIXES.forEach(a=>{if(!codes.has(actCode(a))){D.acts.push({l:a.l,t:a.t});n++}});
+  ACTS_TRANSV_FIXES.concat(ACTS_ANCIENS).forEach(a=>{if(!codes.has(actCode(a))){D.acts.push({l:a.l,t:a.t});n++}});
   if(n)invalidateActCache();
   return n;
 }
@@ -2619,7 +2636,7 @@ async function execAutoMatch(matchList){
 // ─── UNDO HISTORY ───
 let undoStack=[];const MAX_UNDO=30;
 function pushUndo(){
-  undoStack.push(JSON.stringify({rows:D.rows,att_keys:Object.keys(D.att),budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC}));
+  undoStack.push(JSON.stringify({rows:D.rows,att_keys:Object.keys(D.att),budget:D.budget,budgetVersions:D.budgetVersions,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,acts:D.acts}));
   if(undoStack.length>MAX_UNDO)undoStack.shift();
 }
 function undo(){
@@ -2627,6 +2644,7 @@ function undo(){
   const prev=JSON.parse(undoStack.pop());
   D.rows=prev.rows;D.budget=prev.budget||D.budget;D.budgetVersions=prev.budgetVersions||D.budgetVersions;
   D.soldeInitial=prev.soldeInitial??D.soldeInitial;D.soldeDate=prev.soldeDate||D.soldeDate;D.soldeInitialCC=prev.soldeInitialCC??D.soldeInitialCC;
+  if(Array.isArray(prev.acts)){D.acts=prev.acts;invalidateActCache()}
   // Keep attachments that still have matching rows, remove orphaned
   const validKeys=new Set(prev.att_keys||[]);
   for(const k of Object.keys(D.att)){if(!validKeys.has(k))delete D.att[k]}
@@ -3318,6 +3336,11 @@ const RH_GROUPES=[
   {zone:"\u00cele-de-France", lib:"Suivi Service Civique IDF", pfx:["SU"],                       terr:["IDF"]},
   {zone:"\u00cele-de-France", lib:"Suivi Impact uP IDF",       pfx:["IU"],                       terr:["IDF"]}
 ];
+// Codes qu'on n'affecte jamais à du temps de travail : « RH » désigne la
+// fonction employeur elle-même, pas une activité sur laquelle on passe des
+// heures. Ils restent utilisables partout ailleurs dans l'outil.
+const RH_EXCLUS=["RH"];
+const rhExclu=label=>RH_EXCLUS.some(x=>rhPfxMatch(actCode(label),x));
 // « SU » ne doit pas happer un code « SUD… », et « ME » ni « BU » ne doivent
 // mordre sur un préfixe plus long : on exige que le préfixe soit suivi d'un
 // chiffre ou de la fin du code, ce qui est la forme de tous les codes existants.
@@ -3327,6 +3350,7 @@ function rhPfxMatch(code,pfx){
   return suite===""||/^[0-9]/.test(suite);
 }
 function rhGroupeDe(label){
+  if(actEstAncien(label))return -2;   // exercice révolu : son propre groupe, en dernier
   const code=actCode(label),terr=String(actTerr(label)||"").toUpperCase();
   for(let i=0;i<RH_GROUPES.length;i++){
     const g=RH_GROUPES[i];
@@ -3339,9 +3363,10 @@ function rhGroupeDe(label){
 // Options du sélecteur de projet côté RH : optgroup « Zone — Nature ».
 function actOptionsRH(current){
   const cur=current||"";
-  const labels=actLabels();
-  const paniers=RH_GROUPES.map(()=>[]),autres=[];
-  labels.forEach(l=>{const i=rhGroupeDe(l);if(i<0)autres.push(l);else paniers[i].push(l)});
+  const labels=actLabels().filter(l=>!rhExclu(l)||l===cur);
+  const paniers=RH_GROUPES.map(()=>[]),autres=[],anciens=[];
+  labels.forEach(l=>{const i=rhGroupeDe(l);
+    if(i===-2)anciens.push(l);else if(i<0)autres.push(l);else paniers[i].push(l)});
   const opt=l=>`<option${l===cur?" selected":""}>${escHtml(l)}</option>`;
   const tri=(a,b)=>actCode(a).localeCompare(actCode(b),"fr",{numeric:true});
   const inconnu=cur&&labels.indexOf(cur)<0;
@@ -3351,12 +3376,25 @@ function actOptionsRH(current){
     h+=`<optgroup label="${escHtml(g.zone+" \u2014 "+g.lib)}">`+paniers[i].sort(tri).map(opt).join("")+`</optgroup>`;
   });
   if(autres.length)h+=`<optgroup label="Hors regroupement \u2014 \u00e0 classer">`+autres.sort(tri).map(opt).join("")+`</optgroup>`;
+  if(anciens.length)h+=`<optgroup label="Exercices ant\u00e9rieurs">`+anciens.sort(tri).map(opt).join("")+`</optgroup>`;
   return h;
 }
 // Codes qu'aucun groupe ne réclame : ni un préfixe connu, ni le bon territoire.
 // Ils restent sélectionnables, mais il faut le savoir — sans quoi un vrai projet
 // se retrouve rangé sous « à classer » sans que personne ne s'en aperçoive.
-function rhCodesHorsGroupe(){return actLabels().filter(l=>rhGroupeDe(l)<0)}
+function rhCodesHorsGroupe(){return actLabels().filter(l=>!rhExclu(l)&&rhGroupeDe(l)===-1)}
+// Le territoire d'un code se corrige ici : c'est lui qui décide de la zone, et
+// un code sans territoire — ou avec un territoire inattendu pour son préfixe —
+// n'a pas de groupe. On ne devine pas à sa place.
+function actSetTerr(label,t){
+  const i=(D.acts||[]).findIndex(a=>(typeof a==="string"?a:(a&&a.l))===label);
+  if(i<0)return;
+  pushUndo();
+  if(typeof D.acts[i]==="string")D.acts[i]={l:D.acts[i],t:t};
+  else D.acts[i].t=t;
+  invalidateActCache();autoSave();render();
+  toast("« "+actCode(label)+" » rattaché au territoire "+(t||"(aucun)")+". Annulable avec ↩️.","var(--green)");
+}
 function rhPosteLib(pi){const p=(D.rhPostes||[])[pi];return p?String(p.lib||""):""}
 function rhAllocAjout(pi,y){
   const lib=rhPosteLib(pi);if(!lib)return;
@@ -3696,9 +3734,16 @@ function rRH(el){
     const horsGrp=rhCodesHorsGroupe();
     if(horsGrp.length){
       h+=`<div style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:6px;padding:7px 10px;margin-bottom:10px;line-height:1.7">
-        ⚠️ <strong>${horsGrp.length} code(s) projet ne correspondent à aucun groupe</strong> et se rangent sous « Hors regroupement — à classer » :
-        ${horsGrp.map(l=>escHtml(actCode(l))+(actTerr(l)?" ("+escHtml(actTerr(l))+")":" (sans territoire)")).join(" · ")}.
-        Soit leur territoire est absent ou inattendu pour leur préfixe, soit le préfixe lui-même n'est pas prévu.</div>`;
+        ⚠️ <strong>${horsGrp.length} code(s) projet ne correspondent à aucun groupe</strong> et se rangent sous « Hors regroupement — à classer ».
+        C'est le <strong>territoire porté par le code</strong> qui décide de sa zone : corrigez-le ici et le code rejoint son groupe.
+        ${horsGrp.map(l=>`<div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+            <span style="min-width:210px"><strong>${escHtml(actCode(l))}</strong> — ${escHtml(actNom(l).substring(0,32))}</span>
+            <span style="color:var(--text-3)">territoire</span>
+            <select class="ms" style="width:78px" data-l="${escHtml(l)}" onchange="actSetTerr(this.dataset.l,this.value)">
+              ${["","NAT","SUD","IDF"].map(t=>`<option value="${t}"${String(actTerr(l)||"")===t?" selected":""}>${t||"—"}</option>`).join("")}
+            </select>
+          </div>`).join("")}
+        </div>`;
     }
     const libs=new Set(D.rhPostes.map(p=>p.lib));
     let nTrous=0;
