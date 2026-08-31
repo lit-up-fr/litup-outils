@@ -177,7 +177,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31c <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31d <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -3758,6 +3758,8 @@ function ventilParts(r){
       poids[a.act]=(poids[a.act]||0)+w;tot+=w;
     }
   });
+  // Au-delà de 100 % le poste est sur-affecté : on ramène l'ensemble à 100 %
+  // plutôt que d'inventer de la charge, et on le signale.
   if(tot<=0){
     // Un mois hors contrat n'est pas un oubli de saisie : c'est une paie datee
     // avant l'embauche ou apres la sortie du poste, et c'est cette date-la qu'il
@@ -3768,29 +3770,45 @@ function ventilParts(r){
         +" (du "+(du||"?")+" au "+(au||"sans fin")+")",poste:p};
     return {err:"aucune affectation du poste \u00ab\u00a0"+String(p.lib||"")+"\u00a0\u00bb ne couvre "+mk,poste:p};
   }
-  return {poste:p,parts:Object.entries(poids).map(([act,w])=>({act,part:w/tot}))};
+  // Les parts ne sont PAS normalisées sur le total affecté : un poste affecté à
+  // 60 % ne doit pas voir 100 % de son salaire réparti sur ces 60 %. Les 40 %
+  // restants sont du temps qu'aucun projet ne porte — ils restent sur le code
+  // d'origine (RH), et c'est cette part-là qu'il faut voir pour savoir ce qui
+  // reste à affecter.
+  const sur=tot>100.0001, ech=sur?100/tot:1;
+  const parts=Object.entries(poids).map(([act,w])=>({act,part:w*ech/100}));
+  const somme=parts.reduce((a,x)=>a+x.part,0);
+  return {poste:p,parts,reste:Math.max(0,1-somme),tot,sur};
 }
 // Eclate les ecritures de paie en sous-lignes par projet. Les ecritures non
 // ventilables ne sont JAMAIS perdues : elles passent telles quelles, avec leur
 // code d'origine, et la raison est remontee pour etre affichee. Les centimes de
 // l'arrondi vont sur la derniere part : le total est conserve au centime.
 function ventilRows(rows){
-  const out=[],ratees=[];
+  const out=[],ratees=[],partiels=[],surs=[];
   (rows||[]).forEach(r=>{
     if(!estLignePaie(r)){out.push(r);return}
     const v=ventilParts(r);
     if(v.err||!v.parts||!v.parts.length){out.push(r);ratees.push({r,why:v.err||"aucune part"});return}
+    // La part non affectée reste sur le code d'origine : une sous-ligne de plus,
+    // avec le même code qu'avant. C'est ce qui fait que la carte RH ne se vide
+    // pas entièrement — ce qui y reste est exactement ce qui n'est pas affecté.
+    const lignes=v.parts.slice();
+    if(v.reste>1e-9)lignes.push({act:r.act||"",part:v.reste,reste:true});
     let rd=0,rc=0;
-    v.parts.forEach((x,i)=>{
-      const dernier=i===v.parts.length-1;
+    lignes.forEach((x,i)=>{
+      const dernier=i===lignes.length-1;
       const d=dernier?Math.round(((r.deb||0)-rd)*100)/100:Math.round((r.deb||0)*x.part*100)/100;
       const c=dernier?Math.round(((r.cre||0)-rc)*100)/100:Math.round((r.cre||0)*x.part*100)/100;
       rd+=d;rc+=c;
       out.push(Object.assign({},r,{act:x.act,deb:d,cre:c,
-        _vent:{de:r.act||"",poste:String(v.poste.lib||""),part:x.part}}));
+        _vent:{de:r.act||"",poste:String(v.poste.lib||""),part:x.part,reste:!!x.reste}}));
     });
+    if(v.reste>1e-9)partiels.push({r,poste:String(v.poste.lib||""),pct:v.reste*100,
+      mt:Math.round(((r.deb||0)-(r.cre||0))*v.reste*100)/100,tot:v.tot});
+    if(v.sur)surs.push({r,poste:String(v.poste.lib||""),tot:v.tot});
   });
-  return {rows:out,ratees};
+  return {rows:out,ratees,partiels,surs};
 }
 // --- REPARTIR UNE ECRITURE SUR UNE FAMILLE DE PROJETS ---
 // Une subvention « Action Jeunes Sud » ne porte pas un code projet : elle porte
@@ -7619,22 +7637,29 @@ function finBackfillRids(){
 // l'éditeur Apps Script puis redéployé à la main. Plusieurs fonctionnalités
 // dépendaient d'un backend à jour sans qu'aucun écran ne le dise — le doute
 // pouvait durer des semaines. On compare donc les versions au démarrage.
-const BACKEND_ATTENDU="2026-08-30a";
+const BACKEND_ATTENDU="2026-08-31a";
 // Ce qu'apporte la version attendue, pour que l'avertissement soit actionnable.
 const BACKEND_APPORTS=[
   "identifiant Airtable stable (rid) : un financement renommé ne casse plus son rapprochement bancaire",
   "refus d'écraser une sauvegarde plus récente que celle que vous avez chargée",
   "statut Airtable « clôturée » compté comme versée, et prestation « 5. paiement effectué » comptée comme versée",
   "codes projets filtrés côté serveur (getCodesProjets) pour les outils NDF et dépenses",
-  "signalement immédiat quand l'autre personne enregistre, et fusion des deux versions au lieu du choix entre écraser et abandonner"
+  "signalement immédiat quand l'autre personne enregistre, et fusion des deux versions au lieu du choix entre écraser et abandonner",
+  "heures d'action lues dans Airtable (« Nb heures formation ») pour pondérer les répartitions, et identifiant du parcours pour y renvoyer"
 ];
+// Un backend DÉPLOYÉ plus récent que celui attendu n'est pas un problème : il
+// reste compatible, l'outil n'utilise simplement pas encore ses nouveautés.
+// Avertir dans ce cas laissait un bandeau orange permanent qui donnait à penser
+// que le déploiement avait échoué. On ne prévient que s'il est plus ancien —
+// le format AAAA-MM-JJl se compare directement.
+const backendAJour=v=>/^\d{4}-\d{2}-\d{2}[a-z]?$/.test(String(v||""))&&String(v)>=BACKEND_ATTENDU;
 let _backendVer=null;
 async function checkBackendVersion(){
   try{
     const r=await sheetAPI("version");
     _backendVer=(r&&r.version)||"inconnue";
   }catch(e){_backendVer="injoignable";return}
-  if(_backendVer===BACKEND_ATTENDU)return;
+  if(backendAJour(_backendVer))return;
   const el=$("backendWarn");if(!el)return;
   el.style.display="";
   el.innerHTML=`⚠️ Apps Script à redéployer <span style="font-weight:400;opacity:.85">(déployé : ${_backendVer} · attendu : ${BACKEND_ATTENDU})</span>`;
@@ -8338,11 +8363,12 @@ function suiviCell(crit){return _suiviCells.push(crit)-1}
 // Source unique de l'onglet : le tableau, les cartes et le détail d'un montant
 // cliqué lisent tous ce même jeu de lignes, sinon un total ne correspondrait
 // pas à la liste qu'il ouvre.
-let _suiviRatees=[];
+let _suiviRatees=[],_suiviPartiels=[],_suiviSurs=[];
 function suiviBaseRows(){
   let src=D.rows.filter(r=>!suiviFilt.yr||anEq(r.yr,suiviFilt.yr));
-  _suiviRatees=[];
-  if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;_suiviRatees=v.ratees}
+  _suiviRatees=[];_suiviPartiels=[];_suiviSurs=[];
+  if(suiviFilt.vent){const v=ventilRows(src);src=v.rows;
+    _suiviRatees=v.ratees;_suiviPartiels=v.partiels;_suiviSurs=v.surs}
   return src.filter(r=>{
     if(suiviFilt.terr){const t=terrNorm(actTerr(r.act));if(t&&t!==suiviFilt.terr)return false}
     if(suiviFilt.codes.length&&!suiviFilt.codes.includes(actCode(r.act)))return false;
@@ -8365,10 +8391,23 @@ function openVentRatees(){
     </tr>`).join("")
     :`<tr><td colspan="6" style="padding:14px;font-size:10px;color:var(--text-3)">Toutes les écritures de paie ont été ventilées.</td></tr>`;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeM()"><div class="modal" style="max-width:980px">
-    <h3>Salaires non ventilés</h3>
+    <h3>Ce qui reste sur le code d'origine</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
-      ${L.length} écriture(s), <strong>${fmt(tot)}</strong> de charge nette, restées sur leur code d'origine.
+      <strong>${L.length} écriture(s) non ventilée(s)</strong>, ${fmt(tot)} de charge nette, restées entièrement sur leur code d'origine.
       <br><span style="color:var(--text-3)">Deux causes : le poste n'est pas reconnu dans le libellé — renseignez « Nom relevé » sur le poste dans l'onglet RH → Postes — ou aucune affectation du poste ne couvre ce mois-là, ce que le bandeau de couverture signale comme un trou.</span>
+      ${_suiviPartiels.length?`<br><br><strong>${_suiviPartiels.length} paie(s) partiellement affectée(s)</strong> : <strong>${fmt(Math.round(_suiviPartiels.reduce((a,x)=>a+x.mt,0)*100)/100)}</strong> de charge reste sur le code d'origine.
+      <br><span style="color:var(--text-3)">La part du temps de travail qu'aucun projet ne porte n'est pas répartie sur les projets affectés : cela gonflerait leur coût d'une charge qu'ils n'ont pas. Elle reste donc dans la famille RH, et c'est exactement ce qu'il reste à affecter dans RH → Par projet.</span>
+      <div style="overflow:auto;max-height:22vh;border:1px solid var(--border);border-radius:6px;margin-top:6px">
+        <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2)">
+          ${["Mois","Poste","Affecté","Non affecté","Montant resté"].map((x,j)=>`<th style="padding:4px 6px;font-size:9px;text-align:${j>=2?"right":"left"}">${x}</th>`).join("")}
+        </tr></thead><tbody>${_suiviPartiels.slice().sort((a,b)=>String(a.r.dt||"").localeCompare(String(b.r.dt||""))).map(x=>`<tr>
+          <td style="padding:3px 6px;font-size:9px;font-family:var(--mono)">${escHtml(String(moKey(x.r.dt)||""))}</td>
+          <td style="padding:3px 6px;font-size:9px">${escHtml(x.poste.substring(0,30))}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${x.tot.toFixed(1)} %</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--amber)">${x.pct.toFixed(1)} %</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(x.mt)}</td></tr>`).join("")}
+        </tbody></table></div>`:""}
+      ${_suiviSurs.length?`<br><span style="color:var(--red)"><strong>${_suiviSurs.length} paie(s) sur un poste affecté au-delà de 100 %</strong> : ${escHtml([...new Set(_suiviSurs.map(x=>x.poste+" ("+x.tot.toFixed(1)+" %)"))].join(" · "))}. Les parts ont été ramenées à 100 % pour ne pas inventer de charge — corrigez les pourcentages dans RH → Par projet.</span>`:""}
     </p>
     <div style="overflow:auto;max-height:58vh;border:1px solid var(--border);border-radius:6px">
       <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
@@ -8399,7 +8438,9 @@ function openSuiviDetail(i){
       <td style="padding:3px 6px;font-size:9px">${escHtml(String(r.four||"").substring(0,20))}</td>
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.cat||"")}">${escHtml(String(r.cat||"\u2014").substring(0,30))}</td>
       <td style="padding:3px 6px;font-size:9px" title="${escHtml(r.act||"")}">${escHtml(String(r.act||"\u2014").substring(0,26))}${
-        r._vent?`<div style="font-size:7px;color:var(--accent-l)" title="Sous-ligne issue de la ventilation du poste « ${escHtml(r._vent.poste)} » — code d'origine ${escHtml(r._vent.de||"aucun")}">⧉ ${(r._vent.part*100).toFixed(1)} % de ${escHtml(r._vent.poste.substring(0,18))}</div>`:""}</td>
+        r._vent?(r._vent.reste
+          ?`<div style="font-size:7px;color:var(--amber)" title="Part du temps de travail de « ${escHtml(r._vent.poste)} » qu'aucun projet ne porte : elle reste sur le code d'origine.">⧉ ${(r._vent.part*100).toFixed(1)} % non affecté</div>`
+          :`<div style="font-size:7px;color:var(--accent-l)" title="Sous-ligne issue de la ventilation du poste « ${escHtml(r._vent.poste)} » — code d'origine ${escHtml(r._vent.de||"aucun")}">⧉ ${(r._vent.part*100).toFixed(1)} % de ${escHtml(r._vent.poste.substring(0,18))}</div>`):""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${r.deb?fmt(r.deb):""}</td>
       <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${r.cre?fmt(r.cre):""}</td>
       <td style="padding:3px 6px;font-size:9px;color:var(--text-3)">${escHtml(String(r.modal||"").substring(0,18))}</td>
@@ -8473,9 +8514,13 @@ function rSuivi(el){
     const dd=sd(vent)-sd(brut), dc=sc(vent)-sc(brut);
     if(Math.abs(dd)>0.005||Math.abs(dc)>0.005)
       h+=`<div style="margin:8px 14px;padding:9px 12px;border-radius:8px;font-size:10px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red)">La ventilation ne conserve pas les totaux : ${fmt(dd)} de débit et ${fmt(dc)} de crédit d'écart. Ne vous appuyez pas sur cette vue, signalez-le.</div>`;
-    if(_suiviRatees.length)
+    const resteRH=Math.round(_suiviPartiels.reduce((a,x)=>a+x.mt,0)*100)/100;
+    if(_suiviRatees.length||_suiviPartiels.length||_suiviSurs.length)
       h+=`<div class="warn" style="margin:8px 14px;cursor:pointer;font-size:10px;line-height:1.7" onclick="openVentRatees()">
-        <strong>${_suiviRatees.length} écriture(s) de paie non ventilée(s)</strong> — elles restent sur leur code d'origine, rien n'est perdu. Cliquez pour voir pourquoi.</div>`;
+        ${_suiviRatees.length?`<strong>${_suiviRatees.length} écriture(s) de paie non ventilée(s)</strong> — elles restent entièrement sur leur code d'origine.`:""}
+        ${_suiviPartiels.length?`${_suiviRatees.length?"<br>":""}<strong>${_suiviPartiels.length} paie(s) partiellement affectée(s)</strong> — <strong>${fmt(resteRH)}</strong> de charge reste sur le code d'origine, faute d'affectation du temps de travail. C'est ce qui reste visible dans la famille RH.`:""}
+        ${_suiviSurs.length?`<br><strong>${_suiviSurs.length} paie(s) sur un poste affecté au-delà de 100 %</strong> — ramené à 100 % pour ne pas inventer de charge.`:""}
+        <br><span style="color:var(--text-3)">Rien n'est perdu : le total est conservé. Cliquez pour le détail.</span></div>`;
   }
 
   // ── Cartes de synthèse par famille (anciennement l'onglet Synthèse) ──
