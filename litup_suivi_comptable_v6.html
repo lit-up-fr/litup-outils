@@ -266,7 +266,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01h <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01i <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4249,6 +4249,158 @@ const FG_REGLES=[
 // Exercice auquel une écriture est rattachée : l'année d'affectation d'abord,
 // la date en repli. C'est ce même exercice qui décide des projets destinataires.
 const fgExoDe=r=>anStr(r&&r.yr)||String(moKey(r&&r.dt)||"").substring(0,4);
+
+// ─── AFFECTATION D'UN FINANCEMENT (côté financeur) ───
+// La réservation posée projet par projet répond à « ce projet prend 20 000 € de
+// frais généraux ». Mais la convention, elle, se lit dans l'autre sens : « la
+// CAF donne 20 000 €, dont 50 % sur les frais généraux et 50 % sur le projet ».
+// C'est la MÊME réservation vue de l'autre bout, et la convention est la source
+// de vérité : on la saisit une fois sur l'engagement, l'outil en déduit les
+// montants réservés sur chaque enveloppe.
+//
+// Attention, les quatre destinations ne se comportent pas de la même façon :
+//   • FG, frais locaux et LAB sont des ENVELOPPES à répartir. Y affecter une
+//     part du financement DÉPLACE la répartition : cette part est réservée au
+//     périmètre de la convention, le reste va aux autres projets.
+//   • « charges directes du projet » ne déplace rien — ces charges sont déjà sur
+//     le projet. La part sert alors de CONTRÔLE : a-t-on assez de charges
+//     directes sur le périmètre pour justifier ce que le financeur y affecte ?
+const ENG_DEST=[
+  {k:"FG",  lib:"Frais généraux",              env:["FG"],      cle:true},
+  {k:"LOC", lib:"Frais locaux (Sud / IDF)",    env:["FV","FP"], cle:true},
+  {k:"LAB", lib:"LAB Lit uP",                  env:["LAB"],     cle:true},
+  {k:"PROJ",lib:"Charges directes du projet",  env:[],          cle:false}
+];
+const ENG_DEST_CLE=ENG_DEST.filter(d=>d.cle).map(d=>d.k);
+const engDestDe=k=>ENG_DEST.find(d=>d.k===k)||null;
+// Enveloppe → destination qui l'alimente (FV et FP viennent tous deux de LOC).
+const engDestPourEnv=envK=>ENG_DEST.find(d=>d.env.indexOf(envK)>=0)||null;
+
+function engAffect(e){
+  const a=e.affect=e.affect||{};
+  ENG_DEST_CLE.forEach(k=>{if(a[k]===undefined)a[k]=0});
+  if(!a.exo||typeof a.exo!=="object")a.exo={};
+  return a;
+}
+const engAffectPct=(e,k)=>{const v=parseFloat(engAffect(e)[k]);
+  return isNaN(v)||v<=0?0:Math.min(100,v)};
+// Le solde va aux charges directes : le total fait donc toujours 100 %, il n'y a
+// pas d'état d'erreur à gérer ni de case à équilibrer à la main.
+const engAffectReste=e=>Math.max(0,100-ENG_DEST_CLE.reduce((a,k)=>a+engAffectPct(e,k),0));
+const engAffectActive=e=>ENG_DEST_CLE.some(k=>engAffectPct(e,k)>0);
+
+// Part des jours de la convention qui tombent dans l'exercice y. Une convention
+// de juin 2026 à mai 2027 pèse 7/12 sur 2026 et 5/12 sur 2027. C'est le même
+// prorata linéaire que « l'attendu à date » : une convention de lecture, pas une
+// vérité — d'où la possibilité de la corriger à la main, exercice par exercice.
+function engPartExo(e,y){
+  const d1=Date.parse(_J(e&&e.du)+"T12:00:00"), d2=Date.parse(_J(e&&e.au)+"T12:00:00");
+  if(isNaN(d1)||isNaN(d2)||d2<d1)return 0;
+  const a1=Date.parse(String(y)+"-01-01T12:00:00"), a2=Date.parse(String(y)+"-12-31T12:00:00");
+  if(isNaN(a1)||isNaN(a2))return 0;
+  const deb=Math.max(d1,a1), fin=Math.min(d2,a2);
+  if(fin<deb)return 0;
+  const tot=Math.round((d2-d1)/86400000)+1, n=Math.round((fin-deb)/86400000)+1;
+  return tot>0?n/tot:0;
+}
+// Exercices traversés par la convention.
+function engExosDe(e){
+  const y1=parseInt(_J(e&&e.du).substring(0,4),10), y2=parseInt(_J(e&&e.au).substring(0,4),10);
+  if(!y1||!y2||y2<y1)return [];
+  const L=[];for(let y=y1;y<=y2;y++)L.push(String(y));return L;
+}
+// Montant affecté à une destination pour UN exercice : le prorata des jours,
+// sauf si un montant a été saisi à la main pour cet exercice.
+function engAffectMt(e,k,y){
+  const a=engAffect(e), cle=k+"|"+y, v=a.exo[cle];
+  if(v!==undefined&&v!==null&&v!==""){
+    const m=parseFloat(v);
+    if(!isNaN(m)&&m>=0)return {mt:Math.round(m*100)/100,src:"manuel"};
+  }
+  const base=(parseFloat(e.mtEngage)||0)*engAffectPct(e,k)/100;
+  return {mt:Math.round(base*engPartExo(e,y)*100)/100,src:"prorata"};
+}
+function engAffectExoSet(i,k,y,v){
+  const e=engArr()[i];if(!e)return;
+  const a=engAffect(e), cle=k+"|"+y, t=String(v===undefined||v===null?"":v).trim();
+  if(!t)delete a.exo[cle];
+  else{const m=parseFloat(t.replace(/\s/g,"").replace(",","."));
+    if(isNaN(m)||m<0)delete a.exo[cle];else a.exo[cle]=m}
+  _fgMemo=null;autoSave();render();
+}
+function engAffectSet(i,k,v){
+  const e=engArr()[i];if(!e)return;
+  const n=parseFloat(String(v).replace(",","."));
+  engAffect(e)[k]=(!v||isNaN(n)||n<0)?0:Math.min(100,n);
+  _fgMemo=null;autoSave();render();
+}
+
+// ─── DES CONVENTIONS VERS LA CLÉ DE RÉPARTITION ───
+// Ce que les conventions réservent sur UNE enveloppe pour UN exercice :
+//   { CODE: {mt, sources:[{lib,mt}]} }  + ce qui n'a pas pu être posé.
+// La part d'une convention se répartit sur les projets de son périmètre au
+// prorata des heures — c'est la même clé que partout ailleurs.
+function engResEnv(envK,y){
+  const dest=engDestPourEnv(envK);
+  const vide={par:{},perdus:[],total:0};
+  if(!dest||!y)return vide;
+  const regle=FG_REGLES.find(r=>r.k===envK);if(!regle)return vide;
+  // Cibles recevables de cette enveloppe sur cet exercice : une convention ne
+  // peut pas réserver sur un projet qui, de toute façon, ne reçoit rien.
+  const cibles=new Map();
+  fgCibles(regle,[regle.grp],y).forEach(l=>{if(!fgExclu(envK,actCode(l)))cibles.set(actCode(l),l)});
+  const par={},perdus=[];let total=0;
+  engArr().forEach(e=>{
+    const mt=engAffectMt(e,dest.k,y).mt;
+    if(mt<=0.004)return;
+    const lib=(e.financeur||"")+(e.libelle?" · "+e.libelle:"")||"convention sans nom";
+    const codes=engCodes(e.perimFin||{});
+    const dedans=codes.filter(c=>cibles.has(c));
+    const hors=codes.filter(c=>!cibles.has(c));
+    if(!dedans.length){perdus.push({lib,mt,pourquoi:codes.length?"aucun projet du périmètre ne reçoit cette enveloppe sur "+y:"périmètre vide"});return}
+    // Deux enveloppes pour une même destination (frais locaux = FV + FP) : la
+    // part se partage entre elles au prorata des heures de chaque territoire,
+    // sinon une convention sur des projets du Sud viendrait réserver sur l'IDF.
+    let mtEnv=mt;
+    if(dest.env.length>1){
+      const poidsIci=dedans.reduce((a,c)=>a+(actHeures(c)||0),0)||dedans.length;
+      let poidsTous=poidsIci;
+      dest.env.filter(x=>x!==envK).forEach(x=>{
+        const rg2=FG_REGLES.find(r=>r.k===x);if(!rg2)return;
+        const c2=fgCibles(rg2,[rg2.grp],y).map(l=>actCode(l)).filter(c=>codes.indexOf(c)>=0&&!fgExclu(x,c));
+        poidsTous+=c2.reduce((a,c)=>a+(actHeures(c)||0),0)||c2.length;
+      });
+      mtEnv=poidsTous>0?Math.round(mt*poidsIci/poidsTous*100)/100:0;
+      if(mtEnv<=0.004)return;
+    }
+    const poids=dedans.map(c=>actHeures(c)||0);
+    const tot=poids.reduce((a,x)=>a+x,0);
+    dedans.forEach((c,j)=>{
+      const q=tot>0?poids[j]/tot:1/dedans.length;
+      const m=Math.round(mtEnv*q*100)/100;
+      if(m<=0.004)return;
+      if(!par[c])par[c]={mt:0,sources:[]};
+      par[c].mt=Math.round((par[c].mt+m)*100)/100;
+      par[c].sources.push({lib,mt:m});
+      total=Math.round((total+m)*100)/100;
+    });
+    if(hors.length)perdus.push({lib,mt:0,pourquoi:hors.length+" projet(s) du périmètre hors de cette enveloppe sur "+y+" : "+hors.slice(0,4).join(", ")+(hors.length>4?"…":"")});
+  });
+  return {par,perdus,total};
+}
+// Projets du périmètre d'une convention qui peuvent recevoir cette enveloppe sur
+// cet exercice. Sert à écrire, en clair, où la part réservée va tomber.
+function engAffectCibles(e,envK,y){
+  const regle=FG_REGLES.find(r=>r.k===envK);if(!regle||!y)return [];
+  const codes=new Set(engCodes(e.perimFin||{}));
+  return fgCibles(regle,[regle.grp],y).map(l=>actCode(l))
+    .filter(c=>codes.has(c)&&!fgExclu(envK,c));
+}
+function engResEnvMemo(envK,y){
+  const c=fgMemo(),k="eng|"+envK+"|"+(y||"");
+  if(!(k in c))c[k]=engResEnv(envK,y);
+  return c[k];
+}
 const fgRegleDe=label=>{
   const cat=actCat(label);
   const c=actCode(label);
@@ -4423,12 +4575,23 @@ function fgParts(regle,grps,y){
   // Le total de l'enveloppe est nécessaire pour convertir un montant réservé en
   // fraction : c'est en fractions que la répartition s'applique, ligne à ligne.
   const env=y?(fgMontants(y).charges[k]||0):0;
+  // Deux origines pour une réservation, et l'ordre compte : la convention est la
+  // source de vérité, un montant saisi à la main sur ce projet est une
+  // DÉROGATION qui la remplace — la modale le dit et permet d'y revenir.
+  const eng=y?engResEnvMemo(k,y):{par:{},perdus:[],total:0};
   const resDe=l=>{
-    const r=fgRes(k,actCode(l));
-    if(!r)return 0;
-    if(r.pct!==undefined)return r.pct/100;
-    return env>0?r.mt/env:0;      // sans enveloppe connue, un montant ne veut rien dire
+    const c=actCode(l), r=fgRes(k,c);
+    if(r){
+      if(r.pct!==undefined)return r.pct/100;
+      return env>0?r.mt/env:0;    // sans enveloppe connue, un montant ne veut rien dire
+    }
+    const d=eng.par[c];
+    return d&&env>0?d.mt/env:0;
   };
+  // D'où vient la réservation de ce projet : "manuel", "convention", ou rien.
+  const resSrc=l=>{const c=actCode(l);
+    if(fgRes(k,c))return eng.par[c]?"derogation":"manuel";
+    return eng.par[c]?"convention":""};
   const reserves=tous.filter(l=>resDe(l)>0);
   let sommeRes=reserves.reduce((a,l)=>a+resDe(l),0);
   // Au-delà de 100 % on ramène l'ensemble à 100 % plutôt que d'inventer de la
@@ -4440,7 +4603,7 @@ function fgParts(regle,grps,y){
   const libres=tous.filter(l=>resDe(l)<=0);
   const avec=libres.filter(l=>fgPoids(k,l).v>0);
   const sans=libres.filter(l=>fgPoids(k,l).v<=0);
-  const base={brut,ecartes,sans,reserves,sommeRes,surRes,env,
+  const base={brut,ecartes,sans,reserves,sommeRes,surRes,env,eng,resSrc,
     resPart:l=>resDe(l)*echRes,
     manuels:libres.filter(l=>fgPoidsManuel(k,actCode(l))!==null)};
   const reste=Math.max(0,1-sommeRes);
@@ -4593,20 +4756,27 @@ function fgDiagDessine(){
         const p=fgPoids(rg.k,l);
         const man=fgPoidsManuel(rg.k,c);
         const res=fgRes(rg.k,c);
-        const sans=!ex&&!res&&p.v<=0;
-        h+=`<tr style="${ex?"opacity:.4":""}${res?";background:var(--accent-bg)":""}">
+        const dEng=(k.eng&&k.eng.par&&k.eng.par[c])||null;   // venu d'une convention
+        const srv=k.resSrc?k.resSrc(l):"";
+        const reserve=!!res||!!dEng;
+        const sans=!ex&&!reserve&&p.v<=0;
+        h+=`<tr style="${ex?"opacity:.4":""}${reserve?";background:var(--accent-bg)":""}">
           <td><input type="checkbox" ${ex?"":"checked"} onchange="fgToggleExclu('${rg.k}','${c}')"></td>
           <td style="font-family:var(--mono);font-size:9px">${escHtml(c)}</td>
           <td style="text-align:right;font-size:9px;color:${actHeures(c)?"var(--text-2)":"var(--amber)"}">${actHeures(c)||"vide"}</td>
           <td style="text-align:right"><input class="cj" style="width:64px;text-align:right${man!==null?";border-color:var(--accent);color:var(--accent)":""}"
-            ${res?"disabled":""} value="${man!==null?man:""}" placeholder="${res?"réservé":(actHeures(c)||"—")}" onchange="fgSetPoids('${rg.k}','${c}',this.value)"
-            title="${res?"Ce projet prend une part réservée : son poids n'entre plus dans le prorata.":"Poids de ce projet dans cette enveloppe. Vide = ses heures d'action. Saisir une valeur remplace les heures — utile quand un parcours occupe les locaux sans heures de formation, ou l'inverse."}"></td>
-          <td style="text-align:right"><input class="cj" style="width:74px;text-align:right${res?";border-color:var(--accent);color:var(--accent);font-weight:700":""}"
-            value="${escHtml(fgResTxt(rg.k,c))}" placeholder="—" onchange="fgSetRes('${rg.k}','${c}',this.value)"
-            title="Part prise d'office sur cette enveloppe, avant tout prorata. Tapez un montant (20000) ou un pourcentage (100%). Le reste de l'enveloppe se répartit sur les autres projets. Videz pour revenir au prorata."></td>
+            ${reserve?"disabled":""} value="${man!==null?man:""}" placeholder="${reserve?"réservé":(actHeures(c)||"—")}" onchange="fgSetPoids('${rg.k}','${c}',this.value)"
+            title="${reserve?"Ce projet prend une part réservée : son poids n'entre plus dans le prorata.":"Poids de ce projet dans cette enveloppe. Vide = ses heures d'action. Saisir une valeur remplace les heures — utile quand un parcours occupe les locaux sans heures de formation, ou l'inverse."}"></td>
+          <td style="text-align:right"><input class="cj" style="width:74px;text-align:right${res?";border-color:var(--accent);color:var(--accent);font-weight:700":dEng?";border-color:var(--green);color:var(--green)":""}"
+            value="${escHtml(fgResTxt(rg.k,c))}" placeholder="${dEng?escHtml(fmt(dEng.mt)):"—"}" onchange="fgSetRes('${rg.k}','${c}',this.value)"
+            title="${dEng?"Réservé par convention : "+escHtml(dEng.sources.map(x=>x.lib+" "+fmt(x.mt)).join(" · "))+". Saisir une valeur ici DÉROGE à la convention ; videz la case pour y revenir.":"Part prise d'office sur cette enveloppe, avant tout prorata. Tapez un montant (20000) ou un pourcentage (100%). Le reste de l'enveloppe se répartit sur les autres projets. Videz pour revenir au prorata."}"></td>
           <td style="text-align:right;font-family:var(--mono);font-size:9px">${ex?"—":sans?'<span style="color:var(--amber)">écarté</span>':(part*100).toFixed(2)+" %"}</td>
           <td style="text-align:right;font-family:var(--mono);font-size:9px;color:var(--red)">${ex||sans?"—":fmt(Math.round(mt*part*100)/100)}</td>
-          <td style="font-size:8px;color:var(--text-3)">${ex?"écarté à la main":res?(res.pct!==undefined?"réservé "+res.pct+" %":"montant réservé"):sans?"aucun poids : ni heures ni saisie":man!==null?"poids saisi":""}</td></tr>`;
+          <td style="font-size:8px;color:var(--text-3)">${ex?"écarté à la main"
+            :srv==="derogation"?`<span style="color:var(--amber)">dérogation à la main</span> · la convention dit ${escHtml(fmt(dEng.mt))}`
+            :srv==="convention"?`<span style="color:var(--green)">par convention</span> · ${escHtml(dEng.sources.map(x=>x.lib).join(" · "))}`
+            :res?(res.pct!==undefined?"réservé "+res.pct+" %":"montant réservé")
+            :sans?"aucun poids : ni heures ni saisie":man!==null?"poids saisi":""}</td></tr>`;
       });
       h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
         <td colspan="5" style="text-align:right;font-size:9px">${k.cibles.length} destinataire(s)${k.reserves.length?" · "+k.reserves.length+" réservé(s)":""}${k.ecartes.length?" · "+k.ecartes.length+" écarté(s)":""}${k.sans.length?" · "+k.sans.length+" sans poids":""}</td>
@@ -4615,11 +4785,20 @@ function fgDiagDessine(){
       if(k.reserves.length){
         const mtRes=Math.round(mt*k.sommeRes*100)/100;
         h+=`<div style="margin-top:5px;padding:6px 10px;border-radius:7px;font-size:9px;line-height:1.7;${k.surRes?"background:var(--red-bg);border:1px solid rgba(248,113,113,.3)":"background:var(--accent-bg);border:1px solid rgba(99,102,241,.2)"}">
-          <strong>${k.reserves.length} part(s) réservée(s)</strong> — ${escHtml(k.reserves.map(l=>actCode(l)+" "+fgResTxt(rg.k,actCode(l))).join(" · "))}, soit ${fmt(mtRes)} (${(k.sommeRes*100).toFixed(2).replace(".",",")} % de l'enveloppe).
+          <strong>${k.reserves.length} part(s) réservée(s)</strong> — ${escHtml(k.reserves.map(l=>{const cc=actCode(l);const t=fgResTxt(rg.k,cc);
+            return cc+" "+(t||fmt((k.eng.par[cc]||{}).mt||0))}).join(" · "))}, soit ${fmt(mtRes)} (${(k.sommeRes*100).toFixed(2).replace(".",",")} % de l'enveloppe).
+          ${k.eng&&k.eng.total>0?`<br><span style="color:var(--green)">Dont ${fmt(k.eng.total)} venus des conventions</span> — saisis sur l'engagement, pas ici : c'est la convention qui fait foi.`:""}
           ${k.surRes
             ? `<br><strong style="color:var(--red)">Les parts réservées dépassent l'enveloppe.</strong> Elles ont été ramenées à 100 % pour ne pas distribuer plus que l'enveloppe ne contient — corrigez-les : le résultat n'est pas celui que vous avez saisi.`
             : `<br>Le reste — <strong>${fmt(Math.round(mt*(1-k.sommeRes)*100)/100)}</strong> sur ${k.cibles.length-k.reserves.length} projet(s) — se répartit au prorata des heures. Un montant réservé plafonne le projet financé : les factures qui arrivent ensuite sont absorbées par les autres. Un pourcentage réservé suit l'enveloppe.`}
           </div>`;
+      }
+      // Une convention qui affecte des frais à un périmètre qui n'en reçoit pas
+      // sur cet exercice : l'argent ne se pose nulle part. Le dire, sinon la
+      // répartition repart au prorata sans que personne ne comprenne pourquoi.
+      if(k.eng&&k.eng.perdus&&k.eng.perdus.length){
+        h+=`<div style="margin-top:4px;font-size:9px;color:var(--amber);line-height:1.7">
+          ${k.eng.perdus.map(x=>"⚠︎ <strong>"+escHtml(x.lib)+"</strong>"+(x.mt?" — "+fmt(x.mt)+" non posés":"")+" : "+escHtml(x.pourquoi)).join("<br>")}</div>`;
       }
       // Les codes recevables par préfixe et territoire, mais pas sur cet exercice.
       // Les montrer sert deux choses : comprendre pourquoi la liste est courte, et
@@ -10308,6 +10487,16 @@ function engFigerBilan(i){
          labFinance:fin.labFinance,
          tauxLoc:fin.tauxLoc,tauxGen:fin.tauxGen,tauxLab:fin.tauxLab,
          tauxMax:fin.tauxMax,tauxReel:fin.tauxReel,
+         // L'affectation déclarée fait partie de la convention transmise : un
+         // bilan relu dans deux ans doit dire sur quoi le financeur avait mis
+         // son argent, et ce que le périmètre portait en face.
+         affect:(()=>{const t=engFin(e,dt,{locaux:"ligne",generaux:"ligne",lab:"ligne"});
+           const j={FG:t.gen.net,LOC:t.loc.net,LAB:t.labFinance?null:t.lab.net,PROJ:t.chProjet};
+           return ENG_DEST.map(d=>{const pct=d.k==="PROJ"?engAffectReste(e):engAffectPct(e,d.k);
+             const dcl=Math.round((parseFloat(e.mtEngage)||0)*pct/100*100)/100;
+             return {k:d.k,lib:d.lib,pct,declare:dcl,
+               declareADate:Math.round(dcl*engEcoule(e,dt).part*100)/100,
+               justifie:j[d.k]}}).filter(x=>x.pct>0)})(),
          prodExclus:(e.prodExclus||[]).slice()},
     valeurs,note:"",fige:new Date().toISOString()});
   e.bilans.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
@@ -10338,6 +10527,12 @@ function engBilanCSV(i,bi){
   if(b.fin.opts&&b.fin.opts.generaux==="ligne"&&b.fin.fraisGeneraux)L.push(["Frais généraux (FG)",String(b.fin.fraisGeneraux).replace(".",","),""]);
   if(b.fin.tauxMax)L.push([""],["Plafond de prise en charge",String(b.fin.tauxMax).replace(".",",")+" %"],
     ["Taux constaté",String(b.fin.tauxReel===null?"":b.fin.tauxReel).replace(".",",")+" %"]);
+  if((b.fin.affect||[]).length){
+    L.push([""],["— AFFECTATION DÉCLARÉE PAR LE FINANCEUR —"],["Destination","% du financement","Affecté","Affecté à date","Charges du périmètre"]);
+    b.fin.affect.forEach(x=>L.push([x.lib,String(x.pct).replace(".",",")+" %",
+      String(x.declare).replace(".",","),String(x.declareADate===undefined?"":x.declareADate).replace(".",","),
+      x.justifie===null?"":String(x.justifie).replace(".",",")]));
+  }
   L.push([""],["— QUALITATIF —"],["Indicateur","Réalisé","Cible","Parcours renseignés","Portée"]);
   Object.keys(b.valeurs||{}).forEach(k=>{const v=b.valeurs[k];
     L.push([v.lib,v.valeur===null?"":String(v.valeur).replace(".",","),
@@ -10412,6 +10607,79 @@ function engListeCodes(i,quoi,perim){
   }
   return h||`<div style="font-size:9px;color:var(--text-3)">Ajoutez d'abord une famille, ou choisissez des codes ci-dessous.</div>`;
 }
+// ─── AFFECTATION DU MONTANT CONVENTIONNÉ ───
+// « Tel financeur prend en charge pour 50 % de son montant les frais généraux,
+// et pour 50 % les frais xxx. » On saisit donc l'affectation sur la CONVENTION,
+// une seule fois, et l'outil en déduit ce qui est réservé sur chaque enveloppe.
+// Le solde va toujours aux charges directes : pas de case à équilibrer.
+function engPartAffect(e,i){
+  const a=engAffect(e);
+  const mtT=parseFloat(e.mtEngage)||0;
+  const exos=engExosDe(e);
+  const reste=engAffectReste(e);
+  let h=`<div class="scard" style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;margin-bottom:2px">Affectation du montant conventionné — ce que ce financeur prend en charge</div>
+    <div style="font-size:9px;color:var(--text-3);margin-bottom:6px;line-height:1.7">
+      Les trois premières destinations sont des <strong>enveloppes à répartir</strong> : y affecter une part de ce financement la <strong>réserve</strong> au périmètre de la convention, et le reste de l'enveloppe se répartit sur les autres projets.
+      La quatrième ne déplace rien — ces charges sont déjà sur le projet : la part sert alors de <strong>contrôle</strong> (« ai-je assez de charges directes pour justifier ce que le financeur y affecte ? »).
+      <br>C'est <strong>l'autre bout</strong> de la part réservée de la modale « Où et comment les frais se répartissent » : saisie ici, elle y apparaît en vert avec le nom de la convention.
+      ${exos.length>1?`<br>La convention traverse ${exos.length} exercices : chaque part est découpée au <strong>prorata des jours</strong> (${exos.map(y=>y+" : "+(engPartExo(e,y)*100).toFixed(0)+" %").join(" · ")}). Corrigez le montant d'un exercice si la réalité n'est pas linéaire.`:""}
+    </div>`;
+  if(!mtT)h+=`<div style="font-size:10px;color:var(--amber);margin-bottom:5px">Renseignez d'abord le montant conventionné : sans lui, un pourcentage ne donne aucun montant.</div>`;
+  h+=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr>
+    <th>Destination</th><th style="text-align:right">% du financement</th><th style="text-align:right">Montant</th>
+    <th>Par exercice${exos.length>1?" (prorata des jours, modifiable)":""}</th><th>Effet</th></tr></thead><tbody>`;
+  ENG_DEST.forEach(d=>{
+    const pct=d.k==="PROJ"?reste:engAffectPct(e,d.k);
+    const mt=Math.round(mtT*pct/100*100)/100;
+    let parExo="",effet="";
+    if(d.k==="PROJ"){
+      parExo=`<span style="color:var(--text-3);font-size:9px">— (pas de découpage : ces charges sont déjà datées)</span>`;
+      effet=`<span style="font-size:9px;color:var(--text-3)">contrôle : ${fmt(mt)} à justifier par les charges directes du périmètre</span>`;
+    }else if(pct<=0){
+      parExo=`<span style="color:var(--text-3);font-size:9px">—</span>`;
+      effet=`<span style="font-size:9px;color:var(--text-3)">rien de réservé sur cette enveloppe</span>`;
+    }else{
+      parExo=exos.map(y=>{
+        const m=engAffectMt(e,d.k,y);
+        const cle=d.k+"|"+y;
+        return `<span style="display:inline-flex;align-items:center;gap:3px;margin:0 5px 3px 0">
+          <span style="font-size:9px;color:var(--text-3)">${y}</span>
+          <input class="cj" style="width:78px;text-align:right;font-size:9px${m.src==="manuel"?";border-color:var(--accent);color:var(--accent)":""}"
+            value="${a.exo[cle]!==undefined&&a.exo[cle]!==""?a.exo[cle]:""}"
+            placeholder="${escHtml(String(Math.round((parseFloat(e.mtEngage)||0)*pct/100*engPartExo(e,y)*100)/100).replace(".",","))}"
+            onchange="engAffectExoSet(${i},'${d.k}','${y}',this.value)"
+            title="Montant de cette part sur l'exercice ${y}. Vide = prorata des jours (${(engPartExo(e,y)*100).toFixed(0)} % de la période).">
+        </span>`;
+      }).join("")||`<span style="color:var(--amber);font-size:9px">dates de convention manquantes : aucun exercice à découper</span>`;
+      const lignes=exos.map(y=>{
+        const m=engAffectMt(e,d.k,y).mt;
+        if(m<=0.004)return "";
+        const cibles=[].concat(...d.env.map(x=>engAffectCibles(e,x,y)));
+        const u=[...new Set(cibles)];
+        return `<div>${y} · <strong>${fmt(m)}</strong> ${u.length
+          ? "réservé sur "+escHtml(u.slice(0,6).join(", "))+(u.length>6?"…":"")+" (au prorata des heures)"
+          : `<span style="color:var(--amber)">aucun projet du périmètre ne reçoit cette enveloppe sur ${y} : rien ne sera posé</span>`}</div>`;
+      }).filter(Boolean).join("");
+      effet=`<div style="font-size:9px;line-height:1.6">${lignes||`<span style="color:var(--text-3)">—</span>`}</div>`;
+    }
+    h+=`<tr${d.k==="PROJ"?' style="background:var(--bg-3)"':pct>0?' style="background:var(--accent-bg)"':''}>
+      <td style="font-size:10px">${escHtml(d.lib)}${d.k==="PROJ"?' <span style="font-size:8px;color:var(--text-3)">— solde</span>':""}</td>
+      <td style="text-align:right">${d.k==="PROJ"
+        ? `<span style="font-family:var(--mono);font-weight:700">${pct.toFixed(2).replace(".",",")} %</span>`
+        : `<input type="number" step="0.01" min="0" max="100" class="cj" style="width:70px;text-align:right${pct>0?";border-color:var(--accent);color:var(--accent);font-weight:700":""}"
+            value="${engAffect(e)[d.k]||""}" placeholder="0" onchange="engAffectSet(${i},'${d.k}',this.value)">`}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(mt)}</td>
+      <td>${parExo}</td><td>${effet}</td></tr>`;
+  });
+  h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
+    <td style="text-align:right;font-size:9px">Total</td>
+    <td style="text-align:right;font-family:var(--mono);font-size:9px">100,00 %</td>
+    <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(mtT)}</td>
+    <td colspan="2"></td></tr></tfoot></table></div>`;
+  h+=`</div>`;
+  return h;
+}
 function engPartDef(e,i){
   const inp="width:100%;padding:4px 6px;background:var(--bg-1);border:1px solid var(--border);border-radius:5px;color:var(--text-1);font-size:11px;font-family:var(--sans)";
   const pf=engPerimDe(e,"fin"), pq=engPerimDe(e,"qual");
@@ -10466,6 +10734,8 @@ function engPartDef(e,i){
       ${engListeCodes(i,"fin",pf)}</div>
     <div style="font-size:9px;margin-top:5px;font-weight:600">${cf.length} code(s) projet dans ce périmètre${cf.length?" : "+escHtml(cf.slice(0,18).join(", "))+(cf.length>18?"…":""):""}</div>
   </div>`;
+
+  h+=engPartAffect(e,i);
 
   h+=`<div class="scard" style="margin-bottom:10px">
     <div style="font-size:11px;font-weight:700;margin-bottom:2px">Périmètre qualitatif — sur quoi les indicateurs sont comptés</div>
@@ -10538,6 +10808,56 @@ function engPartSuivi(e,i){
   // intégrer les frais de structure augmente le dénominateur et fait donc baisser
   // le taux. Ce n'est pas un artifice — c'est le coût complet — mais il faut le
   // dire, sinon le contrôle semblerait dépendre d'un réglage d'affichage.
+  // ─── AFFECTATION DÉCLARÉE VS CHARGES JUSTIFIÉES ───
+  // La convention dit « 50 % sur les frais généraux ». Reste à vérifier que le
+  // périmètre porte assez de frais généraux pour le justifier. Le contrôle se
+  // fait sur la PÉRIODE de la convention, comme le reste du bilan, et sur les
+  // trois enveloppes CALCULÉES même quand le bilan ne les affiche pas : un
+  // financeur peut refuser de les voir et les financer quand même.
+  if(engAffectActive(e)||engAffectReste(e)<100){
+    const tout=engFin(e,auj,{locaux:"ligne",generaux:"ligne",lab:"ligne"});
+    const just={FG:tout.gen.net,LOC:tout.loc.net,LAB:tout.labFinance?null:tout.lab.net,PROJ:tout.chProjet};
+    const mtT=parseFloat(e.mtEngage)||0;
+    const nonAff=k=>k==="FG"?fin.opts.generaux==="non":k==="LOC"?fin.opts.locaux==="non":k==="LAB"?(fin.opts.lab==="non"||fin.labFinance):false;
+    let alertes=0;
+    // Une convention en cours n'a pas encore consommé ses charges : comparer le
+    // montant TOTAL affecté à ce qui est déjà dépensé ferait crier au manque tous
+    // les mois. Le contrôle se fait donc sur l'affecté À DATE, au même prorata
+    // que « l'attendu à date » — le total reste affiché à côté.
+    const enCours=ec.part<0.9995;
+    let t=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr>
+      <th>Destination</th><th style="text-align:right">Affecté par la convention</th>
+      ${enCours?`<th style="text-align:right">Affecté à date (${(ec.part*100).toFixed(0)} %)</th>`:""}
+      <th style="text-align:right">Charges du périmètre à date</th><th>Contrôle</th></tr></thead><tbody>`;
+    ENG_DEST.forEach(d=>{
+      const pct=d.k==="PROJ"?engAffectReste(e):engAffectPct(e,d.k);
+      if(pct<=0)return;
+      const decl=Math.round(mtT*pct/100*100)/100;
+      const declAd=Math.round(decl*ec.part*100)/100;
+      const dispo=just[d.k];
+      const manque=dispo===null?null:Math.round((declAd-dispo)*100)/100;
+      const ko=manque!==null&&manque>0.005;
+      if(ko)alertes++;
+      t+=`<tr><td style="font-size:10px">${escHtml(d.lib)} <span style="font-size:8px;color:var(--text-3)">${pct.toFixed(2).replace(".",",")} %</span></td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(decl)}</td>
+        ${enCours?`<td style="text-align:right;font-family:var(--mono);font-size:9px;color:var(--accent-l)">${fmt(declAd)}</td>`:""}
+        <td style="text-align:right;font-family:var(--mono);font-size:9px">${dispo===null?"—":fmt(dispo)}</td>
+        <td style="font-size:9px;line-height:1.6">${
+          dispo===null?`<span style="color:var(--text-3)">le LAB est dans le périmètre financé : il est le projet, pas une enveloppe à lui répartir</span>`
+          :ko?`<span style="color:var(--red);font-weight:700">manque ${fmt(manque)}</span> — le financeur affecte plus que ce que le périmètre porte${enCours?" à ce stade de la convention":""}`
+          :`<span style="color:var(--green)">couvert</span>${dispo>declAd+0.005?" · "+fmt(Math.round((dispo-declAd)*100)/100)+" de charges au-delà de l'affectation":""}`}
+          ${nonAff(d.k)?`<br><span style="color:var(--amber)">non intégré au bilan affiché ci-dessous — réglage « Non intégrés »</span>`:""}</td></tr>`;
+    });
+    t+=`</tbody></table></div>`;
+    h+=`<div class="scard" style="margin-bottom:10px${alertes?";border-color:rgba(248,113,113,.4)":""}">
+      <div style="font-size:11px;font-weight:700;margin-bottom:2px">Affectation déclarée par ce financeur ${alertes?`<span style="color:var(--red)">· ${alertes} destination(s) non couverte(s)</span>`:`<span style="color:var(--green)">· tout est couvert</span>`}</div>
+      <div style="font-size:9px;color:var(--text-3);margin-bottom:6px;line-height:1.7">
+        Ce que la convention dit prendre en charge, face aux charges réelles du périmètre <strong>depuis le début de la période</strong>.
+        ${ec.part<0.9995?`La convention est <strong>en cours</strong> : le contrôle porte sur l'affecté à date (prorata linéaire, ${(ec.part*100).toFixed(0)} % de la période) — sinon tout paraîtrait manquant jusqu'au dernier jour.`:"La période est terminée : le contrôle porte sur la totalité de l'affectation."}
+        Les frais généraux, locaux et LAB sont ceux que la clé attribue à ce périmètre — <strong>réservation comprise</strong> : c'est précisément cette affectation qui les y a réservés.
+        Une destination non couverte n'est pas une erreur de calcul : c'est une part du financement qu'on ne peut pas justifier là où le financeur l'a mise, et qu'il faudra déplacer ou justifier autrement.
+      </div>${t}</div>`;
+  }
   if(fin.tauxMax>0){
     const ok=!fin.depasse;
     h+=`<div class="${ok?"":"warn"}" style="margin:0 0 10px;padding:8px 11px;border-radius:8px;font-size:10px;line-height:1.8;${ok?"background:var(--green-bg);border:1px solid rgba(52,211,153,.25)":""}">

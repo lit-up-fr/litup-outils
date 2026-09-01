@@ -296,7 +296,50 @@ D.actIndicDates = { "BU91": { du:"2026-09-01", au:"2026-12-15" } }
   confirmation explicite, et supprimer un engagement qui en porte est refusé
   tout court.
 
+## Affectation du montant conventionné (côté financeur)
+
+Ajouté le 01/09/2026. La part réservée d'une enveloppe de frais se saisissait
+projet par projet ; la convention, elle, se lit dans l'autre sens : « la CAF
+donne 20 000 €, dont 50 % sur les frais généraux ». C'est la même réservation
+vue de l'autre bout, et la convention fait foi.
+
+### Décisions prises
+
+- **Quatre destinations, et deux comportements.** Frais généraux, frais locaux
+  (FV/FP) et LAB sont des enveloppes à répartir : y affecter une part du
+  financement la réserve au périmètre de la convention, et le reste de
+  l'enveloppe se répartit sur les autres projets. « Charges directes du projet »
+  ne déplace rien — ces charges sont déjà sur le projet : la part sert de
+  contrôle. Le choix des destinations a été arbitré avec Laetitia : pas de
+  ciblage par famille de comptes ni compte à compte, qui aurait demandé une
+  saisie détaillée par convention.
+- **Le solde va aux charges directes.** Le total fait donc toujours 100 %, il n'y
+  a pas de case à équilibrer ni d'état d'erreur à gérer.
+- **Une convention à cheval se découpe au prorata des jours.** Juin 2026 → mai
+  2027 pèse 214/365 sur l'exercice 2026. C'est le même prorata linéaire que
+  l'attendu à date — une convention de lecture, pas une vérité : le montant de
+  chaque exercice est affiché et corrigeable à la main.
+- **La convention prime, la saisie manuelle déroge.** Un montant tapé dans la
+  modale des frais remplace ce que la convention réserve, et c'est écrit dans la
+  ligne (« dérogation à la main · la convention dit 8 000 € ») ; vider la case y
+  revient.
+- **Deux enveloppes pour une destination.** « Frais locaux » alimente FV et FP :
+  la part se partage entre elles au prorata des heures de chaque territoire dans
+  le périmètre, sinon une convention sur des projets du Sud viendrait réserver
+  sur l'Île-de-France.
+- **Une part qui ne se pose nulle part est signalée.** Si aucun projet du
+  périmètre ne reçoit l'enveloppe sur l'exercice, le montant n'est pas posé et la
+  modale le dit — sans quoi la répartition repartirait au prorata sans que
+  personne ne comprenne pourquoi.
+- **Le contrôle se fait à date.** Comparer le montant total affecté aux charges
+  déjà dépensées ferait crier au manque jusqu'au dernier jour de la convention :
+  le contrôle porte sur l'affecté à date, le total restant affiché à côté.
+- **Le bilan figé garde l'affectation** — % , montants affectés, affecté à date
+  et charges en face — et l'export CSV la reprend : un bilan relu dans deux ans
+  doit dire sur quoi le financeur avait mis son argent.
+
 ### Ce qui reste ouvert
+
 
 - `getIndicateurs` doit être redéployé côté Apps Script pour que six des sept
   indicateurs remontent (seules les heures de formation sont déjà rapatriées).
