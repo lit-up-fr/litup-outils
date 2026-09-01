@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01f <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01g <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4324,8 +4324,47 @@ function fgCibles(regle,grps,y){
 // la même. Deux financeurs ne doivent pas voir deux coûts différents pour le
 // même projet.
 function fgCles(){if(!D.fgCles||typeof D.fgCles!=="object")D.fgCles={};return D.fgCles}
-function fgCle(k){const c=fgCles();if(!c[k])c[k]={poids:{},exclus:[],inclus:[]};
-  if(!c[k].poids)c[k].poids={};if(!c[k].exclus)c[k].exclus=[];if(!c[k].inclus)c[k].inclus=[];return c[k]}
+function fgCle(k){const c=fgCles();if(!c[k])c[k]={poids:{},exclus:[],inclus:[],res:{}};
+  if(!c[k].poids)c[k].poids={};if(!c[k].exclus)c[k].exclus=[];if(!c[k].inclus)c[k].inclus=[];
+  if(!c[k].res)c[k].res={};return c[k]}
+// ─── PART RÉSERVÉE ───
+// « Certaines subventions prennent 100 % des frais généraux ou locaux. Il faut
+// déduire le montant restant pour les répartir sur le reste. »
+// Un projet peut donc PRENDRE D'OFFICE une part de l'enveloppe — le montant
+// inscrit au budget de sa convention, ou un pourcentage. Ce qui reste se
+// répartit sur les autres au prorata des heures.
+// Deux unités, et le choix n'est pas cosmétique :
+//   • un MONTANT (20 000 €) est le cas d'une ligne budgétaire conventionnée : le
+//     projet financé est plafonné à ce montant, et ce sont les autres qui
+//     absorbent les factures qui arrivent ensuite ;
+//   • un POURCENTAGE (100 %) est le cas d'une convention qui couvre une part de
+//     l'enveloppe quelle qu'en soit la taille finale.
+// C'est la différence avec les frais « ordinaires », où seul un poids a du sens :
+// ici la convention fixe bien une somme ou une fraction, pas un poids.
+function fgRes(k,code){
+  const v=fgCle(k).res[String(code||"").toUpperCase()];
+  if(!v)return null;
+  if(v.pct!==undefined&&v.pct!==null&&v.pct!=="")
+    {const p=parseFloat(v.pct);return isNaN(p)||p<=0?null:{pct:Math.min(100,p)}}
+  const m=parseFloat(v.mt);
+  return isNaN(m)||m<=0?null:{mt:m};
+}
+// Saisie unique : « 20000 » = un montant, « 100% » = un pourcentage, vide = rien.
+function fgSetRes(k,code,v){
+  const c=String(code||"").toUpperCase();if(!c)return;
+  const t=String(v===undefined||v===null?"":v).trim();
+  if(!t){delete fgCle(k).res[c]}
+  else if(/%\s*$/.test(t)){
+    const p=parseFloat(t.replace("%","").replace(",","."));
+    if(isNaN(p)||p<=0)delete fgCle(k).res[c];else fgCle(k).res[c]={pct:Math.min(100,p)};
+  }else{
+    const m=parseFloat(t.replace(/\s/g,"").replace(",","."));
+    if(isNaN(m)||m<=0)delete fgCle(k).res[c];else fgCle(k).res[c]={mt:m};
+  }
+  _fgMemo=null;autoSave();fgDiagDessine();render();
+}
+const fgResTxt=(k,code)=>{const r=fgRes(k,code);
+  return !r?"":r.pct!==undefined?String(r.pct).replace(".",",")+"%":String(r.mt).replace(".",",")};
 const fgPoidsManuel=(k,code)=>{const v=parseFloat(fgCle(k).poids[String(code||"").toUpperCase()]);
   return isNaN(v)||v<0?null:v};
 const fgExclu=(k,code)=>fgCle(k).exclus.indexOf(String(code||"").toUpperCase())>=0;
@@ -4351,8 +4390,8 @@ function fgToggleExclu(k,code){
   _fgMemo=null;autoSave();fgDiagDessine();render();
 }
 function fgResetCle(k){
-  if(!confirm("Remettre la clé de « "+k+" » au prorata des heures d'action ?\n\nLes poids saisis, les exclusions et les inclusions forcées de cette enveloppe sont effacés."))return;
-  fgCles()[k]={poids:{},exclus:[],inclus:[]};
+  if(!confirm("Remettre la clé de « "+k+" » au prorata des heures d'action ?\n\nLes poids saisis, les exclusions, les inclusions forcées et les parts réservées de cette enveloppe sont effacés."))return;
+  fgCles()[k]={poids:{},exclus:[],inclus:[],res:{}};
   _fgMemo=null;autoSave();fgDiagDessine();render();
 }
 
@@ -4371,17 +4410,46 @@ function fgParts(regle,grps,y){
   const brut=fgCibles(regle,grps,y);
   const ecartes=brut.filter(l=>fgExclu(k,actCode(l)));
   const tous=brut.filter(l=>!fgExclu(k,actCode(l)));
-  const avec=tous.filter(l=>fgPoids(k,l).v>0);
-  const sans=tous.filter(l=>fgPoids(k,l).v<=0);
-  const base={brut,ecartes,sans,manuels:tous.filter(l=>fgPoidsManuel(k,actCode(l))!==null)};
+  // ── parts réservées ──
+  // Le total de l'enveloppe est nécessaire pour convertir un montant réservé en
+  // fraction : c'est en fractions que la répartition s'applique, ligne à ligne.
+  const env=y?(fgMontants(y).charges[k]||0):0;
+  const resDe=l=>{
+    const r=fgRes(k,actCode(l));
+    if(!r)return 0;
+    if(r.pct!==undefined)return r.pct/100;
+    return env>0?r.mt/env:0;      // sans enveloppe connue, un montant ne veut rien dire
+  };
+  const reserves=tous.filter(l=>resDe(l)>0);
+  let sommeRes=reserves.reduce((a,l)=>a+resDe(l),0);
+  // Au-delà de 100 % on ramène l'ensemble à 100 % plutôt que d'inventer de la
+  // charge, et on le signale : mieux vaut un total juste et un avertissement
+  // qu'une enveloppe qui distribue plus qu'elle ne contient.
+  const surRes=sommeRes>1.000001;
+  const echRes=surRes?1/sommeRes:1;
+  if(surRes)sommeRes=1;
+  const libres=tous.filter(l=>resDe(l)<=0);
+  const avec=libres.filter(l=>fgPoids(k,l).v>0);
+  const sans=libres.filter(l=>fgPoids(k,l).v<=0);
+  const base={brut,ecartes,sans,reserves,sommeRes,surRes,env,
+    resPart:l=>resDe(l)*echRes,
+    manuels:libres.filter(l=>fgPoidsManuel(k,actCode(l))!==null)};
+  const reste=Math.max(0,1-sommeRes);
+  // Rien à répartir au prorata : soit tout est réservé, soit aucun projet libre.
   if(!avec.length){
-    if(!tous.length)return Object.assign({cibles:[],parts:[],mode:"aucune"},base);
-    return Object.assign({cibles:tous,parts:tous.map(()=>1/tous.length),mode:"egal"},base);
+    if(!reserves.length&&!tous.length)return Object.assign({cibles:[],parts:[],mode:"aucune"},base);
+    if(!libres.length||reste<=1e-9)
+      return Object.assign({cibles:reserves,parts:reserves.map(l=>resDe(l)*echRes),
+        mode:reserves.length?"reserve":"aucune"},base);
+    return Object.assign({cibles:reserves.concat(libres),
+      parts:reserves.map(l=>resDe(l)*echRes).concat(libres.map(()=>reste/libres.length)),
+      mode:"egal"},base);
   }
   const poids=avec.map(l=>fgPoids(k,l).v);
   const tot=poids.reduce((a,x)=>a+x,0);
-  return Object.assign({cibles:avec,parts:poids.map(x=>x/tot),
-    mode:base.manuels.length?"mixte":"heures",poids},base);
+  return Object.assign({cibles:reserves.concat(avec),
+    parts:reserves.map(l=>resDe(l)*echRes).concat(poids.map(x=>x/tot*reste)),
+    mode:reserves.length?"reserve":(base.manuels.length?"mixte":"heures"),poids},base);
 }
 // _fgMemo est déclaré tout en haut, à côté de _actCache : le déclarer ici le
 // rendait inaccessible à invalidateActCache, défini plus haut dans le fichier.
@@ -4506,6 +4574,7 @@ function fgDiagDessine(){
       h+=`<div style="overflow-x:auto;margin-top:5px"><table style="font-size:10px"><thead><tr>
         <th style="width:26px" title="Décochez pour écarter ce projet de cette enveloppe">✓</th>
         <th>Code</th><th style="text-align:right">Heures</th><th style="text-align:right">Poids retenu</th>
+        <th style="text-align:right" title="Part prise d'office sur l'enveloppe, avant tout prorata : un montant (20000) ou un pourcentage (100%). C'est le cas d'une subvention qui finance les frais de son projet.">Réservé</th>
         <th style="text-align:right">Part</th><th style="text-align:right">Montant</th><th></th></tr></thead><tbody>`;
       k.brut.forEach(l=>{
         const c=actCode(l);
@@ -4514,22 +4583,35 @@ function fgDiagDessine(){
         const part=i>=0?k.parts[i]:0;
         const p=fgPoids(rg.k,l);
         const man=fgPoidsManuel(rg.k,c);
-        const sans=!ex&&p.v<=0;
-        h+=`<tr style="${ex?"opacity:.4":""}">
+        const res=fgRes(rg.k,c);
+        const sans=!ex&&!res&&p.v<=0;
+        h+=`<tr style="${ex?"opacity:.4":""}${res?";background:var(--accent-bg)":""}">
           <td><input type="checkbox" ${ex?"":"checked"} onchange="fgToggleExclu('${rg.k}','${c}')"></td>
           <td style="font-family:var(--mono);font-size:9px">${escHtml(c)}</td>
           <td style="text-align:right;font-size:9px;color:${actHeures(c)?"var(--text-2)":"var(--amber)"}">${actHeures(c)||"vide"}</td>
           <td style="text-align:right"><input class="cj" style="width:64px;text-align:right${man!==null?";border-color:var(--accent);color:var(--accent)":""}"
-            value="${man!==null?man:""}" placeholder="${actHeures(c)||"—"}" onchange="fgSetPoids('${rg.k}','${c}',this.value)"
-            title="Poids de ce projet dans cette enveloppe. Vide = ses heures d'action. Saisir une valeur remplace les heures — utile quand un parcours occupe les locaux sans heures de formation, ou l'inverse."></td>
+            ${res?"disabled":""} value="${man!==null?man:""}" placeholder="${res?"réservé":(actHeures(c)||"—")}" onchange="fgSetPoids('${rg.k}','${c}',this.value)"
+            title="${res?"Ce projet prend une part réservée : son poids n'entre plus dans le prorata.":"Poids de ce projet dans cette enveloppe. Vide = ses heures d'action. Saisir une valeur remplace les heures — utile quand un parcours occupe les locaux sans heures de formation, ou l'inverse."}"></td>
+          <td style="text-align:right"><input class="cj" style="width:74px;text-align:right${res?";border-color:var(--accent);color:var(--accent);font-weight:700":""}"
+            value="${escHtml(fgResTxt(rg.k,c))}" placeholder="—" onchange="fgSetRes('${rg.k}','${c}',this.value)"
+            title="Part prise d'office sur cette enveloppe, avant tout prorata. Tapez un montant (20000) ou un pourcentage (100%). Le reste de l'enveloppe se répartit sur les autres projets. Videz pour revenir au prorata."></td>
           <td style="text-align:right;font-family:var(--mono);font-size:9px">${ex?"—":sans?'<span style="color:var(--amber)">écarté</span>':(part*100).toFixed(2)+" %"}</td>
           <td style="text-align:right;font-family:var(--mono);font-size:9px;color:var(--red)">${ex||sans?"—":fmt(Math.round(mt*part*100)/100)}</td>
-          <td style="font-size:8px;color:var(--text-3)">${ex?"écarté à la main":sans?"aucun poids : ni heures ni saisie":man!==null?"poids saisi":""}</td></tr>`;
+          <td style="font-size:8px;color:var(--text-3)">${ex?"écarté à la main":res?(res.pct!==undefined?"réservé "+res.pct+" %":"montant réservé"):sans?"aucun poids : ni heures ni saisie":man!==null?"poids saisi":""}</td></tr>`;
       });
       h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
-        <td colspan="4" style="text-align:right;font-size:9px">${k.cibles.length} destinataire(s)${k.ecartes.length?" · "+k.ecartes.length+" écarté(s)":""}${k.sans.length?" · "+k.sans.length+" sans poids":""}</td>
+        <td colspan="5" style="text-align:right;font-size:9px">${k.cibles.length} destinataire(s)${k.reserves.length?" · "+k.reserves.length+" réservé(s)":""}${k.ecartes.length?" · "+k.ecartes.length+" écarté(s)":""}${k.sans.length?" · "+k.sans.length+" sans poids":""}</td>
         <td style="text-align:right;font-family:var(--mono);font-size:9px">${k.cibles.length?"100,00 %":"—"}</td>
         <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(k.cibles.length?mt:0)}</td><td></td></tr></tfoot></table></div>`;
+      if(k.reserves.length){
+        const mtRes=Math.round(mt*k.sommeRes*100)/100;
+        h+=`<div style="margin-top:5px;padding:6px 10px;border-radius:7px;font-size:9px;line-height:1.7;${k.surRes?"background:var(--red-bg);border:1px solid rgba(248,113,113,.3)":"background:var(--accent-bg);border:1px solid rgba(99,102,241,.2)"}">
+          <strong>${k.reserves.length} part(s) réservée(s)</strong> — ${escHtml(k.reserves.map(l=>actCode(l)+" "+fgResTxt(rg.k,actCode(l))).join(" · "))}, soit ${fmt(mtRes)} (${(k.sommeRes*100).toFixed(2).replace(".",",")} % de l'enveloppe).
+          ${k.surRes
+            ? `<br><strong style="color:var(--red)">Les parts réservées dépassent l'enveloppe.</strong> Elles ont été ramenées à 100 % pour ne pas distribuer plus que l'enveloppe ne contient — corrigez-les : le résultat n'est pas celui que vous avez saisi.`
+            : `<br>Le reste — <strong>${fmt(Math.round(mt*(1-k.sommeRes)*100)/100)}</strong> sur ${k.cibles.length-k.reserves.length} projet(s) — se répartit au prorata des heures. Un montant réservé plafonne le projet financé : les factures qui arrivent ensuite sont absorbées par les autres. Un pourcentage réservé suit l'enveloppe.`}
+          </div>`;
+      }
       // Les codes recevables par préfixe et territoire, mais pas sur cet exercice.
       // Les montrer sert deux choses : comprendre pourquoi la liste est courte, et
       // rattraper un parcours qui vient d'ouvrir sans qu'on l'ait deviné.
@@ -9562,6 +9644,12 @@ function figerEntetes(){
   });
 }
 function render(){
+  // La clé des frais dépend des écritures : projets vivants sur l'exercice, et
+  // désormais montant de chaque enveloppe. Modifier un montant ou une année
+  // d'affectation ne passait pas par invalidateActCache, donc la clé pouvait
+  // rester périmée jusqu'au rechargement. On la recalcule à chaque rendu : le
+  // mémo ne sert plus qu'à éviter de rebalayer une fois par ligne de frais.
+  _fgMemo=null;
   renderCorps();
   detRestaure();
   figerEntetes();
