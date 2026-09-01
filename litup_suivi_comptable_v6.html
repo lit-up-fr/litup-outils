@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01b <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01c <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4211,8 +4211,14 @@ function ventilRows(rows){
 // le coût réel d'un programme se verrait présenter un coût amputé.
 // La règle, telle que Laetitia l'a posée : FG sur TOUS les projets, FV sur les
 // projets du Sud, FP sur ceux d'Île-de-France, au prorata des heures d'action.
-// Les produits suivent la même règle que les charges : une subvention de
-// fonctionnement finance bien de l'activité.
+//
+// SEULES LES CHARGES se répartissent. Une subvention de fonctionnement reste sur
+// son code : la répartir revenait à saupoudrer de petits crédits sur les comptes
+// de produits de chaque projet (1,71 €, 68,28 €…), ce qui n'a aucun sens dans un
+// bilan financeur. Pire, elle rendait le NET de l'enveloppe négatif quand les
+// subventions dépassaient les charges — d'où des « frais » négatifs et des taux
+// absurdes. Un produit de fonctionnement finance la structure, il ne se
+// re-ventile pas comme un coût.
 //
 // C'est un AFFICHAGE, comme la ventilation des salaires : les écritures ne sont
 // pas modifiées, le classement et le FEC ne bougent pas. Le fonctionnement reste
@@ -4288,10 +4294,13 @@ function fgPartsMemo(regle,grps){
 function fgRows(rows,grps){
   const src=rows||[];
   const out=[],reparties=[],ratees=[];
+  const produits=[];
   src.forEach(r=>{
     const rg=fgRegleDe(r.act);
     if(!rg||(grps&&grps.indexOf(rg.grp)<0)){out.push(r);return}
-    const mt=(r.deb||0)-(r.cre||0);
+    // Un produit reste sur son code de fonctionnement.
+    if((r.cre||0)>0){out.push(r);produits.push({r,lib:rg.lib,mt:Math.round((r.cre||0)*100)/100});return}
+    const mt=r.deb||0;
     if(Math.abs(mt)<0.005){out.push(r);return}
     const k=fgPartsMemo(rg,grps);
     if(!k.cibles.length){out.push(r);ratees.push({r,lib:rg.lib,why:"aucun projet destinataire pour "+rg.ou});return}
@@ -4300,7 +4309,7 @@ function fgRows(rows,grps){
     reparties.push({r,lib:rg.lib,ou:rg.ou,mode:k.mode,n:k.cibles.length,
       sans:k.sans.length,mt:Math.round(mt*100)/100});
   });
-  return {rows:out,reparties,ratees};
+  return {rows:out,reparties,ratees,produits};
 }
 function suiviSetFG(v){suiviFilt.fg=!!v;try{localStorage.setItem("litup_suiviFG",v?"1":"0")}catch(e){}render()}
 function suiviSetLAB(v){suiviFilt.lab=!!v;try{localStorage.setItem("litup_suiviLAB",v?"1":"0")}catch(e){}render()}
@@ -9546,21 +9555,26 @@ function engFin(e,auJour,opts){
   if(o.locaux!=="non")grpsActifs.push("locaux");
   if(o.generaux!=="non")grpsActifs.push("generaux");
   if(o.lab!=="non"&&!labFinance)grpsActifs.push("lab");
+  // Seules les CHARGES de l'enveloppe se répartissent. Les subventions de
+  // fonctionnement restent sur leur code : les répartir plaçait des miettes de
+  // crédit sur les comptes de produits de chaque projet et rendait le net de
+  // l'enveloppe négatif dès que ces subventions dépassaient les charges.
   const enveloppe=(pfxs)=>{
-    const det={};let tot=0;
+    const det={};let tot=0,prodIgnores=0;
     (D.rows||[]).forEach(r=>{
       if(!dedans(r))return;
       const rg=fgRegleDe(r.act);
       if(!rg||pfxs.indexOf(rg.pfx)<0)return;
       const part=partDe(rg);if(part<=0)return;
-      const d=r2((r.deb||0)*part), c=r2((r.cre||0)*part);
-      if(!d&&!c)return;
+      if((r.cre||0)>0){prodIgnores=r2(prodIgnores+(r.cre||0)*part);return}
+      const d=r2((r.deb||0)*part);
+      if(!d)return;
       const k=String(r.cat||"(sans compte)");
       if(!det[k])det[k]={cat:k,charges:0,produits:0};
-      det[k].charges=r2(det[k].charges+d);det[k].produits=r2(det[k].produits+c);
-      tot=r2(tot+d-c);
+      det[k].charges=r2(det[k].charges+d);
+      tot=r2(tot+d);
     });
-    return {det:Object.values(det),net:tot};
+    return {det:Object.values(det),net:tot,prodIgnores};
   };
   const loc=(o.locaux!=="non")?enveloppe(["FV","FP"]):{det:[],net:0};
   const lab=(o.lab!=="non"&&!labFinance)?enveloppe(["LAB"]):{det:[],net:0};
@@ -9568,15 +9582,18 @@ function engFin(e,auJour,opts){
 
   // Taux affichés : les frais locaux sur le coût du projet, les frais généraux
   // sur « projet + frais locaux ».
-  // Le LAB est un frère du fonctionnement national, pas une couche supplémentaire :
-  // il partage la base « projet + frais locaux » avec les frais généraux. Ainsi la
-  // règle posée pour FG (« %FG compté sur total projet + frais locaux ») reste
-  // exactement celle demandée, sans que l'ajout du LAB la déplace.
-  const baseLoc=chProjet;
-  const baseGen=r2(chProjet+(o.locaux!=="non"?loc.net:0));
-  const tauxLoc=baseLoc>0?r2(loc.net/baseLoc*100):null;
-  const tauxGen=baseGen>0?r2(gen.net/baseGen*100):null;
-  const tauxLab=baseGen>0?r2(lab.net/baseGen*100):null;
+  // Les taux se lisent sur le TOTAL, c'est-à-dire « coût du projet + frais
+  // cochés ». C'est la forme qu'un financeur discute — « vos frais de structure
+  // représentent X % du budget » — et la seule où les parts s'additionnent à
+  // 100 % avec celle du projet. Un taux calculé sur une base intermédiaire
+  // (« projet + frais locaux ») ne s'additionnait à rien et se lisait mal.
+  const totalCh=r2(chProjet
+    +(o.locaux!=="non"?loc.net:0)
+    +((o.lab!=="non"&&!labFinance)?lab.net:0)
+    +(o.generaux!=="non"?gen.net:0));
+  const tx=x=>totalCh>0?r2(x/totalCh*100):null;
+  const tauxLoc=tx(loc.net), tauxGen=tx(gen.net), tauxLab=tx(lab.net), tauxProjet=tx(chProjet);
+  const baseLoc=totalCh, baseGen=totalCh;
 
   if(o.locaux==="integre")loc.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"locaux"));
   if(o.lab==="integre"&&!labFinance)lab.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"lab"));
@@ -9608,7 +9625,7 @@ function engFin(e,auJour,opts){
   const depasse=tauxMax>0&&tauxReel!==null&&tauxReel>tauxMax+0.005;
 
   return {comptes,charges,produits,percu,codes:[...codes],sansTrace,
-    chProjet,loc,gen,lab,labFinance,tauxLoc,tauxGen,tauxLab,baseLoc,baseGen,chLignes,
+    chProjet,loc,gen,lab,labFinance,tauxLoc,tauxGen,tauxLab,tauxProjet,totalCh,baseLoc,baseGen,chLignes,
     prodTotal:P.total,prodRetenu:P.retenu,prodGroupes:P.groupes,
     tauxMax,tauxReel,depasse,opts:o};
 }
@@ -10091,9 +10108,9 @@ function engPartSuivi(e,i){
       <strong>${ok?"✅":"⚠️"} Prise en charge ${ok?"conforme":"au-delà du plafond"}</strong> —
       plafond conventionnel <strong>${String(fin.tauxMax).replace(".",",")} %</strong>,
       taux constaté <strong style="color:${ok?"var(--green)":"var(--red)"}">${fin.tauxReel===null?"—":String(fin.tauxReel).replace(".",",")+" %"}</strong>
-      (${fmt(fin.percu)} perçu sur ${fmt(fin.charges)} de coût projet).
+      (${fmt(fin.percu)} perçu sur ${fmt(fin.charges)} de coût total retenu${(fin.opts.locaux!=="non"||fin.opts.generaux!=="non"||(fin.opts.lab!=="non"&&!fin.labFinance))?", frais de structure inclus":", hors frais de structure"}).
       ${ok?"":`<br>Il faut soit réduire le montant appelé de <strong>${fmt(Math.round((fin.percu-fin.charges*fin.tauxMax/100)*100)/100)}</strong>, soit justifier davantage de charges sur le périmètre — un dépassement de plafond est une demande de remboursement en puissance.`}
-      <br><span style="color:var(--text-3)">Le taux se calcule sur le coût projet <em>tel qu'affiché ci-dessous</em> : intégrer les frais de structure augmente le dénominateur et fait donc baisser le taux. C'est le coût complet, mais le réglage change le résultat du contrôle — vérifiez qu'il correspond à ce que le financeur accepte.</span></div>`;
+      <br><span style="color:var(--text-3)">Le dénominateur est le <strong>total du tableau ci-dessous</strong>, frais de structure compris s'ils sont cochés : les intégrer augmente le total et fait donc baisser le taux. C'est le coût complet, mais le réglage change le résultat du contrôle — vérifiez qu'il correspond à ce que le financeur accepte.</span></div>`;
   }
   h+=`<div class="scard" style="margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:6px">
@@ -10126,17 +10143,17 @@ function engPartSuivi(e,i){
     });
     if(o.locaux==="ligne"&&Math.abs(fin.loc.net)>0.004)
       h+=`<tr style="background:var(--blue-bg)"><td><strong>Frais locaux (FV / FP)</strong>
-        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",",")+" % du coût projet":""}</span></td>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",",")+" % du total":""}</span></td>
         <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.loc.net)}</td><td style="text-align:right">—</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.loc.net)}</td></tr>`;
     if(o.lab==="ligne"&&!fin.labFinance&&Math.abs(fin.lab.net)>0.004)
       h+=`<tr style="background:var(--blue-bg)"><td><strong>LAB Lit uP</strong>
-        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLab!==null?String(fin.tauxLab).replace(".",",")+" % de « projet + frais locaux »":""}</span></td>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLab!==null?String(fin.tauxLab).replace(".",",")+" % du total":""}</span></td>
         <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.lab.net)}</td><td style="text-align:right">—</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.lab.net)}</td></tr>`;
     if(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004)
       h+=`<tr style="background:var(--blue-bg)"><td><strong>Frais généraux (FG)</strong>
-        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxGen!==null?String(fin.tauxGen).replace(".",",")+" % de « projet + frais locaux »":""}</span></td>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxGen!==null?String(fin.tauxGen).replace(".",",")+" % du total":""}</span></td>
         <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.gen.net)}</td><td style="text-align:right">—</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.gen.net)}</td></tr>`;
     h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
@@ -10152,11 +10169,20 @@ function engPartSuivi(e,i){
       Le <strong>LAB fait partie du périmètre financé</strong> : il compte comme projet et n'est donc pas réparti, quel que soit le réglage. Sans ce verrou, ses coûts seraient comptés deux fois — une fois comme projet, une fois comme frais.</div>`;
   }
   if(o.locaux!=="non"||o.generaux!=="non"||(o.lab!=="non"&&!fin.labFinance)){
-    h+=`<div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.7">
-      ${o.locaux!=="non"?`<strong>Frais locaux</strong> ${fmt(fin.loc.net)} — soit <strong>${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",","):"—"} %</strong> du coût projet (${fmt(fin.baseLoc)}).`:""}
-      ${(o.lab!=="non"&&!fin.labFinance)?`${o.locaux!=="non"?"<br>":""}<strong>LAB</strong> ${fmt(fin.lab.net)} — soit <strong>${fin.tauxLab!==null?String(fin.tauxLab).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}). Le LAB partage cette base avec les frais généraux : c'est un programme transversal de même nature, pas une couche de plus.`:""}
-      ${o.generaux!=="non"?`${(o.locaux!=="non"||(o.lab!=="non"&&!fin.labFinance))?"<br>":""}<strong>Frais généraux</strong> ${fmt(fin.gen.net)} — soit <strong>${fin.tauxGen!==null?String(fin.tauxGen).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}), et non du seul coût projet : un taux d'overhead s'applique à un coût déjà chargé.`:""}
-      <br>Ces parts sont calculées au prorata des heures d'action, avec la même clé que le suivi analytique — les deux vues ne peuvent pas se contredire.</div>`;
+    const pcTxt=v=>v===null?"—":String(v).replace(".",",");
+    const prodIgn=Math.round(((o.locaux!=="non"?(fin.loc.prodIgnores||0):0)
+      +((o.lab!=="non"&&!fin.labFinance)?(fin.lab.prodIgnores||0):0)
+      +(o.generaux!=="non"?(fin.gen.prodIgnores||0):0))*100)/100;
+    h+=`<div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.8">
+      <strong>Composition du total (${fmt(fin.totalCh)})</strong> — chaque part est rapportée à ce total, et l'ensemble fait 100 % :
+      <br>coût du projet ${fmt(fin.chProjet)} · <strong>${pcTxt(fin.tauxProjet)} %</strong>
+      ${o.locaux!=="non"?`<br>frais locaux ${fmt(fin.loc.net)} · <strong>${pcTxt(fin.tauxLoc)} %</strong>`:""}
+      ${(o.lab!=="non"&&!fin.labFinance)?`<br>LAB ${fmt(fin.lab.net)} · <strong>${pcTxt(fin.tauxLab)} %</strong>`:""}
+      ${o.generaux!=="non"?`<br>frais généraux ${fmt(fin.gen.net)} · <strong>${pcTxt(fin.tauxGen)} %</strong>`:""}
+      <br>Ces parts sont calculées au prorata des heures d'action, avec la même clé que le suivi analytique — les deux vues ne peuvent pas se contredire.
+      <br><strong>Seules les charges sont réparties.</strong> Une subvention de fonctionnement reste sur son code : la répartir mettrait des miettes de crédit sur les comptes de produits de chaque projet, et rendrait les frais négatifs dès que ces subventions dépassent les charges.
+      ${prodIgn?`<br><span style="color:var(--text-2)">${fmt(prodIgn)} de produits de fonctionnement ne sont donc pas comptés ici</span> — ils financent la structure, pas ce projet.`:""}
+      </div>`;
   }
   h+=`<div style="font-size:9px;color:var(--text-3);margin-top:5px">${fin.codes.length} code(s) projet · salaires ventilés inclus · comptes vides écartés, ordre du plan comptable</div>
   </div>`;
