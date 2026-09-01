@@ -142,6 +142,15 @@ tr.grp-sub td:first-child::before{content:"\21b3\a0";color:var(--accent);opacity
 /* ─── CARDS & GRIDS ─── */
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;padding:16px 20px}
 .scard{background:var(--bg-2);border-radius:10px;padding:14px;border:1px solid var(--border);transition:border .2s;box-shadow:var(--shadow)}.scard:hover{border-color:var(--border-h)}
+/* Section « hors exercice » d'une enveloppe de frais : repliée mais visible. */
+.fg-hors>summary{font-size:9.5px;color:var(--text-2);cursor:pointer;padding:5px 9px;border-radius:7px;
+  border:1px dashed var(--border-h);background:var(--bg-3);list-style:none;display:flex;align-items:center;gap:5px}
+.fg-hors>summary::-webkit-details-marker{display:none}
+.fg-hors>summary::before{content:"▸";color:var(--text-3);font-size:9px}
+.fg-hors[open]>summary::before{content:"▾"}
+.fg-hors>summary:hover{border-color:var(--accent);color:var(--accent)}
+.fg-hors-n{display:inline-block;min-width:15px;text-align:center;font-weight:700;font-family:var(--mono);
+  font-size:9px;padding:1px 4px;border-radius:5px;background:var(--amber-bg);color:var(--amber)}
 .sbar{height:5px;background:var(--bg-0);border-radius:3px;overflow:hidden;margin-top:8px}.sbar-f{height:100%;border-radius:3px;transition:width .5s}
 .chip{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;background:var(--accent-bg);border:1px solid rgba(99,102,241,.2);border-radius:12px;font-size:10px;color:var(--accent-l);cursor:pointer;transition:.2s}.chip:hover{background:rgba(99,102,241,.15)}
 .chip .x{opacity:.5;margin-left:2px}.chip .x:hover{opacity:1}
@@ -257,7 +266,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01g <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01h <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4626,8 +4635,10 @@ function fgDiagDessine(){
       });
       if(hors.length){
         const forces=hors.filter(l=>fgInclus(rg.k,actCode(l)));
-        h+=`<details style="margin-top:5px"${forces.length?" open":""}>
-          <summary style="font-size:9px;color:var(--text-3);cursor:pointer">${hors.length} projet(s) hors de l'exercice ${escHtml(exo)} — écartés d'office${forces.length?" · "+forces.length+" réintégré(s) à la main":""}</summary>
+        // La ligne était en gris 9 px sous le tableau : personne ne la trouvait.
+        // Elle porte maintenant un cadre, un compteur et l'action qu'elle permet.
+        h+=`<details style="margin-top:6px" class="fg-hors"${forces.length?" open":""}>
+          <summary><span class="fg-hors-n">${hors.length}</span> projet(s) <strong>hors de l'exercice ${escHtml(exo)}</strong> — écartés d'office${forces.length?` · <span style="color:var(--accent);font-weight:700">${forces.length} réintégré(s) à la main</span>`:""} <span style="color:var(--text-3);font-weight:400">· cliquer pour voir et réintégrer</span></summary>
           <div style="font-size:9px;color:var(--text-3);margin:3px 0 4px;line-height:1.7">
             Aucune écriture affectée à ${escHtml(exo)}, et aucune date de parcours dans Airtable qui chevauche l'exercice.
             Un parcours qui vient d'ouvrir est dans ce cas : cochez-le pour qu'il porte sa part de frais. L'outil ne le devine pas — un ancien parcours sans écriture ici ressemblerait à un parcours neuf.
@@ -4637,6 +4648,10 @@ function fgDiagDessine(){
             return `<button class="fb${on?" on":""}" style="font-size:9px;${on?"color:var(--accent);border-color:var(--accent)":"opacity:.75"}"
               onclick="fgToggleInclus('${rg.k}','${cc}')" title="${escHtml(l)}${actHeures(cc)?" · "+actHeures(cc)+" h":" · aucune heure"}">${on?"✓":"○"} ${escHtml(cc)}</button>`;
           }).join("")}</div></details>`;
+      }else if(k.brut.length){
+        // Dire que la section est vide vaut mieux que ne rien dire : c'est la
+        // différence entre « aucun projet écarté » et « je ne trouve pas où c'est ».
+        h+=`<div style="margin-top:6px;font-size:9px;color:var(--text-3)">Aucun projet hors de l'exercice ${escHtml(exo)} pour cette enveloppe : tous les projets recevables sont dans le tableau.</div>`;
       }
       if(k.mode==="egal")h+=`<div style="font-size:9px;color:var(--amber);margin-top:4px">Aucun destinataire n'a de poids : répartition à parts égales, faute de mieux.</div>`;
       if(!k.cibles.length&&mt)h+=`<div style="font-size:9px;color:var(--red);margin-top:4px">${fmt(mt)} ne peuvent aller nulle part : ces charges resteront sur le code de l'enveloppe.</div>`;
