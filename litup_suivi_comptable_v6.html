@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01a <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01b <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -794,7 +794,8 @@ let curTab="class",curFilt="",compYear="2026";
 let suiviFilt={codes:[],yr:"",terr:"",
   col:(()=>{try{return localStorage.getItem("litup_suiviCol")||"proj"}catch(e){return "proj"}})(),
   vent:(()=>{try{return localStorage.getItem("litup_suiviVent")==="1"}catch(e){return false}})(),
-  fg:(()=>{try{return localStorage.getItem("litup_suiviFG")==="1"}catch(e){return false}})()};
+  fg:(()=>{try{return localStorage.getItem("litup_suiviFG")==="1"}catch(e){return false}})(),
+  lab:(()=>{try{return localStorage.getItem("litup_suiviLAB")==="1"}catch(e){return false}})()};
 // Année des cartes de stats (Lignes/Classées/Charges/Produits/Solde). "all" = toutes.
 let statsYear=(()=>{try{return localStorage.getItem("litup_statsYear")||String(new Date().getFullYear())}catch(e){return String(new Date().getFullYear())}})();
 // Version du budget affichée (null = la plus récente). Préférence locale, pas une donnée partagée.
@@ -4216,24 +4217,40 @@ function ventilRows(rows){
 // C'est un AFFICHAGE, comme la ventilation des salaires : les écritures ne sont
 // pas modifiées, le classement et le FEC ne bougent pas. Le fonctionnement reste
 // une réalité comptable ; ce qu'on répartit, c'est sa LECTURE analytique.
+// Le LAB est traité comme une enveloppe de la même façon : c'est un programme
+// transversal, ses coûts servent tous les autres. Mais contrairement au
+// fonctionnement, le LAB peut aussi être un projet financé pour lui-même — un
+// financeur peut soutenir le LAB directement. D'où un interrupteur SÉPARÉ, et un
+// verrou côté engagement : si le LAB fait partie du périmètre financé, il ne se
+// répartit pas, il est le projet.
 const FG_REGLES=[
-  {pfx:"FG",terr:null, lib:"Fonctionnement National", ou:"tous les projets"},
-  {pfx:"FV",terr:"SUD",lib:"Fonctionnement Sud",      ou:"les projets du Sud"},
-  {pfx:"FP",terr:"IDF",lib:"Fonctionnement IDF",      ou:"les projets d'Île-de-France"}
+  {k:"FG", cat:"FONC",pfx:"FG", terr:null, grp:"generaux",lib:"Fonctionnement National", ou:"tous les projets"},
+  {k:"FV", cat:"FONC",pfx:"FV", terr:"SUD",grp:"locaux",  lib:"Fonctionnement Sud",      ou:"les projets du Sud"},
+  {k:"FP", cat:"FONC",pfx:"FP", terr:"IDF",grp:"locaux",  lib:"Fonctionnement IDF",      ou:"les projets d'Île-de-France"},
+  {k:"LAB",cat:"LAB", pfx:"LAB",terr:null, grp:"lab",     lib:"LAB Lit uP",              ou:"tous les projets"}
 ];
 const fgRegleDe=label=>{
-  if(actCat(label)!=="FONC")return null;
+  const cat=actCat(label);
   const c=actCode(label);
-  return FG_REGLES.find(r=>rhPfxMatch(c,r.pfx))||null;
+  return FG_REGLES.find(r=>r.cat===cat&&rhPfxMatch(c,r.pfx))||null;
 };
 // Projets destinataires : de VRAIS projets. Un code de fonctionnement ne peut
 // pas être sa propre destination, et RH est un code de transit qui se répartit
 // par la clé des salaires, pas par les heures d'action.
-function fgCibles(regle){
+// grps : les groupes d'enveloppes en cours de répartition. Une enveloppe qu'on
+// répartit ne doit pas être destinataire d'une autre : sinon, avec le LAB et les
+// frais généraux tous deux répartis, le LAB recevait sa part de frais généraux
+// et gardait ce reliquat pour toujours, la passe étant unique. 500 € restaient
+// ainsi sur un code qu'on avait justement demandé de vider.
+function fgCibles(regle,grps){
+  const actifs=grps&&grps.length?grps:[regle.grp];
   return actLabels().filter(l=>{
     if(rhExclu(l))return false;
     const cat=actCat(l);
     if(cat==="FONC"||cat==="RH"||cat==="SANS")return false;
+    const c=actCode(l);
+    // Ni sa propre enveloppe, ni une enveloppe elle-même en cours de répartition.
+    if(FG_REGLES.some(r=>(r.pfx===regle.pfx||actifs.indexOf(r.grp)>=0)&&r.cat===cat&&rhPfxMatch(c,r.pfx)))return false;
     if(regle.terr&&terrNorm(actTerr(l))!==regle.terr)return false;
     return true;
   });
@@ -4242,8 +4259,8 @@ function fgCibles(regle){
 // à parts égales : un code de fonctionnement n'aura jamais d'heures de formation
 // par nature, et deux parcours mal renseignés ne doivent pas annuler le prorata
 // des huit autres. On dit ce qui a été écarté.
-function fgParts(regle){
-  const tous=fgCibles(regle);
+function fgParts(regle,grps){
+  const tous=fgCibles(regle,grps);
   const avec=tous.filter(l=>actHeures(actCode(l))>0);
   const sans=tous.filter(l=>actHeures(actCode(l))<=0);
   if(!avec.length){
@@ -4257,24 +4274,26 @@ function fgParts(regle){
 // _fgMemo est déclaré tout en haut, à côté de _actCache : le déclarer ici le
 // rendait inaccessible à invalidateActCache, défini plus haut dans le fichier.
 function fgMemo(){if(!_fgMemo)_fgMemo={};return _fgMemo}
-function fgPartsMemo(regle){
-  const c=fgMemo();
-  if(!(regle.pfx in c))c[regle.pfx]=fgParts(regle);
-  return c[regle.pfx];
+function fgPartsMemo(regle,grps){
+  const c=fgMemo(),k=regle.pfx+"|"+((grps||[]).slice().sort().join(","));
+  if(!(k in c))c[k]=fgParts(regle,grps);
+  return c[k];
 }
 // Deuxième passe d'affichage, après la ventilation des salaires : ce qui reste
 // sur un code de fonctionnement part sur les projets. L'ordre compte — la part
 // de charges collectives que la masse salariale n'affecte à aucun projet atterrit
 // sur le fonctionnement, et c'est bien celle-là qu'on veut voir repartir ensuite.
-function fgRows(rows){
+// grps : les groupes d'enveloppes à répartir (« locaux », « generaux », « lab »).
+// Sans filtre, tout est réparti — c'est l'ancien comportement du suivi analytique.
+function fgRows(rows,grps){
   const src=rows||[];
   const out=[],reparties=[],ratees=[];
   src.forEach(r=>{
     const rg=fgRegleDe(r.act);
-    if(!rg){out.push(r);return}
+    if(!rg||(grps&&grps.indexOf(rg.grp)<0)){out.push(r);return}
     const mt=(r.deb||0)-(r.cre||0);
     if(Math.abs(mt)<0.005){out.push(r);return}
-    const k=fgPartsMemo(rg);
+    const k=fgPartsMemo(rg,grps);
     if(!k.cibles.length){out.push(r);ratees.push({r,lib:rg.lib,why:"aucun projet destinataire pour "+rg.ou});return}
     out.push(...ventilEclate(r,k.cibles.map((l,i)=>({act:l,part:k.parts[i]})),0,
       {fg:rg.lib,mode:k.mode,ou:rg.ou}));
@@ -4284,6 +4303,7 @@ function fgRows(rows){
   return {rows:out,reparties,ratees};
 }
 function suiviSetFG(v){suiviFilt.fg=!!v;try{localStorage.setItem("litup_suiviFG",v?"1":"0")}catch(e){}render()}
+function suiviSetLAB(v){suiviFilt.lab=!!v;try{localStorage.setItem("litup_suiviLAB",v?"1":"0")}catch(e){}render()}
 
 // --- REPARTIR UNE ECRITURE SUR UNE FAMILLE DE PROJETS ---
 // Une subvention « Action Jeunes Sud » ne porte pas un code projet : elle porte
@@ -4330,23 +4350,55 @@ function famSplitCalc(){
   const retenus=st.sel?tous.filter(l=>st.sel.indexOf(l)>=0):tous.slice();
   // Périmètre « mois » : on répartit ce qui se passe ce mois-là, donc heures au
   // mois. Exercice ou famille entière : les heures totales de chaque parcours.
-  const k=retenus.length?famParts(retenus,y,st.scope==="mois"):{mode:"egal",sans:[],parts:[]};
-  let rd=0,rc=0;
   // En modification, le total de référence est celui de l'écriture d'origine,
   // mémorisé dans la répartition — la ligne cliquée n'en porte qu'une part.
   const tD=st.sid?(st.refDeb||0):(r.deb||0), tC=st.sid?(st.refCre||0):(r.cre||0);
-  const parts=retenus.map((l,i)=>{
-    const dernier=i===retenus.length-1;
-    const d=dernier?Math.round((tD-rd)*100)/100:Math.round(tD*k.parts[i]*100)/100;
-    const c=dernier?Math.round((tC-rc)*100)/100:Math.round(tC*k.parts[i]*100)/100;
+  // ── MONTANTS FIGÉS ──
+  // « Un projet F2F est financé à 80 % par la CAF ; j'affecte 1 500 € d'une
+  // fondation pour compléter. » Ce 1 500 € est une décision, pas un calcul : il
+  // ne doit plus bouger quand la répartition change, qu'un projet arrive ou que
+  // les heures d'action sont corrigées. Le RESTE, lui, continue de suivre le
+  // prorata sur les projets non figés.
+  // On mémorise un MONTANT et jamais un pourcentage : un pourcentage se
+  // recalculerait à chaque changement de total, et « ce qui est figé » ne serait
+  // plus figé. Le pourcentage n'est qu'un mode de saisie, converti aussitôt.
+  const fixes=st.fixes||{};
+  const estFige=l=>{const v=fixes[actCode(l)];return v!==undefined&&v!==null&&v!==""};
+  const mtFige=l=>Math.round((parseFloat(fixes[actCode(l)])||0)*100)/100;
+  const libres=retenus.filter(l=>!estFige(l));
+  const figes=retenus.filter(estFige);
+  const sommeFigee=Math.round(figes.reduce((a,l)=>a+mtFige(l),0)*100)/100;
+  const surCre=(tC>0)&&sommeFigee>tC+0.005;
+  const surDeb=(tD>0)&&sommeFigee>tD+0.005;
+  const surFige=surCre||surDeb;
+  const resteD=Math.max(0,Math.round((tD-(tD>0?sommeFigee:0))*100)/100);
+  const resteC=Math.max(0,Math.round((tC-(tC>0?sommeFigee:0))*100)/100);
+  const k=libres.length?famParts(libres,y,st.scope==="mois"):{mode:"egal",sans:[],parts:[]};
+  let rd=0,rc=0;
+  const partLibre={};
+  libres.forEach((l,i)=>{
+    const dernier=i===libres.length-1;
+    const d=dernier?Math.round((resteD-rd)*100)/100:Math.round(resteD*k.parts[i]*100)/100;
+    const c=dernier?Math.round((resteC-rc)*100)/100:Math.round(resteC*k.parts[i]*100)/100;
     rd+=d;rc+=c;
-    return {act:l,part:k.parts[i],deb:d,cre:c};
+    partLibre[l]={deb:d,cre:c,part:k.parts[i]};
+  });
+  const totRef=tC>0?tC:tD;
+  const parts=retenus.map(l=>{
+    if(estFige(l)){
+      const v=mtFige(l);
+      return {act:l,fige:true,part:totRef>0?v/totRef:0,
+              deb:tD>0?v:0,cre:tC>0?v:0};
+    }
+    const x=partLibre[l]||{deb:0,cre:0,part:0};
+    return {act:l,fige:false,part:x.part,deb:x.deb,cre:x.cre};
   });
   const parAct={};parts.forEach(x=>{parAct[x.act]=x});
   // sel est renvoye : famSplitResel compare l'ancienne selection a la nouvelle
   // liste, et sans cette cle il retombait sur « tout etait coche » — un projet
   // volontairement ecarte revenait des qu'on ajoutait une famille.
-  return {r,y,m,mk,groupes,tous,retenus,parFam,sel:st.sel||null,mode:k.mode,sans:k.sans,parts,parAct};
+  return {r,y,m,mk,groupes,tous,retenus,parFam,sel:st.sel||null,mode:k.mode,sans:k.sans,parts,parAct,
+    fixes,figes,libres,sommeFigee,surFige,resteD,resteC,totRef};
 }
 // Ajouter ou retirer une famille, ou changer de périmètre, ne doit pas effacer
 // les décochages déjà faits : on garde les choix encore valables, et tout projet
@@ -4380,6 +4432,34 @@ function famSplitScope(v){
   const avant=famSplitCalc();
   _famSplit.scope=v;
   famSplitResel(avant);famSplitDessine();
+}
+// Fige ou libère le montant d'un projet. « auto » fige la part actuellement
+// calculée ; une valeur terminée par % est convertie en euros immédiatement, car
+// c'est le MONTANT qui doit rester stable, pas un pourcentage qui se recalculerait.
+function famSplitFixe(i,v){
+  const st=_famSplit;if(!st)return;
+  const c=famSplitCalc();if(!c)return;
+  const l=c.tous[i];if(!l)return;
+  const code=actCode(l);
+  st.fixes=st.fixes||{};
+  const txt=String(v===undefined||v===null?"":v).trim();
+  if(txt===""){delete st.fixes[code];famSplitDessine();return}
+  if(txt==="auto"){
+    const x=c.parAct[l];if(!x)return;
+    st.fixes[code]=Math.round((x.cre||x.deb||0)*100)/100;
+    famSplitDessine();return;
+  }
+  let n;
+  if(/%$/.test(txt)){
+    const pct=parseFloat(txt.replace("%","").replace(",","."));
+    if(isNaN(pct)){famSplitDessine();return}
+    n=Math.round((c.totRef||0)*pct/100*100)/100;
+  }else{
+    n=parseFloat(txt.replace(/\s/g,"").replace(",","."));
+  }
+  if(isNaN(n)||n<0){delete st.fixes[code]}
+  else st.fixes[code]=Math.round(n*100)/100;
+  famSplitDessine();
 }
 function famSplitCoche(i){
   const c=famSplitCalc();if(!c)return;
@@ -4438,16 +4518,42 @@ function splitRecalc(sid,labels,dejaVerifie){
   // la main : on ne les écrase pas.
   if(!dejaVerifie&&(Math.abs(act.deb-(rec.deb||0))>0.005||Math.abs(act.cre-(rec.cre||0))>0.005))
     return {err:"montants modifiés à la main depuis la répartition ("+fmt(act.deb-(rec.deb||0))+" / "+fmt(act.cre-(rec.cre||0))+" d'écart)"};
-  const k=famParts(labels,rec.y,rec.scope==="mois");
+  // Les montants figés ne bougent pas : ni un projet ajouté, ni une correction
+  // des heures ne les touche. Seul le RESTE se réajuste — c'est tout l'intérêt
+  // de les avoir figés.
+  const fx=rec.fixes||{};
+  const estF=l=>{const v=fx[actCode(l)];return v!==undefined&&v!==null&&v!==""};
+  const mtF=l=>Math.round((parseFloat(fx[actCode(l)])||0)*100)/100;
+  const libres=labels.filter(l=>!estF(l));
+  const sommeF=Math.round(labels.filter(estF).reduce((a,l)=>a+mtF(l),0)*100)/100;
+  const tD=rec.deb||0, tC=rec.cre||0;
+  if((tC>0&&sommeF>tC+0.005)||(tD>0&&sommeF>tD+0.005))
+    return {err:"les montants figés ("+fmt(sommeF)+") dépassent l'écriture ("+fmt(tC||tD)+")"};
+  const restD=Math.max(0,Math.round((tD-(tD>0?sommeF:0))*100)/100);
+  const restC=Math.max(0,Math.round((tC-(tC>0?sommeF:0))*100)/100);
+  const kk=libres.length?famParts(libres,rec.y,rec.scope==="mois"):{parts:[]};
+  const parLibre={};let ld=0,lc=0;
+  libres.forEach((l,j)=>{
+    const der=j===libres.length-1;
+    const d=der?Math.round((restD-ld)*100)/100:Math.round(restD*kk.parts[j]*100)/100;
+    const c=der?Math.round((restC-lc)*100)/100:Math.round(restC*kk.parts[j]*100)/100;
+    ld+=d;lc+=c;parLibre[actCode(l)]={deb:d,cre:c,part:kk.parts[j]};
+  });
+  const k={parts:labels.map(l=>{
+    if(estF(l))return (tC>0?mtF(l)/tC:(tD>0?mtF(l)/tD:0));
+    const x=parLibre[actCode(l)];return x?x.part:0;
+  })};
   const modele=L[0], idx=D.rows.indexOf(L[L.length-1]);
   let rd=0,rc=0;const nouvelles=[];
   labels.forEach((l,i)=>{
-    const dernier=i===labels.length-1;
-    const d=dernier?Math.round(((rec.deb||0)-rd)*100)/100:Math.round((rec.deb||0)*k.parts[i]*100)/100;
-    const c=dernier?Math.round(((rec.cre||0)-rc)*100)/100:Math.round((rec.cre||0)*k.parts[i]*100)/100;
+    const fige=estF(l);
+    const x=parLibre[actCode(l)];
+    const d=fige?(tD>0?mtF(l):0):(x?x.deb:0);
+    const c=fige?(tC>0?mtF(l):0):(x?x.cre:0);
     rd+=d;rc+=c;
     const com=[String(rec.comment||"").trim(),
-      "Réparti depuis « "+splitFamLib(l)+" » ("+(k.parts[i]*100).toFixed(2)+" %)"].filter(Boolean).join(" · ");
+      fige?"Montant figé à la main"
+          :"Réparti depuis « "+splitFamLib(l)+" » ("+(k.parts[i]*100).toFixed(2)+" %)"].filter(Boolean).join(" · ");
     const ex=L.find(r=>actCode(r.act)===actCode(l));
     if(ex){ex.act=l;ex.deb=d;ex.cre=c;ex.comment=com}
     // Un projet qui rejoint une répartition rejoint aussi SA pièce : la
@@ -4609,7 +4715,7 @@ function openFamSplit(id){
   // ce garde-fou on repartait d'un éclatement de la seule sous-ligne, en
   // affichant son montant comme s'il était celui du financement entier.
   const orphelin=!!(r.split&&!splitsMap()[r.split]);
-  _famSplit={id,cles:[],scope:"annee",sel:null,auto:true,orphelin};
+  _famSplit={id,cles:[],scope:"annee",sel:null,auto:true,orphelin,fixes:{}};
   famSplitDessine();
 }
 // Vue d'une répartition existante : d'où elle vient, sur quoi elle porte
@@ -4675,7 +4781,10 @@ function splitModifier(sid){
   const L=splitLignes(sid);if(!L.length)return;
   _famSplit={id:L[0].id,sid,cles:(rec.cles||[]).slice(),scope:rec.scope||"annee",
     sel:(rec.codes||[]).slice(),auto:rec.complet!==false,
-    refDeb:rec.deb||0,refCre:rec.cre||0,refLib:String(rec.lib||""),refDt:String(rec.dt||"")};
+    refDeb:rec.deb||0,refCre:rec.cre||0,refLib:String(rec.lib||""),refDt:String(rec.dt||""),
+    // Les montants figés font partie de la répartition mémorisée : les rouvrir
+    // sans eux ferait « dégeler » en silence une décision prise exprès.
+    fixes:Object.assign({},rec.fixes||{})};
   famSplitDessine();
 }
 // Défaire : les sous-lignes redeviennent l'écriture unique d'origine. Refusé si
@@ -4764,7 +4873,7 @@ function famSplitDessine(){
     let lignes="";
     c.groupes.forEach(g=>{
       const pris=g.proj.filter(l=>c.parAct[l]).length;
-      lignes+=`<tr><td colspan="7" style="padding:4px 6px;font-size:8px;font-weight:700;color:var(--accent-l);background:var(--accent-bg)">
+      lignes+=`<tr><td colspan="8" style="padding:4px 6px;font-size:8px;font-weight:700;color:var(--accent-l);background:var(--accent-bg)">
         ${escHtml(g.zone)} — ${escHtml(g.lib)} · ${pris} retenu(s) sur ${g.proj.length}${g.proj.length?"":" : aucun projet sur ce périmètre"}</td></tr>`;
       g.proj.forEach(l=>{
         const i=c.tous.indexOf(l), x=c.parAct[l], on=!!x;
@@ -4777,9 +4886,14 @@ function famSplitDessine(){
           <td style="padding:3px 6px;font-size:9px;text-align:right">${hh>0
             ?`<span style="color:var(--text-2)" title="${org==="airtable"?"Reprises d’Airtable (« Nb heures formation »)":"Saisie manuelle"}">${hh}${org==="airtable"?"":" ✎"}</span>`
             :`<span style="color:var(--amber)" title="« Nb heures formation » est vide dans Airtable pour ce parcours : la répartition retombe à parts égales.">vide ⚠️</span>`}</td>
-          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${on?(x.part*100).toFixed(2)+" %":"—"}</td>
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${on?(x.part*100).toFixed(2)+" %"+(x.fige?" 🔒":""):"—"}</td>
           <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--red)">${on&&x.deb?fmt(x.deb):""}</td>
-          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${on&&x.cre?fmt(x.cre):""}</td></tr>`;
+          <td style="padding:3px 6px;font-size:9px;text-align:right;font-family:var(--mono);color:var(--green)">${on&&x.cre?fmt(x.cre):""}</td>
+          <td style="padding:3px 4px;white-space:nowrap">${on?(x.fige
+            ?`<input class="cj" style="width:74px;text-align:right;border-color:var(--accent);color:var(--accent)" value="${c.fixes[code]}"
+                onchange="famSplitFixe(${i},this.value)" title="Montant figé pour ce projet. Il ne bougera plus : ni un nouveau projet, ni une correction des heures d'action, ni un changement de famille ne le modifiera. Tapez « 25% » pour saisir en pourcentage — la valeur est convertie en euros aussitôt, car c'est le montant qui est figé. Videz la case pour libérer.">
+              <button class="ib" style="font-size:11px;color:var(--red)" onclick="famSplitFixe(${i},'')" title="Libérer ce montant : le projet reprend sa part au prorata des heures">✕</button>`
+            :`<button class="ib" style="font-size:10px" onclick="famSplitFixe(${i},'auto')" title="Figer le montant de ce projet à ${fmt(x.cre||x.deb)}. Le reste du financement continuera de se répartir sur les autres projets.">🔒</button>`):""}</td></tr>`;
       });
     });
     corps=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
@@ -4789,14 +4903,21 @@ function famSplitDessine(){
       </div>
       <div id="famSplitScroll" style="border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:40vh">
       <table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg-2);position:sticky;top:0">
-        ${["","Code","Projet","Heures d’action","Part","Débit","Crédit"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=4?"right":"left"}">${x}</th>`).join("")}
+        ${["","Code","Projet","Heures d’action","Part","Débit","Crédit","Figer"].map((x,j)=>`<th style="padding:5px 6px;font-size:9px;text-align:${j>=4&&j<7?"right":"left"}">${x}</th>`).join("")}
       </tr></thead><tbody>${lignes}
       <tr style="border-top:2px solid var(--accent);font-weight:700">
         <td colspan="4" style="padding:4px 6px;font-size:9px">${nCoch} sous-ligne(s)</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${nCoch?"100,00 %":"—"}</td>
         <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sd)}</td>
-        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sc)}</td></tr>
+        <td style="padding:4px 6px;font-size:9px;text-align:right;font-family:var(--mono)">${fmt(sc)}</td>
+        <td style="padding:4px 6px;font-size:9px">${c.figes.length?c.figes.length+" 🔒":""}</td></tr>
       </tbody></table></div>
+      ${c.figes.length?`<div style="margin-top:6px;padding:6px 10px;border-radius:7px;font-size:9px;line-height:1.7;${c.surFige?"background:var(--red-bg);border:1px solid rgba(248,113,113,.3)":"background:var(--accent-bg);border:1px solid rgba(99,102,241,.2)"}">
+        <strong>${c.figes.length} montant(s) figé(s)</strong> : ${escHtml(c.figes.map(l=>actCode(l)+" "+fmt(c.fixes[actCode(l)])).join(" · "))} — total ${fmt(c.sommeFigee)}.
+        ${c.surFige
+          ? `<br><strong style="color:var(--red)">Les montants figés dépassent l'écriture (${fmt(c.totRef)}).</strong> Réduisez-les : l'outil ne peut pas répartir un reste négatif, et il ne touchera pas à ce que vous avez figé.`
+          : `<br>Le reste — <strong>${fmt(c.resteC||c.resteD)}</strong> sur ${c.libres.length} projet(s) — continue de suivre le prorata des heures. Ajouter un projet, corriger des heures ou changer de famille ne modifiera <em>que</em> ce reste.`}
+        </div>`:""}
       ${c.retenus.length===c.tous.length&&c.tous.length
         ? `<label style="display:flex;gap:6px;align-items:flex-start;font-size:9px;color:var(--text-2);margin-top:8px;cursor:pointer">
             <input type="checkbox"${st.auto!==false?" checked":""} onchange="famSplitAuto(this.checked)" style="margin-top:1px">
@@ -4815,7 +4936,7 @@ function famSplitDessine(){
         ${nCoch&&(Math.abs(ecart)>0.005||Math.abs(ecartC)>0.005)?'<br><span style="color:var(--red)">Écart d’arrondi de '+fmt(ecart)+" / "+fmt(ecartC)+" : ne validez pas, signalez-le.</span>":nCoch?"<br>La somme des sous-lignes égale l’écriture d’origine, au centime.":""}
       </p>`;
   }
-  const pret=c.parts.length>0;
+  const pret=c.parts.length>0&&!c.surFige;
   $("modalC").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)famSplitFermer()"><div class="modal" style="max-width:900px">
     <h3>⧉ ${st.sid?"Modifier la répartition":"Répartir sur une ou plusieurs familles"}</h3>
     <p style="font-size:10px;color:var(--text-2);margin:6px 0 10px;line-height:1.7">
@@ -4860,6 +4981,9 @@ function famSplitFermer(){_famSplit=null;closeM()}
 // Applique une modification : réajuste les montants sur les projets retenus, et
 // retire ceux qui ont été décochés — sauf s'ils portent une pièce, auquel cas on
 // refuse et on le dit plutôt que de la perdre en silence.
+// Les montants figés du moment sont réenregistrés dans la répartition : sans ça,
+// figer puis appliquer une modification perdait le figeage au réajustement
+// suivant.
 function famSplitAppliquerModif(c){
   const sid=_famSplit.sid, rec=splitsMap()[sid];
   if(!rec){alert("Répartition introuvable.");return}
@@ -4886,6 +5010,11 @@ function famSplitAppliquerModif(c){
   rec.cles=(_famSplit.cles||[]).slice();
   rec.scope=_famSplit.scope;
   rec.complet=c.retenus.length===c.tous.length&&_famSplit.auto!==false;
+  // Un projet retiré de la répartition perd son figeage : le garder aurait
+  // réservé un montant à un projet qui n'est plus servi.
+  const gardeC=c.retenus.map(l=>actCode(l));
+  const fx={};Object.keys(_famSplit.fixes||{}).forEach(k=>{if(gardeC.indexOf(k)>=0)fx[k]=_famSplit.fixes[k]});
+  rec.fixes=fx;
   // Réajuster d'abord — la ligne modèle et la position d'insertion doivent
   // encore exister — puis retirer les décochés.
   const res=splitRecalc(sid,c.retenus.slice(),true);
@@ -4912,6 +5041,7 @@ function famSplitValider(){
     complet:c.retenus.length===c.tous.length&&_famSplit.auto!==false,
     codes:c.retenus.slice(),y:c.y,lib:String(base.lib||""),dt:String(base.dt||""),
     comment:String(base.comment||""),deb:base.deb||0,cre:base.cre||0,
+    fixes:Object.assign({},_famSplit.fixes||{}),
     cree:new Date().toISOString().substring(0,10)};
   // Chaque sous-ligne trace SA famille d'origine, pas la liste entiere : c'est
   // ce qu'on veut lire six mois plus tard sur une ligne prise au hasard.
@@ -4919,7 +5049,8 @@ function famSplitValider(){
     id:"f"+Date.now().toString(36)+"_"+j, split:sid,
     act:x.act, deb:x.deb, cre:x.cre,
     comment:[String(base.comment||"").trim(),
-      "Réparti depuis « "+(c.parFam[x.act]||"famille")+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
+      x.fige?"Montant figé à la main"
+            :"Réparti depuis « "+(c.parFam[x.act]||"famille")+" » ("+(x.part*100).toFixed(2)+" %)"].filter(Boolean).join(" · ")
   }));
   subs.forEach(x=>{delete x._vent});
   // La convention se recopie sur chaque sous-ligne via Object.assign — c'est
@@ -9337,6 +9468,7 @@ function engOpts(e){
   const o=e.opts=e.opts||{};
   if(o.locaux===undefined)o.locaux="non";      // "non" | "integre" | "ligne"
   if(o.generaux===undefined)o.generaux="non";
+  if(o.lab===undefined)o.lab="non";
   return o;
 }
 // Produits du périmètre, groupés par financeur. La clé est le rid Airtable quand
@@ -9398,11 +9530,22 @@ function engFin(e,auJour,opts){
   // Part du périmètre dans chaque enveloppe de frais : la même clé que le suivi
   // analytique, pour que les deux vues ne se contredisent pas.
   const partDe=(regle)=>{
-    const k=fgPartsMemo(regle);
+    const k=fgPartsMemo(regle,grpsActifs);
     let part=0;
     k.cibles.forEach((l,i)=>{if(codes.has(actCode(l)))part+=k.parts[i]});
     return part;
   };
+  // Le LAB dans le périmètre financé, c'est le LAB comme PROJET : on ne le
+  // répartit pas sur lui-même, et le réglage est neutralisé plutôt que d'aboutir
+  // à un double comptage silencieux.
+  const labFinance=[...codes].some(c=>rhPfxMatch(c,"LAB"));
+  // Groupes d'enveloppes réellement répartis : ils décident aussi des CIBLES,
+  // pour qu'une enveloppe répartie ne reçoive pas la part d'une autre.
+  // Déclaré après labFinance, dont il dépend.
+  const grpsActifs=[];
+  if(o.locaux!=="non")grpsActifs.push("locaux");
+  if(o.generaux!=="non")grpsActifs.push("generaux");
+  if(o.lab!=="non"&&!labFinance)grpsActifs.push("lab");
   const enveloppe=(pfxs)=>{
     const det={};let tot=0;
     (D.rows||[]).forEach(r=>{
@@ -9420,16 +9563,23 @@ function engFin(e,auJour,opts){
     return {det:Object.values(det),net:tot};
   };
   const loc=(o.locaux!=="non")?enveloppe(["FV","FP"]):{det:[],net:0};
+  const lab=(o.lab!=="non"&&!labFinance)?enveloppe(["LAB"]):{det:[],net:0};
   const gen=(o.generaux!=="non")?enveloppe(["FG"]):{det:[],net:0};
 
   // Taux affichés : les frais locaux sur le coût du projet, les frais généraux
   // sur « projet + frais locaux ».
+  // Le LAB est un frère du fonctionnement national, pas une couche supplémentaire :
+  // il partage la base « projet + frais locaux » avec les frais généraux. Ainsi la
+  // règle posée pour FG (« %FG compté sur total projet + frais locaux ») reste
+  // exactement celle demandée, sans que l'ajout du LAB la déplace.
   const baseLoc=chProjet;
   const baseGen=r2(chProjet+(o.locaux!=="non"?loc.net:0));
   const tauxLoc=baseLoc>0?r2(loc.net/baseLoc*100):null;
   const tauxGen=baseGen>0?r2(gen.net/baseGen*100):null;
+  const tauxLab=baseGen>0?r2(lab.net/baseGen*100):null;
 
   if(o.locaux==="integre")loc.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"locaux"));
+  if(o.lab==="integre"&&!labFinance)lab.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"lab"));
   if(o.generaux==="integre")gen.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"generaux"));
 
   // ── 3) mise en forme : ordre du plan comptable, comptes vides écartés ──
@@ -9438,7 +9588,8 @@ function engFin(e,auJour,opts){
     .sort((a,b)=>catKey(a.cat).localeCompare(catKey(b.cat),"fr",{numeric:true}));
   const chComptes=r2(comptes.reduce((a,x)=>a+x.charges,0));
   const prComptes=r2(comptes.reduce((a,x)=>a+x.produits,0));
-  const chLignes=r2((o.locaux==="ligne"?loc.net:0)+(o.generaux==="ligne"?gen.net:0));
+  const chLignes=r2((o.locaux==="ligne"?loc.net:0)+(o.generaux==="ligne"?gen.net:0)
+                   +((o.lab==="ligne"&&!labFinance)?lab.net:0));
   const charges=r2(chComptes+chLignes);
   const produits=prComptes;
 
@@ -9457,7 +9608,7 @@ function engFin(e,auJour,opts){
   const depasse=tauxMax>0&&tauxReel!==null&&tauxReel>tauxMax+0.005;
 
   return {comptes,charges,produits,percu,codes:[...codes],sansTrace,
-    chProjet,loc,gen,tauxLoc,tauxGen,baseLoc,baseGen,chLignes,
+    chProjet,loc,gen,lab,labFinance,tauxLoc,tauxGen,tauxLab,baseLoc,baseGen,chLignes,
     prodTotal:P.total,prodRetenu:P.retenu,prodGroupes:P.groupes,
     tauxMax,tauxReel,depasse,opts:o};
 }
@@ -9699,9 +9850,10 @@ function engFigerBilan(i){
          // Le détail par compte fait partie de ce qui a été transmis : c'est le
          // tableau que le financeur a reçu, il doit être figé avec le reste.
          comptes:fin.comptes.map(x=>({cat:x.cat,charges:x.charges,produits:x.produits})),
-         opts:{locaux:fin.opts.locaux,generaux:fin.opts.generaux},
-         fraisLocaux:fin.loc.net,fraisGeneraux:fin.gen.net,
-         tauxLoc:fin.tauxLoc,tauxGen:fin.tauxGen,
+         opts:{locaux:fin.opts.locaux,generaux:fin.opts.generaux,lab:fin.opts.lab},
+         fraisLocaux:fin.loc.net,fraisGeneraux:fin.gen.net,fraisLab:fin.lab.net,
+         labFinance:fin.labFinance,
+         tauxLoc:fin.tauxLoc,tauxGen:fin.tauxGen,tauxLab:fin.tauxLab,
          tauxMax:fin.tauxMax,tauxReel:fin.tauxReel,
          prodExclus:(e.prodExclus||[]).slice()},
     valeurs,note:"",fige:new Date().toISOString()});
@@ -9729,6 +9881,7 @@ function engBilanCSV(i,bi){
     ["— DÉTAIL PAR COMPTE COMPTABLE —"],["Compte","Charges","Produits"]];
   (b.fin.comptes||[]).forEach(x=>L.push([x.cat,String(x.charges).replace(".",","),String(x.produits).replace(".",",")]));
   if(b.fin.opts&&b.fin.opts.locaux==="ligne"&&b.fin.fraisLocaux)L.push(["Frais locaux (FV/FP)",String(b.fin.fraisLocaux).replace(".",","),""]);
+  if(b.fin.opts&&b.fin.opts.lab==="ligne"&&b.fin.fraisLab)L.push(["LAB Lit uP",String(b.fin.fraisLab).replace(".",","),""]);
   if(b.fin.opts&&b.fin.opts.generaux==="ligne"&&b.fin.fraisGeneraux)L.push(["Frais généraux (FG)",String(b.fin.fraisGeneraux).replace(".",","),""]);
   if(b.fin.tauxMax)L.push([""],["Plafond de prise en charge",String(b.fin.tauxMax).replace(".",",")+" %"],
     ["Taux constaté",String(b.fin.tauxReel===null?"":b.fin.tauxReel).replace(".",",")+" %"]);
@@ -9950,6 +10103,10 @@ function engPartSuivi(e,i){
         <select class="ms" style="width:180px;font-size:9px" onchange="engOptSet(${i},'locaux',this.value)"
           title="Part des frais du territoire (FV pour le Sud, FP pour l'Île-de-France) attribuable aux projets de ce périmètre, au prorata des heures d'action.">
           ${selFrais("locaux","non","Non intégrés")}${selFrais("locaux","integre","Dans les comptes")}${selFrais("locaux","ligne","Ligne à part")}</select>
+        <span style="font-size:8px;color:var(--text-3)">LAB</span>
+        <select class="ms" style="width:150px;font-size:9px" ${fin.labFinance?"disabled":""} onchange="engOptSet(${i},'lab',this.value)"
+          title="${fin.labFinance?"Le LAB fait partie du périmètre financé : il est le projet, il ne se répartit pas sur lui-même. Réglage neutralisé pour éviter un double comptage.":"Part des coûts du LAB attribuable à ce périmètre. Le LAB est un programme transversal — sauf quand un financeur le soutient pour lui-même, et alors il doit figurer dans le périmètre."}">
+          ${selFrais("lab","non","Non intégré")}${selFrais("lab","integre","Dans les comptes")}${selFrais("lab","ligne","Ligne à part")}</select>
         <span style="font-size:8px;color:var(--text-3)">Frais généraux FG</span>
         <select class="ms" style="width:180px;font-size:9px" onchange="engOptSet(${i},'generaux',this.value)"
           title="Part des frais généraux nationaux attribuable à ce périmètre. Le taux affiché se calcule sur « projet + frais locaux », comme un taux d'overhead sur un coût déjà chargé.">
@@ -9972,23 +10129,33 @@ function engPartSuivi(e,i){
         <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",",")+" % du coût projet":""}</span></td>
         <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.loc.net)}</td><td style="text-align:right">—</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.loc.net)}</td></tr>`;
+    if(o.lab==="ligne"&&!fin.labFinance&&Math.abs(fin.lab.net)>0.004)
+      h+=`<tr style="background:var(--blue-bg)"><td><strong>LAB Lit uP</strong>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLab!==null?String(fin.tauxLab).replace(".",",")+" % de « projet + frais locaux »":""}</span></td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.lab.net)}</td><td style="text-align:right">—</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.lab.net)}</td></tr>`;
     if(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004)
       h+=`<tr style="background:var(--blue-bg)"><td><strong>Frais généraux (FG)</strong>
         <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxGen!==null?String(fin.tauxGen).replace(".",",")+" % de « projet + frais locaux »":""}</span></td>
         <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.gen.net)}</td><td style="text-align:right">—</td>
         <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.gen.net)}</td></tr>`;
     h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
-      <td>TOTAL — ${fin.comptes.length} compte(s)${(()=>{const n=(o.locaux==="ligne"&&Math.abs(fin.loc.net)>0.004?1:0)+(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004?1:0);return n?" + "+n+" ligne(s) de frais":""})()}</td>
+      <td>TOTAL — ${fin.comptes.length} compte(s)${(()=>{const n=(o.locaux==="ligne"&&Math.abs(fin.loc.net)>0.004?1:0)+(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004?1:0)+(o.lab==="ligne"&&!fin.labFinance&&Math.abs(fin.lab.net)>0.004?1:0);return n?" + "+n+" ligne(s) de frais":""})()}</td>
       <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.charges)}</td>
       <td style="text-align:right;font-family:var(--mono);color:var(--green)">${fmt(fin.produits)}</td>
       <td style="text-align:right;font-family:var(--mono)">${fmt(Math.round((fin.produits-fin.charges)*100)/100)}</td></tr></tfoot></table></div>`;
   }
   // Les taux de frais, toujours affichés dès qu'une enveloppe est intégrée :
   // c'est le chiffre qu'un financeur discute.
-  if(o.locaux!=="non"||o.generaux!=="non"){
+  if(fin.labFinance&&o.lab!=="non"){
+    h+=`<div style="font-size:9px;color:var(--amber);margin-top:6px;line-height:1.7">
+      Le <strong>LAB fait partie du périmètre financé</strong> : il compte comme projet et n'est donc pas réparti, quel que soit le réglage. Sans ce verrou, ses coûts seraient comptés deux fois — une fois comme projet, une fois comme frais.</div>`;
+  }
+  if(o.locaux!=="non"||o.generaux!=="non"||(o.lab!=="non"&&!fin.labFinance)){
     h+=`<div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.7">
       ${o.locaux!=="non"?`<strong>Frais locaux</strong> ${fmt(fin.loc.net)} — soit <strong>${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",","):"—"} %</strong> du coût projet (${fmt(fin.baseLoc)}).`:""}
-      ${o.generaux!=="non"?`${o.locaux!=="non"?"<br>":""}<strong>Frais généraux</strong> ${fmt(fin.gen.net)} — soit <strong>${fin.tauxGen!==null?String(fin.tauxGen).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}), et non du seul coût projet : un taux d'overhead s'applique à un coût déjà chargé.`:""}
+      ${(o.lab!=="non"&&!fin.labFinance)?`${o.locaux!=="non"?"<br>":""}<strong>LAB</strong> ${fmt(fin.lab.net)} — soit <strong>${fin.tauxLab!==null?String(fin.tauxLab).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}). Le LAB partage cette base avec les frais généraux : c'est un programme transversal de même nature, pas une couche de plus.`:""}
+      ${o.generaux!=="non"?`${(o.locaux!=="non"||(o.lab!=="non"&&!fin.labFinance))?"<br>":""}<strong>Frais généraux</strong> ${fmt(fin.gen.net)} — soit <strong>${fin.tauxGen!==null?String(fin.tauxGen).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}), et non du seul coût projet : un taux d'overhead s'applique à un coût déjà chargé.`:""}
       <br>Ces parts sont calculées au prorata des heures d'action, avec la même clé que le suivi analytique — les deux vues ne peuvent pas se contredire.</div>`;
   }
   h+=`<div style="font-size:9px;color:var(--text-3);margin-top:5px">${fin.codes.length} code(s) projet · salaires ventilés inclus · comptes vides écartés, ordre du plan comptable</div>
@@ -10319,7 +10486,10 @@ function suiviBaseRows(){
   // Les frais généraux se répartissent APRÈS les salaires : la part de charges
   // collectives que la masse salariale n'affecte à aucun projet atterrit sur le
   // fonctionnement, et c'est bien celle-là qu'on veut voir repartir ensuite.
-  if(suiviFilt.fg){const g=fgRows(src);src=g.rows;
+  const grps=[];
+  if(suiviFilt.fg)grps.push("locaux","generaux");
+  if(suiviFilt.lab)grps.push("lab");
+  if(grps.length){const g=fgRows(src,grps);src=g.rows;
     _suiviFG=g.reparties;_suiviFGRatees=g.ratees}
   return src.filter(r=>{
     if(suiviFilt.terr){const t=terrNorm(actTerr(r.act));if(t&&t!==suiviFilt.terr)return false}
@@ -10555,6 +10725,12 @@ function rSuivi(el){
       title="FG sur tous les projets, FV sur ceux du Sud, FP sur ceux d'Île-de-France, au prorata des heures d'action. Charges ET produits. C'est un affichage : les écritures ne sont pas modifiées.">
       <option value="0"${suiviFilt.fg?"":" selected"}>Au code de fonctionnement</option>
       <option value="1"${suiviFilt.fg?" selected":""}>Répartis sur les projets</option>
+    </select>
+    <span style="font-size:8px;color:var(--text-3);margin-left:6px">LAB</span>
+    <select class="ms" style="width:170px;font-size:9px" onchange="suiviSetLAB(this.value==='1')"
+      title="Le LAB est un programme transversal : ses coûts servent tous les autres projets. Interrupteur séparé du fonctionnement, parce qu'un financeur peut aussi soutenir le LAB pour lui-même — dans ce cas, laissez-le à son code.">
+      <option value="0"${suiviFilt.lab?"":" selected"}>Au code LAB</option>
+      <option value="1"${suiviFilt.lab?" selected":""}>Réparti sur les projets</option>
     </select>
     <button class="b bd" style="font-size:8px;padding:2px 6px" onclick="openVentDiag()"
       title="Voir où la chaîne de ventilation s'arrête : interrupteur, « Nom relevé » sur les postes, rattachement des paies, affectation du temps">🔎 Pourquoi ?</button>
