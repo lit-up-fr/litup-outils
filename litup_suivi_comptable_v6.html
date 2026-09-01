@@ -266,7 +266,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01i <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01j <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -1179,6 +1179,7 @@ async function saveComptaToSheet(){
     +"• "+D.rows.length+" lignes classées\n"
     +"• budget prévisionnel : "+D.budget.length+" lignes, "+D.budgetVersions.length+" version(s)\n"
     +"• onglet RH : "+(D.rhPostes||[]).length+" poste(s) et la grille de taux\n"
+    +"• plan comptable : "+(D.cats||[]).length+" comptes · "+(D.acts||[]).length+" codes projets · "+(D.rules||[]).length+" règles\n"
     +"• financements Airtable, soldes, compteurs de pièces\n\n"
     +"Cela remplace la version précédente dans le Sheet.")){return}
   try{
@@ -1197,6 +1198,11 @@ async function saveComptaToSheet(){
       // encore. Seules les lignes concernées sont listées : quelques dizaines
       // d'entrées, pas 525.
       engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,fgCles:D.fgCles,
+      // Le plan comptable, les codes projets et les règles de classement ne
+      // partaient pas vers le Sheet : ils ne vivaient que dans le navigateur qui
+      // les avait créés. Un compte ajouté depuis le téléphone était donc absent
+      // sur l'iPad, et l'avertissement « comptes absents » revenait sans fin.
+      cats:D.cats,acts:D.acts,rules:D.rules,
       lignesPlus:(()=>{const o={};(D.rows||[]).forEach(r=>{
         if(r.split||r.driveFileId)o[r.id]={split:r.split||"",driveFileId:r.driveFileId||""}});return o})(),
       rhAlloc:D.rhAlloc,savedBy:qui,
@@ -1684,6 +1690,19 @@ async function loadComptaFromSheet(){
       if(m.actIndic!==undefined)D.actIndic=m.actIndic||{};
       if(m.actIndicDates!==undefined)D.actIndicDates=m.actIndicDates||{};
       if(m.fgCles!==undefined)D.fgCles=m.fgCles||{};
+      // Le plan comptable se RÉUNIT au lieu d'être remplacé : un compte créé
+      // ici et un compte créé là-bas doivent tous les deux survivre. Perdre un
+      // compte casserait le classement des écritures qui le portent, alors
+      // qu'un compte en trop ne casse rien.
+      if(Array.isArray(m.cats)&&m.cats.length){
+        const vus=new Set((D.cats||[]).map(c=>catKey(c)));
+        m.cats.forEach(c=>{const k=catKey(c);if(k&&!vus.has(k)){D.cats.push(c);vus.add(k)}});
+        D.cats.sort();
+      }
+      // Les codes projets viennent d'Airtable des deux côtés : les remplacer
+      // converge. Les règles de classement sont partagées comme le budget.
+      if(Array.isArray(m.acts)&&m.acts.length)D.acts=m.acts;
+      if(Array.isArray(m.rules)&&m.rules.length)D.rules=m.rules;
       invalidateActCache();
     }
     fusSnapshot();   // version commune de départ pour une fusion ultérieure
@@ -10244,6 +10263,45 @@ function engFin(e,auJour,opts){
     prodTotal:P.total,prodRetenu:P.retenu,prodGroupes:P.groupes,
     tauxMax,tauxReel,depasse,opts:o};
 }
+// ─── POURQUOI LE PERÇU EST À ZÉRO ───
+// Trois conditions doivent tenir en même temps pour qu'un versement compte dans
+// le perçu : son code projet est dans le périmètre, sa date est dans la période
+// (et pas après la date de lecture), et il porte la trace d'un financement
+// Airtable rattaché à cet engagement. Afficher « 0,00 € » sans dire laquelle
+// manque envoyait chercher au mauvais endroit — typiquement du côté du
+// rapprochement Airtable alors que c'est le périmètre qui ne colle pas.
+function engPercuDiag(e,auJour){
+  const codes=new Set(engCodes(e.perimFin||{}));
+  const rids=new Set((e.rids||[]).filter(Boolean));
+  const o={codes:[...codes],rids:[...rids],
+    perimSansDate:0,perimHorsPeriode:0,perimDansPeriode:0,perimApresAuJour:0,
+    creditsPeriode:0,creditsPerim:0,creditsTraces:0,rattaches:0,mtRattaches:0,ailleurs:[]};
+  (D.rows||[]).forEach(r=>{
+    const c=actCode(r.act);
+    const d=_J(r.dt);
+    const apres=!!(auJour&&d&&d>_J(auJour));
+    const dansP=engDansPeriode(r.dt,e);
+    if(codes.has(c)){
+      if(!d)o.perimSansDate++;
+      else if(apres)o.perimApresAuJour++;
+      else if(!dansP)o.perimHorsPeriode++;
+      else o.perimDansPeriode++;
+    }
+    if(!(r.cre>0))return;
+    if(dansP&&!apres){o.creditsPeriode++;if(codes.has(c))o.creditsPerim++}
+    const t=finTrace(r).find(x=>x.rid);
+    if(!t)return;
+    if(dansP&&!apres&&codes.has(c))o.creditsTraces++;
+    if(!rids.has(t.rid))return;
+    if(codes.has(c)&&dansP&&!apres){o.rattaches++;o.mtRattaches=Math.round((o.mtRattaches+(r.cre||0))*100)/100}
+    else o.ailleurs.push({code:c||"(sans code projet)",dt:d,mt:r.cre||0,nom:t.nom,
+      pourquoi:!codes.has(c)?"son code projet n'est pas dans le périmètre financier"
+        :!d?"cette écriture n'a pas de date"
+        :apres?"sa date est postérieure à la date de lecture"
+        :"sa date est hors de la période de la convention"});
+  });
+  return o;
+}
 // Valeur d'un indicateur sur un périmètre. Les rollups Airtable ne sont pas
 // datés : on retient les parcours dont les DATES tombent dans la période et on
 // prend leur total. Un parcours à cheval sur une borne est donc dedans ou
@@ -10801,6 +10859,29 @@ function engPartSuivi(e,i){
       Sur une activité saisonnière c'est une convention de lecture, pas une vérité : un été creux fera toujours apparaître un retard.
       ${fin.sansTrace?`<br><span style="color:var(--amber)">Aucun financement Airtable n'est rattaché : le perçu reste à zéro. Rattachez-les dans « Définir » — l'outil ne devine pas quel crédit appartient à quel financeur.</span>`:""}
     </div></div>`;
+
+  // Un perçu à zéro sans explication fait chercher au mauvais endroit. On dit
+  // laquelle des trois conditions manque, et on nomme les versements qui sont
+  // bien rattachés mais qui tombent à côté du périmètre ou de la période.
+  const dg=engPercuDiag(e,auj);
+  if(fin.percu<=0.005||dg.ailleurs.length){
+    const L=[];
+    if(!dg.codes.length)L.push(`<span style="color:var(--amber)">Le <strong>périmètre financier est vide</strong> : aucun code projet n'est retenu. Rien ne peut être compté.</span>`);
+    else if(!dg.perimDansPeriode)L.push(`<span style="color:var(--amber)">Aucune écriture sur les ${dg.codes.length} code(s) du périmètre dans la période</span> (${escHtml(dg.codes.slice(0,8).join(", "))}${dg.codes.length>8?"…":""})${(dg.perimHorsPeriode||dg.perimSansDate||dg.perimApresAuJour)?` — mais ${[dg.perimHorsPeriode?dg.perimHorsPeriode+" hors période":"",dg.perimSansDate?dg.perimSansDate+" sans date":"",dg.perimApresAuJour?dg.perimApresAuJour+" après aujourd'hui":""].filter(Boolean).join(", ")} sur ces mêmes codes : c'est la <strong>période ou la date</strong> qui écarte, pas le périmètre.`:` — ces codes ne portent aucune écriture du tout : vérifiez que les écritures sont bien classées sur eux.`}`);
+    else L.push(`${dg.perimDansPeriode} écriture(s) sur le périmètre dans la période, dont <strong>${dg.creditsPerim} crédit(s)</strong>${
+      !dg.creditsPerim?` — <span style="color:var(--amber)">aucune recette n'est classée sur le périmètre dans la période : les versements de ce financeur sont peut-être classés sur un autre code projet</span>`
+      :dg.creditsTraces?` — ${dg.creditsTraces} portent une trace Airtable`
+      :` — <span style="color:var(--amber)">aucun ne porte de trace Airtable : rapprochez-les dans le Classement (colonne 🔗)</span>`}.`);
+    if(!dg.rids.length)L.push(`<span style="color:var(--amber)">Aucun financement Airtable rattaché à cet engagement</span> — c'est le rattachement de « Définir » qui dit quel versement appartient à ce financeur.`);
+    else L.push(`${dg.rids.length} financement(s) Airtable rattaché(s) à l'engagement · <strong>${dg.rattaches} versement(s)</strong> retenus dans le perçu${dg.rattaches?" pour "+fmt(dg.mtRattaches):""}.`);
+    dg.ailleurs.forEach(x=>L.push(`<span style="color:var(--red)">⚠︎ ${fmt(x.mt)} du ${escHtml(x.dt||"sans date")} (${escHtml(x.nom)}) est rattaché à cet engagement mais n'est pas compté</span> : ${escHtml(x.pourquoi)} — code <strong>${escHtml(x.code)}</strong>.`));
+    h+=`<div class="scard" style="margin-bottom:10px;border-color:rgba(251,191,36,.35)">
+      <div style="font-size:11px;font-weight:700;margin-bottom:3px">🔎 Pourquoi le perçu est à ${fmt(fin.percu)}</div>
+      <div style="font-size:9px;color:var(--text-3);margin-bottom:5px;line-height:1.7">
+        Un versement ne compte que si les <strong>trois</strong> conditions tiennent ensemble : son code projet est dans le périmètre financier, sa date tombe dans la période de la convention (et pas après aujourd'hui), et il porte la trace d'un financement Airtable rattaché à cet engagement.
+        Le même engagement peut donc afficher un perçu sur un appareil et zéro sur un autre : ce n'est pas l'appareil, c'est l'une des trois conditions qui n'a pas été enregistrée dans la sauvegarde chargée.</div>
+      <div style="font-size:10px;line-height:1.9">${L.map(x=>"• "+x).join("<br>")}</div></div>`;
+  }
 
   const o=fin.opts;
   const selFrais=(quoi,val,lib)=>`<option value="${val}"${o[quoi]===val?" selected":""}>${lib}</option>`;
