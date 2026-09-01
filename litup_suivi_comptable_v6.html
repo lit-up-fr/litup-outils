@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01c <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01d <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -667,6 +667,7 @@ let D={
   engagements:[],             // conventions financeurs : cibles, périmètres, bilans figés
   actIndic:{},                // indicateurs qualitatifs par code projet, repris d'Airtable
   actIndicDates:{},           // dates de début / fin de chaque parcours, pour la coupe par période
+  fgCles:{},                  // clé de répartition des frais : poids saisis et projets écartés
   airtableSync:"2026-04-21",
   airtableSubs:[
     {n:"Cité Éducative Toulon 3",s:"versée",mt:9000,ob:9000,dp:"2026-01-19",t:"SUD"},
@@ -1085,7 +1086,7 @@ function majCloudBadge(){
     el.title="Ce navigateur n'a ni chargé ni sauvegardé le Google Sheet.\nChargez la dernière sauvegarde avant de modifier, sinon vous risquez d'écraser le travail de quelqu'un d'autre.";
   }
 }
-function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates}))}catch(e){}}
+function autoSaveBrut(){try{localStorage.setItem("litup_v5",JSON.stringify({rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,cloudSaved:D.cloudSaved,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,fgCles:D.fgCles}))}catch(e){}}
 
 function autoLoad(){try{const s=localStorage.getItem("litup_v5")||localStorage.getItem("litup_v4");if(s){const d=JSON.parse(s);
   // Save defaults before overriding
@@ -1155,7 +1156,7 @@ if(!D.airtableSubs||D.airtableSubs.length===0){
 }
 
 function saveAll(){
-  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates};
+  const s={rows:D.rows,cats:D.cats,acts:D.acts,rules:D.rules,ctr:D.ctr,freedN:D.freedN,budget:D.budget,budgetVersions:D.budgetVersions,budgetVerYears:D.budgetVerYears,soldesRef:D.soldesRef,detIgnore:D.detIgnore,actHeures:D.actHeures,actHeuresSrc:D.actHeuresSrc,actRid:D.actRid,splits:D.splits,soldeInitial:D.soldeInitial,soldeDate:D.soldeDate,soldeLivret:D.soldeLivret,soldeInitialCC:D.soldeInitialCC,soldeInitialLivret:D.soldeInitialLivret,soldeInitialCAT:D.soldeInitialCAT,airtableSync:D.airtableSync,airtableSubs:D.airtableSubs,airtablePrestas:D.airtablePrestas,rhAlloc:D.rhAlloc,rhPostes:D.rhPostes,rhTx:D.rhTx,rhBulletins:D.rhBulletins,rhDriveFolder:D.rhDriveFolder,ndfBuffer:D.ndfBuffer,depBuffer:D.depBuffer,engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,fgCles:D.fgCles};
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
   a.download="litup_compta_"+ds(new Date())+".json";a.click()}
 function loadAll(){const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -1186,7 +1187,7 @@ async function saveComptaToSheet(){
       // Deux champs de ligne que les colonnes de la feuille ne portent pas
       // encore. Seules les lignes concernées sont listées : quelques dizaines
       // d'entrées, pas 525.
-      engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,
+      engagements:D.engagements,actIndic:D.actIndic,actIndicDates:D.actIndicDates,fgCles:D.fgCles,
       lignesPlus:(()=>{const o={};(D.rows||[]).forEach(r=>{
         if(r.split||r.driveFileId)o[r.id]={split:r.split||"",driveFileId:r.driveFileId||""}});return o})(),
       rhAlloc:D.rhAlloc,savedBy:qui,
@@ -1673,6 +1674,7 @@ async function loadComptaFromSheet(){
       if(m.engagements!==undefined)D.engagements=Array.isArray(m.engagements)?m.engagements:[];
       if(m.actIndic!==undefined)D.actIndic=m.actIndic||{};
       if(m.actIndicDates!==undefined)D.actIndicDates=m.actIndicDates||{};
+      if(m.fgCles!==undefined)D.fgCles=m.fgCles||{};
       invalidateActCache();
     }
     fusSnapshot();   // version commune de départ pour une fusion ultérieure
@@ -4261,21 +4263,70 @@ function fgCibles(regle,grps){
     return true;
   });
 }
+// ─── CLÉ DE RÉPARTITION AJUSTABLE ───
+// Par défaut les frais suivent les heures d'action. Mais un loyer ne se consomme
+// pas toujours au prorata des heures : un parcours peut occuper les locaux sans
+// heures de formation, un autre se dérouler entièrement chez le partenaire.
+// D'où deux ajustements, par enveloppe :
+//   • exclure un projet — « ce parcours ne bénéficie pas du loyer de Toulon » ;
+//   • remplacer son poids — quand les heures ne reflètent pas sa consommation.
+// On ajuste un POIDS et jamais un montant : les frais s'accumulent au fil des
+// écritures, un montant figé serait faux dès la facture suivante, alors qu'un
+// poids reste vrai. (Un financement, lui, est une somme arrêtée : c'est pour ça
+// qu'on y fige des montants et pas des poids.)
+// La clé est GLOBALE : le suivi analytique et tous les bilans financeurs lisent
+// la même. Deux financeurs ne doivent pas voir deux coûts différents pour le
+// même projet.
+function fgCles(){if(!D.fgCles||typeof D.fgCles!=="object")D.fgCles={};return D.fgCles}
+function fgCle(k){const c=fgCles();if(!c[k])c[k]={poids:{},exclus:[]};
+  if(!c[k].poids)c[k].poids={};if(!c[k].exclus)c[k].exclus=[];return c[k]}
+const fgPoidsManuel=(k,code)=>{const v=parseFloat(fgCle(k).poids[String(code||"").toUpperCase()]);
+  return isNaN(v)||v<0?null:v};
+const fgExclu=(k,code)=>fgCle(k).exclus.indexOf(String(code||"").toUpperCase())>=0;
+function fgSetPoids(k,code,v){
+  const c=String(code||"").toUpperCase();if(!c)return;
+  const n=parseFloat(String(v).replace(",","."));
+  if(!v||isNaN(n)||n<0)delete fgCle(k).poids[c];else fgCle(k).poids[c]=n;
+  _fgMemo=null;autoSave();fgDiagDessine();render();
+}
+function fgToggleExclu(k,code){
+  const c=String(code||"").toUpperCase();if(!c)return;
+  const L=fgCle(k).exclus,i=L.indexOf(c);
+  if(i>=0)L.splice(i,1);else L.push(c);
+  _fgMemo=null;autoSave();fgDiagDessine();render();
+}
+function fgResetCle(k){
+  if(!confirm("Remettre la clé de « "+k+" » au prorata des heures d'action ?\n\nLes poids saisis et les exclusions de cette enveloppe sont effacés."))return;
+  fgCles()[k]={poids:{},exclus:[]};
+  _fgMemo=null;autoSave();fgDiagDessine();render();
+}
+
 // Les cibles SANS heures sont écartées, elles ne font pas retomber tout le monde
 // à parts égales : un code de fonctionnement n'aura jamais d'heures de formation
 // par nature, et deux parcours mal renseignés ne doivent pas annuler le prorata
 // des huit autres. On dit ce qui a été écarté.
+// Poids retenu pour un projet : le poids saisi s'il existe, sinon ses heures.
+function fgPoids(k,label){
+  const c=actCode(label);
+  const m=fgPoidsManuel(k,c);
+  return m!==null?{v:m,src:"manuel"}:{v:actHeures(c),src:"heures"};
+}
 function fgParts(regle,grps){
-  const tous=fgCibles(regle,grps);
-  const avec=tous.filter(l=>actHeures(actCode(l))>0);
-  const sans=tous.filter(l=>actHeures(actCode(l))<=0);
+  const k=regle.k;
+  const brut=fgCibles(regle,grps);
+  const ecartes=brut.filter(l=>fgExclu(k,actCode(l)));
+  const tous=brut.filter(l=>!fgExclu(k,actCode(l)));
+  const avec=tous.filter(l=>fgPoids(k,l).v>0);
+  const sans=tous.filter(l=>fgPoids(k,l).v<=0);
+  const base={brut,ecartes,sans,manuels:tous.filter(l=>fgPoidsManuel(k,actCode(l))!==null)};
   if(!avec.length){
-    if(!tous.length)return {cibles:[],parts:[],mode:"aucune",sans};
-    return {cibles:tous,parts:tous.map(()=>1/tous.length),mode:"egal",sans};
+    if(!tous.length)return Object.assign({cibles:[],parts:[],mode:"aucune"},base);
+    return Object.assign({cibles:tous,parts:tous.map(()=>1/tous.length),mode:"egal"},base);
   }
-  const poids=avec.map(l=>actHeures(actCode(l)));
+  const poids=avec.map(l=>fgPoids(k,l).v);
   const tot=poids.reduce((a,x)=>a+x,0);
-  return {cibles:avec,parts:poids.map(x=>x/tot),mode:"heures",sans};
+  return Object.assign({cibles:avec,parts:poids.map(x=>x/tot),
+    mode:base.manuels.length?"mixte":"heures",poids},base);
 }
 // _fgMemo est déclaré tout en haut, à côté de _actCache : le déclarer ici le
 // rendait inaccessible à invalidateActCache, défini plus haut dans le fichier.
@@ -4311,6 +4362,142 @@ function fgRows(rows,grps){
   });
   return {rows:out,reparties,ratees,produits};
 }
+
+// ─── OÙ ET COMMENT LES FRAIS SE RÉPARTISSENT ───
+// La modale répond à deux questions différentes, d'où deux vues :
+//   « par enveloppe » — ce que FG, FV, FP et le LAB distribuent, à qui, et
+//     surtout QUI EST ÉCARTÉ ET POURQUOI. C'est ce qui manquait : rien ne disait
+//     pourquoi un projet ne recevait rien.
+//   « par projet »    — combien de structure chaque projet reçoit. C'est la vue
+//     qui sert à expliquer un coût à un financeur.
+let _fgVue="env";
+function openFgDiag(){_fgVue="env";fgDiagDessine()}
+function fgDiagVue(v){_fgVue=v;fgDiagDessine()}
+function closeFgDiag(){$("modalC").innerHTML=""}
+// Charges de chaque enveloppe sur l'exercice affiché. Seules les charges : un
+// produit de fonctionnement reste sur son code.
+function fgMontants(){
+  const y=suiviFilt.yr;
+  const out={},prod={};
+  (D.rows||[]).forEach(r=>{
+    if(y&&!anEq(r.yr,y))return;
+    const rg=fgRegleDe(r.act);if(!rg)return;
+    if((r.cre||0)>0){prod[rg.k]=Math.round(((prod[rg.k]||0)+(r.cre||0))*100)/100;return}
+    out[rg.k]=Math.round(((out[rg.k]||0)+(r.deb||0))*100)/100;
+  });
+  return {charges:out,produits:prod};
+}
+function fgGrpsActifs(){
+  const g=[];
+  if(suiviFilt.fg)g.push("locaux","generaux");
+  if(suiviFilt.lab)g.push("lab");
+  return g;
+}
+function fgDiagDessine(){
+  const M=fgMontants();
+  const grps=fgGrpsActifs();
+  const actif=k=>{const r=FG_REGLES.find(x=>x.k===k);return !!r&&grps.indexOf(r.grp)>=0};
+  const onglet=(v,lib)=>`<button class="b ${_fgVue===v?"bp":"bd"}" style="font-size:9px" onclick="fgDiagVue('${v}')">${lib}</button>`;
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeFgDiag()"><div class="modal" style="max-width:900px">
+    <h3>🔎 Où et comment les frais se répartissent</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:4px 0 8px;line-height:1.7">
+      Exercice ${escHtml(suiviFilt.yr||"tous")} · <strong>seules les charges</strong> se répartissent : une subvention de fonctionnement reste sur son code.
+      La clé est <strong>commune</strong> au suivi analytique et à tous les bilans financeurs — deux financeurs ne doivent pas voir deux coûts différents pour le même projet.
+      <br>Les interrupteurs de l'onglet décident si la répartition est <em>affichée</em> ; cette clé décide <em>comment</em> elle se fait.
+    </p>
+    <div style="display:flex;gap:5px;margin-bottom:8px">${onglet("env","Par enveloppe")}${onglet("proj","Par projet")}</div>`;
+
+  if(_fgVue==="env"){
+    FG_REGLES.forEach(rg=>{
+      const mt=M.charges[rg.k]||0, pr=M.produits[rg.k]||0;
+      const k=fgParts(rg,grps.length?grps:[rg.grp]);
+      const on=actif(rg.k);
+      const nManuels=k.manuels.length, nExclus=k.ecartes.length;
+      h+=`<div class="scard" style="margin-bottom:8px;${on?"":"opacity:.6"}">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <div><strong style="font-size:11px">${escHtml(rg.lib)}</strong>
+            <span style="font-size:9px;color:var(--text-3)"> — ${escHtml(rg.ou)} · ${on?"réparti":"<em>non réparti</em> (interrupteur sur « au code »)"}</span></div>
+          <div style="font-size:10px">à répartir <strong style="font-family:var(--mono);color:var(--red)">${fmt(mt)}</strong>
+            ${pr?`<span style="color:var(--text-3)"> · ${fmt(pr)} de produits laissés sur le code</span>`:""}
+            ${(nManuels||nExclus)?`<button class="b bd" style="font-size:8px;margin-left:6px" onclick="fgResetCle('${rg.k}')" title="Revenir au prorata des heures d'action">↺ clé d'origine</button>`:""}</div>
+        </div>`;
+      if(!k.brut.length){
+        h+=`<div style="font-size:10px;color:var(--amber);margin-top:4px">Aucun projet destinataire possible pour ${escHtml(rg.ou)}.</div></div>`;
+        return;
+      }
+      h+=`<div style="overflow-x:auto;margin-top:5px"><table style="font-size:10px"><thead><tr>
+        <th style="width:26px" title="Décochez pour écarter ce projet de cette enveloppe">✓</th>
+        <th>Code</th><th style="text-align:right">Heures</th><th style="text-align:right">Poids retenu</th>
+        <th style="text-align:right">Part</th><th style="text-align:right">Montant</th><th></th></tr></thead><tbody>`;
+      k.brut.forEach(l=>{
+        const c=actCode(l);
+        const ex=fgExclu(rg.k,c);
+        const i=k.cibles.indexOf(l);
+        const part=i>=0?k.parts[i]:0;
+        const p=fgPoids(rg.k,l);
+        const man=fgPoidsManuel(rg.k,c);
+        const sans=!ex&&p.v<=0;
+        h+=`<tr style="${ex?"opacity:.4":""}">
+          <td><input type="checkbox" ${ex?"":"checked"} onchange="fgToggleExclu('${rg.k}','${c}')"></td>
+          <td style="font-family:var(--mono);font-size:9px">${escHtml(c)}</td>
+          <td style="text-align:right;font-size:9px;color:${actHeures(c)?"var(--text-2)":"var(--amber)"}">${actHeures(c)||"vide"}</td>
+          <td style="text-align:right"><input class="cj" style="width:64px;text-align:right${man!==null?";border-color:var(--accent);color:var(--accent)":""}"
+            value="${man!==null?man:""}" placeholder="${actHeures(c)||"—"}" onchange="fgSetPoids('${rg.k}','${c}',this.value)"
+            title="Poids de ce projet dans cette enveloppe. Vide = ses heures d'action. Saisir une valeur remplace les heures — utile quand un parcours occupe les locaux sans heures de formation, ou l'inverse."></td>
+          <td style="text-align:right;font-family:var(--mono);font-size:9px">${ex?"—":sans?'<span style="color:var(--amber)">écarté</span>':(part*100).toFixed(2)+" %"}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:9px;color:var(--red)">${ex||sans?"—":fmt(Math.round(mt*part*100)/100)}</td>
+          <td style="font-size:8px;color:var(--text-3)">${ex?"écarté à la main":sans?"aucun poids : ni heures ni saisie":man!==null?"poids saisi":""}</td></tr>`;
+      });
+      h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
+        <td colspan="4" style="text-align:right;font-size:9px">${k.cibles.length} destinataire(s)${k.ecartes.length?" · "+k.ecartes.length+" écarté(s)":""}${k.sans.length?" · "+k.sans.length+" sans poids":""}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px">${k.cibles.length?"100,00 %":"—"}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(k.cibles.length?mt:0)}</td><td></td></tr></tfoot></table></div>`;
+      if(k.mode==="egal")h+=`<div style="font-size:9px;color:var(--amber);margin-top:4px">Aucun destinataire n'a de poids : répartition à parts égales, faute de mieux.</div>`;
+      if(!k.cibles.length&&mt)h+=`<div style="font-size:9px;color:var(--red);margin-top:4px">${fmt(mt)} ne peuvent aller nulle part : ces charges resteront sur le code de l'enveloppe.</div>`;
+      h+=`</div>`;
+    });
+  }else{
+    // Vue par projet : ce que chaque projet reçoit, enveloppe par enveloppe.
+    const lignes={};
+    FG_REGLES.forEach(rg=>{
+      if(!actif(rg.k))return;
+      const mt=M.charges[rg.k]||0;
+      const k=fgParts(rg,grps);
+      k.cibles.forEach((l,i)=>{
+        const c=actCode(l);
+        if(!lignes[c])lignes[c]={code:c,tot:0};
+        lignes[c][rg.k]=Math.round(mt*k.parts[i]*100)/100;
+        lignes[c].tot=Math.round((lignes[c].tot+mt*k.parts[i])*100)/100;
+      });
+    });
+    const L=Object.values(lignes).sort((a,b)=>b.tot-a.tot);
+    const cols=FG_REGLES.filter(rg=>actif(rg.k));
+    if(!cols.length){
+      h+=`<div style="font-size:10px;color:var(--amber)">Aucune enveloppe n'est répartie : mettez les interrupteurs « Frais généraux » ou « LAB » sur « répartis sur les projets » pour voir cette vue.</div>`;
+    }else if(!L.length){
+      h+=`<div style="font-size:10px;color:var(--text-3)">Aucun projet ne reçoit de frais sur cet exercice.</div>`;
+    }else{
+      h+=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr><th>Code projet</th>
+        ${cols.map(rg=>`<th style="text-align:right">${escHtml(rg.k)}</th>`).join("")}
+        <th style="text-align:right">Total reçu</th></tr></thead><tbody>`;
+      L.forEach(x=>{
+        h+=`<tr><td style="font-family:var(--mono);font-size:9px">${escHtml(x.code)}</td>
+          ${cols.map(rg=>`<td style="text-align:right;font-family:var(--mono);font-size:9px;color:${x[rg.k]?"var(--red)":"var(--text-3)"}">${x[rg.k]?fmt(x[rg.k]):"—"}</td>`).join("")}
+          <td style="text-align:right;font-family:var(--mono);font-size:9px;font-weight:700">${fmt(x.tot)}</td></tr>`;
+      });
+      const tot=cols.map(rg=>Math.round(L.reduce((a,x)=>a+(x[rg.k]||0),0)*100)/100);
+      h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
+        <td>${L.length} projet(s)</td>
+        ${tot.map(t=>`<td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(t)}</td>`).join("")}
+        <td style="text-align:right;font-family:var(--mono);font-size:9px">${fmt(Math.round(tot.reduce((a,x)=>a+x,0)*100)/100)}</td></tr></tfoot></table></div>
+        <div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.7">C'est la vue à montrer à un financeur qui demande le coût complet d'un programme : elle dit combien de structure ce programme porte, et d'où elle vient.</div>`;
+    }
+  }
+  h+=`<div style="display:flex;gap:6px;margin-top:10px"><button class="b bd" style="margin-left:auto" onclick="closeFgDiag()">Fermer</button></div>
+    </div></div>`;
+  $("modalC").innerHTML=h;
+}
+
 function suiviSetFG(v){suiviFilt.fg=!!v;try{localStorage.setItem("litup_suiviFG",v?"1":"0")}catch(e){}render()}
 function suiviSetLAB(v){suiviFilt.lab=!!v;try{localStorage.setItem("litup_suiviLAB",v?"1":"0")}catch(e){}render()}
 
@@ -4997,13 +5184,43 @@ function famSplitAppliquerModif(c){
   const sid=_famSplit.sid, rec=splitsMap()[sid];
   if(!rec){alert("Répartition introuvable.");return}
   const garde=c.retenus.map(l=>actCode(l));
-  const aRetirer=splitLignes(sid).filter(r=>garde.indexOf(actCode(r.act))<0);
-  const bloques=aRetirer.filter(r=>r.driveUrl||String(r.numj||"").trim());
-  if(bloques.length){
-    alert("Ces projets ne peuvent pas être retirés : leur sous-ligne porte un justificatif ou un numéro de pièce.\n\n"
-      +bloques.map(r=>"• "+actCode(r.act)+" — "+(r.numj||"pièce Drive")).join("\n")
-      +"\n\nDétachez la pièce depuis le classement, ou laissez ces projets cochés.");
-    return;
+  const L=splitLignes(sid);
+  const aRetirer=L.filter(r=>garde.indexOf(actCode(r.act))<0);
+  const gardees=L.filter(r=>garde.indexOf(actCode(r.act))>=0);
+  // Le refus ne vaut que si la pièce DISPARAÎT. Depuis que la convention d'une
+  // répartition est partagée par toutes ses sous-lignes, l'ancien contrôle se
+  // déclenchait dès qu'il y avait une convention — c'est-à-dire tout le temps —
+  // et retirer un projet devenait impossible. Or retirer une sous-ligne ne perd
+  // rien tant que la même pièce reste sur une ligne conservée.
+  const clePiece=r=>(r.driveFileId||r.driveUrl||"")+"|"+String(r.numj||"").trim();
+  const aPiece=r=>!!(r.driveUrl||String(r.numj||"").trim());
+  const clesGardees=new Set(gardees.filter(aPiece).map(clePiece));
+  const perdues={};
+  aRetirer.filter(aPiece).forEach(r=>{
+    const k=clePiece(r);
+    if(clesGardees.has(k))return;               // la pièce survit ailleurs
+    if(!perdues[k])perdues[k]={ref:r.numj||"pièce Drive",src:r,codes:[]};
+    perdues[k].codes.push(actCode(r.act));
+  });
+  const kPerdues=Object.keys(perdues);
+  // Une pièce qui disparaîtrait peut être DÉPLACÉE sur une sous-ligne conservée
+  // qui n'en porte pas : dans une répartition, toutes les sous-lignes sont la
+  // même opération, la pièce y est aussi légitime. Le fichier Drive n'est pas
+  // touché — seule sa référence bouge.
+  const libres=gardees.filter(r=>!aPiece(r));
+  const aDeplacer=[];
+  if(kPerdues.length){
+    if(kPerdues.length>libres.length){
+      alert("Impossible de retirer ces projets sans perdre "+(kPerdues.length-libres.length)+" justificatif(s).\n\n"
+        +kPerdues.map(k=>"• "+perdues[k].ref+" — porté par "+perdues[k].codes.join(", ")).join("\n")
+        +"\n\nIl n'y a pas assez de sous-lignes conservées sans pièce pour les accueillir.\n"
+        +"Gardez au moins un de ces projets coché, ou détachez la pièce depuis le classement si elle n'a plus lieu d'être.");
+      return;
+    }
+    kPerdues.forEach((k,i)=>aDeplacer.push({cible:libres[i],src:perdues[k].src,ref:perdues[k].ref,codes:perdues[k].codes}));
+    if(!confirm("Retirer ces projets déplacerait "+aDeplacer.length+" justificatif(s) sur une sous-ligne conservée :\n\n"
+      +aDeplacer.map(x=>"• "+x.ref+"\n   de "+x.codes.join(", ")+" vers "+actCode(x.cible.act)).join("\n")
+      +"\n\nLe fichier reste sur le Drive, seule la ligne qui le porte change. Continuer ?"))return;
   }
   // Le contrôle des montants se fait AVANT toute modification : après avoir
   // retiré une sous-ligne, la somme ne correspond plus et le garde-fou se
@@ -5027,7 +5244,16 @@ function famSplitAppliquerModif(c){
   // Réajuster d'abord — la ligne modèle et la position d'insertion doivent
   // encore exister — puis retirer les décochés.
   const res=splitRecalc(sid,c.retenus.slice(),true);
-  if(!res.err&&aRetirer.length)D.rows=D.rows.filter(r=>aRetirer.indexOf(r)<0);
+  // Déplacer les pièces AVANT de retirer les sous-lignes qui les portent.
+  if(!res.err)aDeplacer.forEach(x=>{
+    x.cible.numj=x.src.numj||"";x.cible.driveUrl=x.src.driveUrl||"";
+    x.cible.driveFileId=x.src.driveFileId||"";x.cible.stat=x.src.stat||x.cible.stat;
+    if(D.att[x.src.id])D.att[x.cible.id]=D.att[x.src.id];
+  });
+  if(!res.err&&aRetirer.length){
+    aRetirer.forEach(r=>{delete D.att[r.id]});
+    D.rows=D.rows.filter(r=>aRetirer.indexOf(r)<0);
+  }
   const nf=(_famSplit.cles||[]).length;
   _famSplit=null;closeM();autoSave();render();
   if(res.err)alert("Réajustement impossible : "+res.err);
@@ -10758,6 +10984,8 @@ function rSuivi(el){
       <option value="0"${suiviFilt.lab?"":" selected"}>Au code LAB</option>
       <option value="1"${suiviFilt.lab?" selected":""}>Réparti sur les projets</option>
     </select>
+    <button class="b bd" style="font-size:8px;padding:2px 6px" onclick="openFgDiag()"
+      title="Voir où vont les frais de fonctionnement et du LAB, projet par projet, et ajuster la clé : écarter un projet d'une enveloppe, ou remplacer son poids quand les heures ne reflètent pas sa consommation de structure.">🔎 Comment ?</button>
     <button class="b bd" style="font-size:8px;padding:2px 6px" onclick="openVentDiag()"
       title="Voir où la chaîne de ventilation s'arrête : interrupteur, « Nom relevé » sur les postes, rattachement des paies, affectation du temps">🔎 Pourquoi ?</button>
     <span style="font-size:8px;color:var(--text-3)">Projet :</span>
