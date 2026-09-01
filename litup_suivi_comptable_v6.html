@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-08-31r <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01a <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -9330,29 +9330,136 @@ function engPerimQual(e){
 // Réalisé financier : une coupe des écritures sur la période et le périmètre.
 // La ventilation des salaires est appliquée, sinon le coût d'un programme
 // n'inclurait pas la masse salariale qui le produit.
-function engFin(e,auJour){
+// Réglages d'affichage du bilan financier, portés par l'engagement : ce sont des
+// choix de présentation vis-à-vis d'UN financeur, pas des paramètres globaux.
+// Chaque financeur a ses règles d'éligibilité des frais de structure.
+function engOpts(e){
+  const o=e.opts=e.opts||{};
+  if(o.locaux===undefined)o.locaux="non";      // "non" | "integre" | "ligne"
+  if(o.generaux===undefined)o.generaux="non";
+  return o;
+}
+// Produits du périmètre, groupés par financeur. La clé est le rid Airtable quand
+// la ligne en porte la trace, l'identifiant de ligne sinon : un virement sans
+// trace ne doit pas se fondre dans un lot anonyme qu'on ne saurait plus décocher.
+function engProduits(e,auJour){
   const codes=new Set(engCodes(e.perimFin||{}));
-  const v=ventilRows(D.rows||[]);
-  let charges=0,produits=0,percu=0;
-  const rids=new Set((e.rids||[]).filter(Boolean));
-  v.rows.forEach(r=>{
-    if(!engDansPeriode(r.dt,e))return;
-    if(auJour&&_J(r.dt)>_J(auJour))return;
-    if(!codes.has(actCode(r.act)))return;
-    charges+=(r.deb||0);produits+=(r.cre||0);
-  });
-  // Perçu : les crédits portant la trace d'un des financements rattachés. On ne
-  // devine pas — un crédit sans trace n'est pas compté, et le dire vaut mieux
-  // que gonfler le perçu avec des recettes d'un autre financeur.
-  if(rids.size)(D.rows||[]).forEach(r=>{
+  const ex=new Set(e.prodExclus||[]);
+  const groupes={},lignes=[];
+  (D.rows||[]).forEach(r=>{
     if(!(r.cre>0))return;
     if(!engDansPeriode(r.dt,e))return;
     if(auJour&&_J(r.dt)>_J(auJour))return;
-    if(finTrace(r).some(t=>t.rid&&rids.has(t.rid)))percu+=(r.cre||0);
+    if(!codes.has(actCode(r.act)))return;
+    const t=finTrace(r).find(x=>x.rid)||finTrace(r)[0]||null;
+    const cle=t&&t.rid?("rid:"+t.rid):("row:"+r.id);
+    const nom=t?(t.nom||t.rid):"(sans financeur identifié)";
+    if(!groupes[cle])groupes[cle]={cle,nom,rid:t&&t.rid||"",mt:0,n:0,retenu:!ex.has(cle),rows:[]};
+    groupes[cle].mt=Math.round((groupes[cle].mt+(r.cre||0))*100)/100;
+    groupes[cle].n++;groupes[cle].rows.push(r);
+    lignes.push({r,cle});
   });
+  const L=Object.values(groupes).sort((a,b)=>b.mt-a.mt);
+  const tot=Math.round(L.reduce((a,x)=>a+x.mt,0)*100)/100;
+  const retenu=Math.round(L.filter(x=>x.retenu).reduce((a,x)=>a+x.mt,0)*100)/100;
+  return {groupes:L,total:tot,retenu,lignes,exclus:[...ex]};
+}
+// Bilan financier détaillé : une ligne par compte comptable non vide, dans
+// l'ordre du plan comptable. C'est la forme qu'un financeur attend, et celle que
+// l'expert-comptable relit sans traduction.
+//
+// Les frais de structure entrent en CASCADE, et l'ordre n'est pas cosmétique :
+// les frais généraux (FG) se calculent sur « projet + frais locaux », comme un
+// taux d'overhead s'applique à un coût déjà chargé. C'est la règle posée par
+// Laetitia, et c'est aussi la seule qui ne compte pas deux fois la même base.
+function engFin(e,auJour,opts){
+  const o=opts||engOpts(e);
+  const codes=new Set(engCodes(e.perimFin||{}));
+  const v=ventilRows(D.rows||[]);
+  const dedans=r=>engDansPeriode(r.dt,e)&&!(auJour&&_J(r.dt)>_J(auJour));
   const r2=x=>Math.round(x*100)/100;
-  return {charges:r2(charges),produits:r2(produits),percu:r2(percu),
-    codes:[...codes],sansTrace:!rids.size};
+
+  // ── 1) le projet lui-même ──
+  const parCompte={};
+  const ajoute=(cat,d,c,src)=>{
+    const k=String(cat||"(sans compte)");
+    if(!parCompte[k])parCompte[k]={cat:k,charges:0,produits:0,src:src||"projet"};
+    parCompte[k].charges=r2(parCompte[k].charges+d);
+    parCompte[k].produits=r2(parCompte[k].produits+c);
+  };
+  let chProjet=0;
+  v.rows.forEach(r=>{
+    if(!dedans(r)||!codes.has(actCode(r.act)))return;
+    ajoute(r.cat,r.deb||0,r.cre||0);
+    chProjet=r2(chProjet+(r.deb||0));
+  });
+
+  // ── 2) frais locaux (FV / FP) puis généraux (FG) ──
+  // Part du périmètre dans chaque enveloppe de frais : la même clé que le suivi
+  // analytique, pour que les deux vues ne se contredisent pas.
+  const partDe=(regle)=>{
+    const k=fgPartsMemo(regle);
+    let part=0;
+    k.cibles.forEach((l,i)=>{if(codes.has(actCode(l)))part+=k.parts[i]});
+    return part;
+  };
+  const enveloppe=(pfxs)=>{
+    const det={};let tot=0;
+    (D.rows||[]).forEach(r=>{
+      if(!dedans(r))return;
+      const rg=fgRegleDe(r.act);
+      if(!rg||pfxs.indexOf(rg.pfx)<0)return;
+      const part=partDe(rg);if(part<=0)return;
+      const d=r2((r.deb||0)*part), c=r2((r.cre||0)*part);
+      if(!d&&!c)return;
+      const k=String(r.cat||"(sans compte)");
+      if(!det[k])det[k]={cat:k,charges:0,produits:0};
+      det[k].charges=r2(det[k].charges+d);det[k].produits=r2(det[k].produits+c);
+      tot=r2(tot+d-c);
+    });
+    return {det:Object.values(det),net:tot};
+  };
+  const loc=(o.locaux!=="non")?enveloppe(["FV","FP"]):{det:[],net:0};
+  const gen=(o.generaux!=="non")?enveloppe(["FG"]):{det:[],net:0};
+
+  // Taux affichés : les frais locaux sur le coût du projet, les frais généraux
+  // sur « projet + frais locaux ».
+  const baseLoc=chProjet;
+  const baseGen=r2(chProjet+(o.locaux!=="non"?loc.net:0));
+  const tauxLoc=baseLoc>0?r2(loc.net/baseLoc*100):null;
+  const tauxGen=baseGen>0?r2(gen.net/baseGen*100):null;
+
+  if(o.locaux==="integre")loc.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"locaux"));
+  if(o.generaux==="integre")gen.det.forEach(x=>ajoute(x.cat,x.charges,x.produits,"generaux"));
+
+  // ── 3) mise en forme : ordre du plan comptable, comptes vides écartés ──
+  const comptes=Object.values(parCompte)
+    .filter(x=>Math.abs(x.charges)>0.004||Math.abs(x.produits)>0.004)
+    .sort((a,b)=>catKey(a.cat).localeCompare(catKey(b.cat),"fr",{numeric:true}));
+  const chComptes=r2(comptes.reduce((a,x)=>a+x.charges,0));
+  const prComptes=r2(comptes.reduce((a,x)=>a+x.produits,0));
+  const chLignes=r2((o.locaux==="ligne"?loc.net:0)+(o.generaux==="ligne"?gen.net:0));
+  const charges=r2(chComptes+chLignes);
+  const produits=prComptes;
+
+  // ── 4) perçu de CE financeur, après décochage éventuel ──
+  const P=engProduits(e,auJour);
+  const rids=new Set((e.rids||[]).filter(Boolean));
+  let percu=0;
+  P.groupes.forEach(g=>{if(!g.retenu)return;
+    if(rids.size?(g.rid&&rids.has(g.rid)):false)percu=r2(percu+g.mt)});
+  // Aucun financement rattaché : on ne devine pas, le perçu reste à zéro.
+  const sansTrace=!rids.size;
+
+  // ── 5) contrôle du taux maximal de prise en charge ──
+  const tauxMax=parseFloat(e.tauxMax)||0;
+  const tauxReel=charges>0?r2(percu/charges*100):null;
+  const depasse=tauxMax>0&&tauxReel!==null&&tauxReel>tauxMax+0.005;
+
+  return {comptes,charges,produits,percu,codes:[...codes],sansTrace,
+    chProjet,loc,gen,tauxLoc,tauxGen,baseLoc,baseGen,chLignes,
+    prodTotal:P.total,prodRetenu:P.retenu,prodGroupes:P.groupes,
+    tauxMax,tauxReel,depasse,opts:o};
 }
 // Valeur d'un indicateur sur un périmètre. Les rollups Airtable ne sont pas
 // datés : on retient les parcours dont les DATES tombent dans la période et on
@@ -9488,6 +9595,84 @@ function engCibleSet(i,ci,champ,v){
 function engCibleDel(i,ci){const e=engArr()[i];if(!e||!e.cibles)return;
   e.cibles.splice(ci,1);autoSave();render()}
 
+function engOptSet(i,quoi,v){const e=engArr()[i];if(!e)return;
+  engOpts(e)[quoi]=v;autoSave();render()}
+function engTauxMaxSet(i,v){const e=engArr()[i];if(!e)return;
+  const x=parseFloat(String(v).replace(",","."));
+  e.tauxMax=isNaN(x)||x<=0?0:Math.min(100,x);autoSave();render()}
+// Sélection des financeurs comptés dans les produits. On mémorise les EXCLUS et
+// non les retenus : un versement qui arrive plus tard doit entrer par défaut,
+// pas rester dehors parce qu'il n'existait pas au moment du réglage.
+let _engProdMod=null;
+function openEngProduits(i){
+  const e=engArr()[i];if(!e)return;
+  _engProdMod={i};
+  engProdDessine();
+}
+function engProdToggle(gi){
+  const st=_engProdMod;if(!st)return;
+  const e=engArr()[st.i];if(!e)return;
+  const P=engProduits(e,null);
+  const g=P.groupes[gi];if(!g)return;
+  e.prodExclus=e.prodExclus||[];
+  const j=e.prodExclus.indexOf(g.cle);
+  if(j>=0)e.prodExclus.splice(j,1);else e.prodExclus.push(g.cle);
+  autoSave();engProdDessine();render();
+}
+function engProdTout(garde){
+  const st=_engProdMod;if(!st)return;
+  const e=engArr()[st.i];if(!e)return;
+  const P=engProduits(e,null);
+  e.prodExclus=garde?[]:P.groupes.map(g=>g.cle);
+  autoSave();engProdDessine();render();
+}
+function engProdDessine(){
+  const st=_engProdMod;if(!st){$("modalC").innerHTML="";return}
+  const e=engArr()[st.i];if(!e){$("modalC").innerHTML="";_engProdMod=null;return}
+  const P=engProduits(e,null);
+  const rids=new Set((e.rids||[]).filter(Boolean));
+  let h=`<div class="modal-bg" onclick="if(event.target===this)closeEngProd()"><div class="modal" style="max-width:760px">
+    <h3>💶 Produits du périmètre — quels financeurs concernent cet engagement ?</h3>
+    <p style="font-size:10px;color:var(--text-2);margin:4px 0 8px;line-height:1.7">
+      ${escHtml(e.financeur||"")} — ${escHtml(e.libelle||"")} · du ${_J(e.du)} au ${_J(e.au)}<br>
+      Ce sont les <strong>vrais crédits comptabilisés</strong> sur les codes projets du périmètre et sur la période : rien n'est saisi à la main, rien n'est modifié ici.
+      Décocher un financeur le retire du total « Produits » du bilan, pas de la comptabilité.
+    </p>`;
+  if(!P.groupes.length){
+    h+=`<div style="font-size:10px;color:var(--text-3)">Aucun produit sur ce périmètre et cette période.</div>`;
+  }else{
+    h+=`<div style="display:flex;gap:5px;margin-bottom:6px">
+      <button class="b bd" style="font-size:9px" onclick="engProdTout(true)">Tout cocher</button>
+      <button class="b bd" style="font-size:9px" onclick="engProdTout(false)">Tout décocher</button></div>
+    <div style="max-height:44vh;overflow:auto"><table style="font-size:10px"><thead><tr>
+      <th style="width:26px"></th><th>Financeur</th><th>Écritures</th>
+      <th style="text-align:right">Montant</th><th style="text-align:right">% des produits</th><th>Rattaché ?</th></tr></thead><tbody>`;
+    P.groupes.forEach((g,gi)=>{
+      const pc=P.total>0?(g.mt/P.total*100):0;
+      const lie=g.rid&&rids.has(g.rid);
+      h+=`<tr style="${g.retenu?"":"opacity:.45"}">
+        <td><input type="checkbox" ${g.retenu?"checked":""} onchange="engProdToggle(${gi})"></td>
+        <td>${escHtml(String(g.nom).substring(0,46))}${g.rid?`<div style="font-size:8px;color:var(--text-3);font-family:var(--mono)">${escHtml(g.rid)}</div>`:""}</td>
+        <td style="font-size:9px;color:var(--text-3)">${g.n}</td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--green);font-weight:700">${fmt(g.mt)}</td>
+        <td style="text-align:right;font-family:var(--mono)">${pc.toFixed(1).replace(".",",")} %</td>
+        <td style="font-size:9px">${lie?'<span style="color:var(--green)">✓ à cet engagement</span>':g.rid?'<span style="color:var(--text-3)">autre financement</span>':'<span style="color:var(--amber)">aucune trace Airtable</span>'}</td></tr>`;
+    });
+    h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
+      <td colspan="3" style="text-align:right">Retenu / total</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt(P.retenu)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${P.total>0?(P.retenu/P.total*100).toFixed(1).replace(".",",")+" %":"—"}</td>
+      <td style="font-size:9px;color:var(--text-3)">total ${fmt(P.total)}</td></tr></tfoot></table></div>
+    <p style="font-size:9px;color:var(--text-3);margin-top:8px;line-height:1.7">
+      La colonne « Rattaché ? » distingue trois cas : le financement est rattaché à cet engagement (partie « Définir »), il appartient à un autre financement Airtable, ou la ligne ne porte aucune trace — dans ce dernier cas, rapprochez-la depuis le classement pour qu'elle cesse d'être anonyme.
+      <br>Les exclusions sont mémorisées par financeur, pas par écriture : un versement qui arrive plus tard entre par défaut.</p>`;
+  }
+  h+=`<div style="display:flex;gap:6px;margin-top:10px"><button class="b bd" style="margin-left:auto" onclick="closeEngProd()">Fermer</button></div>
+    </div></div>`;
+  $("modalC").innerHTML=h;
+}
+function closeEngProd(){_engProdMod=null;$("modalC").innerHTML=""}
+
 // ─── PARTIE 2 : FIGER UN BILAN ───
 // Un bilan enregistre la liste des projets retenus CE JOUR-LÀ et les valeurs
 // lues. C'est ce qui permet au périmètre de continuer à vivre sans réécrire ce
@@ -9510,7 +9695,15 @@ function engFigerBilan(i){
   e.bilans=e.bilans||[];
   e.bilans.push({date:dt,libelle:lib,codes:fin.codes.slice(),
     fin:{charges:fin.charges,produits:fin.produits,percu:fin.percu,
-         mtEngage:e.mtEngage||0,sansTrace:fin.sansTrace},
+         mtEngage:e.mtEngage||0,sansTrace:fin.sansTrace,
+         // Le détail par compte fait partie de ce qui a été transmis : c'est le
+         // tableau que le financeur a reçu, il doit être figé avec le reste.
+         comptes:fin.comptes.map(x=>({cat:x.cat,charges:x.charges,produits:x.produits})),
+         opts:{locaux:fin.opts.locaux,generaux:fin.opts.generaux},
+         fraisLocaux:fin.loc.net,fraisGeneraux:fin.gen.net,
+         tauxLoc:fin.tauxLoc,tauxGen:fin.tauxGen,
+         tauxMax:fin.tauxMax,tauxReel:fin.tauxReel,
+         prodExclus:(e.prodExclus||[]).slice()},
     valeurs,note:"",fige:new Date().toISOString()});
   e.bilans.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   autoSave();engVue="bilans";render();
@@ -9533,7 +9726,13 @@ function engBilanCSV(i,bi){
     ["Perçu à la date du bilan",String(b.fin.percu).replace(".",",")],
     ["Charges sur le périmètre",String(b.fin.charges).replace(".",",")],
     ["Produits sur le périmètre",String(b.fin.produits).replace(".",",")],[""],
-    ["— QUALITATIF —"],["Indicateur","Réalisé","Cible","Parcours renseignés","Portée"]];
+    ["— DÉTAIL PAR COMPTE COMPTABLE —"],["Compte","Charges","Produits"]];
+  (b.fin.comptes||[]).forEach(x=>L.push([x.cat,String(x.charges).replace(".",","),String(x.produits).replace(".",",")]));
+  if(b.fin.opts&&b.fin.opts.locaux==="ligne"&&b.fin.fraisLocaux)L.push(["Frais locaux (FV/FP)",String(b.fin.fraisLocaux).replace(".",","),""]);
+  if(b.fin.opts&&b.fin.opts.generaux==="ligne"&&b.fin.fraisGeneraux)L.push(["Frais généraux (FG)",String(b.fin.fraisGeneraux).replace(".",","),""]);
+  if(b.fin.tauxMax)L.push([""],["Plafond de prise en charge",String(b.fin.tauxMax).replace(".",",")+" %"],
+    ["Taux constaté",String(b.fin.tauxReel===null?"":b.fin.tauxReel).replace(".",",")+" %"]);
+  L.push([""],["— QUALITATIF —"],["Indicateur","Réalisé","Cible","Parcours renseignés","Portée"]);
   Object.keys(b.valeurs||{}).forEach(k=>{const v=b.valeurs[k];
     L.push([v.lib,v.valeur===null?"":String(v.valeur).replace(".",","),
       String(v.cible||"").replace(".",","),v.n+" / "+v.total,(v.portee||[]).join(" ")||"tous"]);});
@@ -9627,6 +9826,10 @@ function engPartDef(e,i){
         <input type="date" style="${inp}" value="${_J(e.au)}" onchange="engSet(${i},'au',this.value)"></div>
       <div><label style="font-size:8px;color:var(--text-3)">MONTANT CONVENTIONNÉ (€)</label>
         <input type="number" step="0.01" style="${inp}" value="${e.mtEngage||0}" onchange="engSet(${i},'mtEngage',this.value)"></div>
+      <div><label style="font-size:8px;color:var(--text-3)">PRISE EN CHARGE MAXIMALE (%)</label>
+        <input type="number" step="0.01" min="0" max="100" style="${inp}" value="${e.tauxMax||""}" placeholder="ex. 80" onchange="engTauxMaxSet(${i},this.value)"
+          title="Plafond conventionnel : « la CAF finance au maximum 80 % du coût du projet ». Le suivi vérifie le rapport perçu / coût du projet et alerte si le plafond est franchi. Laissez vide s'il n'y en a pas.">
+        <div style="font-size:8px;color:var(--text-3);margin-top:2px">Laissez vide s'il n'y a pas de plafond.</div></div>
     </div>
     <div style="font-size:9px;color:var(--text-3);margin-top:5px;line-height:1.7">
       La période peut aller de juin à juin et traverser deux exercices : c'est elle qui sert de maille, pas l'exercice comptable.
@@ -9723,13 +9926,90 @@ function engPartSuivi(e,i){
       ${fin.sansTrace?`<br><span style="color:var(--amber)">Aucun financement Airtable n'est rattaché : le perçu reste à zéro. Rattachez-les dans « Définir » — l'outil ne devine pas quel crédit appartient à quel financeur.</span>`:""}
     </div></div>`;
 
+  const o=fin.opts;
+  const selFrais=(quoi,val,lib)=>`<option value="${val}"${o[quoi]===val?" selected":""}>${lib}</option>`;
+  // Le plafond de prise en charge se vérifie sur le coût du projet TEL QU'AFFICHÉ :
+  // intégrer les frais de structure augmente le dénominateur et fait donc baisser
+  // le taux. Ce n'est pas un artifice — c'est le coût complet — mais il faut le
+  // dire, sinon le contrôle semblerait dépendre d'un réglage d'affichage.
+  if(fin.tauxMax>0){
+    const ok=!fin.depasse;
+    h+=`<div class="${ok?"":"warn"}" style="margin:0 0 10px;padding:8px 11px;border-radius:8px;font-size:10px;line-height:1.8;${ok?"background:var(--green-bg);border:1px solid rgba(52,211,153,.25)":""}">
+      <strong>${ok?"✅":"⚠️"} Prise en charge ${ok?"conforme":"au-delà du plafond"}</strong> —
+      plafond conventionnel <strong>${String(fin.tauxMax).replace(".",",")} %</strong>,
+      taux constaté <strong style="color:${ok?"var(--green)":"var(--red)"}">${fin.tauxReel===null?"—":String(fin.tauxReel).replace(".",",")+" %"}</strong>
+      (${fmt(fin.percu)} perçu sur ${fmt(fin.charges)} de coût projet).
+      ${ok?"":`<br>Il faut soit réduire le montant appelé de <strong>${fmt(Math.round((fin.percu-fin.charges*fin.tauxMax/100)*100)/100)}</strong>, soit justifier davantage de charges sur le périmètre — un dépassement de plafond est une demande de remboursement en puissance.`}
+      <br><span style="color:var(--text-3)">Le taux se calcule sur le coût projet <em>tel qu'affiché ci-dessous</em> : intégrer les frais de structure augmente le dénominateur et fait donc baisser le taux. C'est le coût complet, mais le réglage change le résultat du contrôle — vérifiez qu'il correspond à ce que le financeur accepte.</span></div>`;
+  }
   h+=`<div class="scard" style="margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;margin-bottom:4px">Financier sur le périmètre et la période</div>
-    <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:11px">
-      <div>Charges <strong style="font-family:var(--mono);color:var(--red)">${fmt(fin.charges)}</strong></div>
-      <div>Produits <strong style="font-family:var(--mono);color:var(--green)">${fmt(fin.produits)}</strong></div>
-      <div>Solde <strong style="font-family:var(--mono)">${fmt(Math.round((fin.produits-fin.charges)*100)/100)}</strong></div>
-      <div style="color:var(--text-3);font-size:9px">${fin.codes.length} code(s) projet · salaires ventilés inclus</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700">Bilan financier — par compte comptable</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:8px;color:var(--text-3)">Frais locaux FV/FP</span>
+        <select class="ms" style="width:180px;font-size:9px" onchange="engOptSet(${i},'locaux',this.value)"
+          title="Part des frais du territoire (FV pour le Sud, FP pour l'Île-de-France) attribuable aux projets de ce périmètre, au prorata des heures d'action.">
+          ${selFrais("locaux","non","Non intégrés")}${selFrais("locaux","integre","Dans les comptes")}${selFrais("locaux","ligne","Ligne à part")}</select>
+        <span style="font-size:8px;color:var(--text-3)">Frais généraux FG</span>
+        <select class="ms" style="width:180px;font-size:9px" onchange="engOptSet(${i},'generaux',this.value)"
+          title="Part des frais généraux nationaux attribuable à ce périmètre. Le taux affiché se calcule sur « projet + frais locaux », comme un taux d'overhead sur un coût déjà chargé.">
+          ${selFrais("generaux","non","Non intégrés")}${selFrais("generaux","integre","Dans les comptes")}${selFrais("generaux","ligne","Ligne à part")}</select>
+      </div>
+    </div>`;
+  if(!fin.comptes.length&&!fin.chLignes){
+    h+=`<div style="font-size:10px;color:var(--text-3)">Aucune écriture sur ce périmètre et cette période.</div>`;
+  }else{
+    h+=`<div style="overflow-x:auto"><table style="font-size:10px"><thead><tr>
+      <th>Compte comptable</th><th style="text-align:right">Charges</th><th style="text-align:right">Produits</th><th style="text-align:right">Solde</th></tr></thead><tbody>`;
+    fin.comptes.forEach(x=>{
+      h+=`<tr><td>${escHtml(x.cat)}${x.src&&x.src!=="projet"?`<span style="font-size:8px;color:var(--blue)"> · ${x.src==="locaux"?"frais locaux inclus":"frais généraux inclus"}</span>`:""}</td>
+        <td style="text-align:right;font-family:var(--mono);color:${x.charges?"var(--red)":"var(--text-3)"}">${x.charges?fmt(x.charges):"—"}</td>
+        <td style="text-align:right;font-family:var(--mono);color:${x.produits?"var(--green)":"var(--text-3)"}">${x.produits?fmt(x.produits):"—"}</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(Math.round((x.produits-x.charges)*100)/100)}</td></tr>`;
+    });
+    if(o.locaux==="ligne"&&Math.abs(fin.loc.net)>0.004)
+      h+=`<tr style="background:var(--blue-bg)"><td><strong>Frais locaux (FV / FP)</strong>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",",")+" % du coût projet":""}</span></td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.loc.net)}</td><td style="text-align:right">—</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.loc.net)}</td></tr>`;
+    if(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004)
+      h+=`<tr style="background:var(--blue-bg)"><td><strong>Frais généraux (FG)</strong>
+        <span style="font-size:8px;color:var(--text-3)"> · ${fin.tauxGen!==null?String(fin.tauxGen).replace(".",",")+" % de « projet + frais locaux »":""}</span></td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.gen.net)}</td><td style="text-align:right">—</td>
+        <td style="text-align:right;font-family:var(--mono)">${fmt(-fin.gen.net)}</td></tr>`;
+    h+=`</tbody><tfoot><tr style="border-top:2px solid var(--accent);font-weight:700">
+      <td>TOTAL — ${fin.comptes.length} compte(s)${(()=>{const n=(o.locaux==="ligne"&&Math.abs(fin.loc.net)>0.004?1:0)+(o.generaux==="ligne"&&Math.abs(fin.gen.net)>0.004?1:0);return n?" + "+n+" ligne(s) de frais":""})()}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(fin.charges)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--green)">${fmt(fin.produits)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt(Math.round((fin.produits-fin.charges)*100)/100)}</td></tr></tfoot></table></div>`;
+  }
+  // Les taux de frais, toujours affichés dès qu'une enveloppe est intégrée :
+  // c'est le chiffre qu'un financeur discute.
+  if(o.locaux!=="non"||o.generaux!=="non"){
+    h+=`<div style="font-size:9px;color:var(--text-3);margin-top:6px;line-height:1.7">
+      ${o.locaux!=="non"?`<strong>Frais locaux</strong> ${fmt(fin.loc.net)} — soit <strong>${fin.tauxLoc!==null?String(fin.tauxLoc).replace(".",","):"—"} %</strong> du coût projet (${fmt(fin.baseLoc)}).`:""}
+      ${o.generaux!=="non"?`${o.locaux!=="non"?"<br>":""}<strong>Frais généraux</strong> ${fmt(fin.gen.net)} — soit <strong>${fin.tauxGen!==null?String(fin.tauxGen).replace(".",","):"—"} %</strong> de « projet + frais locaux » (${fmt(fin.baseGen)}), et non du seul coût projet : un taux d'overhead s'applique à un coût déjà chargé.`:""}
+      <br>Ces parts sont calculées au prorata des heures d'action, avec la même clé que le suivi analytique — les deux vues ne peuvent pas se contredire.</div>`;
+  }
+  h+=`<div style="font-size:9px;color:var(--text-3);margin-top:5px">${fin.codes.length} code(s) projet · salaires ventilés inclus · comptes vides écartés, ordre du plan comptable</div>
+  </div>`;
+
+  // ── Produits : d'où vient le total, et lesquels concernent ce financeur ──
+  h+=`<div class="scard" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <div style="font-size:11px;font-weight:700">Produits du périmètre — ${fin.prodGroupes.length} financeur(s)</div>
+      <button class="b bd" style="font-size:9px" onclick="openEngProduits(${i})">💶 Choisir les financeurs concernés</button>
+    </div>
+    <div style="font-size:10px;margin-top:4px;line-height:1.8">
+      Total encaissé sur le périmètre : <strong style="font-family:var(--mono);color:var(--green)">${fmt(fin.prodTotal)}</strong>
+      ${Math.abs(fin.prodRetenu-fin.prodTotal)>0.004?` · retenu après décochage : <strong style="font-family:var(--mono)">${fmt(fin.prodRetenu)}</strong>`:""}
+      · dont <strong style="font-family:var(--mono);color:var(--accent-l)">${fmt(fin.percu)}</strong> rattaché${fin.percu?"":"e"} à <em>${escHtml(e.financeur||"ce financeur")}</em>.
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${fin.prodGroupes.slice(0,8).map(g=>
+        `<span class="fb" style="cursor:default;${g.retenu?"":"opacity:.4;text-decoration:line-through"}" title="${g.n} écriture(s)">${escHtml(String(g.nom).substring(0,26))} ${fmt(g.mt)}${fin.prodTotal>0?" · "+(g.mt/fin.prodTotal*100).toFixed(0)+" %":""}</span>`).join("")}
+        ${fin.prodGroupes.length>8?`<span style="font-size:9px;color:var(--text-3)">+ ${fin.prodGroupes.length-8} autre(s)</span>`:""}</div>
+      <div style="font-size:9px;color:var(--text-3);margin-top:4px">
+        Le total des produits n'est pas le montant de la convention : il contient <strong>toutes</strong> les recettes tombées sur ces codes projets, y compris celles d'autres financeurs et les prestations. C'est voulu — c'est le financement réel du projet — et c'est pourquoi le « perçu » du haut de page ne compte que les financements rattachés à cet engagement.
+      </div>
     </div></div>`;
 
   const cibles=e.cibles||[];
