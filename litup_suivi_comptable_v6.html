@@ -257,7 +257,7 @@ table.fig-col1 thead th:first-child{left:0;z-index:12;box-shadow:1px 0 0 var(--b
 <div class="hd" style="flex-wrap:wrap;gap:6px;align-items:center">
   <div style="display:flex;align-items:center;gap:8px">
     <svg viewBox="0 0 1080 396" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto"><g><g><path fill="#00989D" d="M0,291V86h78.7v197.4c0,29.1,11.5,45.3,32.1,45.3c4.3,0,8.6-.4,14.1-.9v65c-12,2.1-18.8,3-28.7,3C16.7,395.8,0,336.4,0,291z"/><path fill="#00989D" d="M155.3,390.7V196.6h78.7v194.1H155.3z"/><path fill="#00989D" d="M432.4,327v62.9c-14.5,3.4-36.4,6-52.6,6-84.3,0-100.1-63.7-100.1-110.4V123.1l72.3-37.2h6.4v65.4l67.2-.4v59.9h-67.2v76c0,29.5,15.8,44.1,41.1,44.1C409.3,330.8,421.7,329.5,432.4,327z"/><path fill="#00989D" d="M697.6,85.8h79.1v304.9h-79.1v-24.4c-15.8,17.5-40.6,29.5-66.7,29.5-44.1,0-80.4-26.5-80.4-85.1V172.6h78.7v121.1c0,23.1,12.4,36.4,31.7,36.4,12.8,0,26.5-6.4,36.8-16.7V85.8z"/><path fill="#00989D" d="M1080,114.2c0,69.3-45.3,114.2-104.4,114.2-23.1,0-44.9-8.1-60.7-21v183.3h-78.7V5.1h79.1v15.4C931.2,8.1,953,0,975.6,0,1034.7,0,1080,44.9,1080,114.2zm-75.3,0c0-32.1-22.2-51.8-50.5-51.8-13.3,0-27.4,5.1-38.9,12.8v77.9c11.6,7.7,25.7,12.8,38.9,12.8C982.5,166,1004.7,146.3,1004.7,114.2z"/></g><ellipse fill="#FCC33D" cx="194.3" cy="129" rx="46.9" ry="43.4"/></g></svg>
-    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01d <span id="atStat" style="font-weight:600"></span></div></div>
+    <div><div style="font-weight:700;font-size:14px;letter-spacing:-.3px">Suivi Comptable</div><div style="font-size:9px;color:var(--text-3)">Lit uP · V6 · build 2026-09-01e <span id="atStat" style="font-weight:600"></span></div></div>
     <div id="backendWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#78350f;background:#fbbf24;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   <div id="fusWarn" style="display:none;cursor:pointer;font-size:9px;font-weight:700;color:#fff;background:#6366f1;border-radius:5px;padding:3px 8px;margin-left:8px" title=""></div>
   </div>
@@ -4237,6 +4237,9 @@ const FG_REGLES=[
   {k:"FP", cat:"FONC",pfx:"FP", terr:"IDF",grp:"locaux",  lib:"Fonctionnement IDF",      ou:"les projets d'Île-de-France"},
   {k:"LAB",cat:"LAB", pfx:"LAB",terr:null, grp:"lab",     lib:"LAB Lit uP",              ou:"tous les projets"}
 ];
+// Exercice auquel une écriture est rattachée : l'année d'affectation d'abord,
+// la date en repli. C'est ce même exercice qui décide des projets destinataires.
+const fgExoDe=r=>anStr(r&&r.yr)||String(moKey(r&&r.dt)||"").substring(0,4);
 const fgRegleDe=label=>{
   const cat=actCat(label);
   const c=actCode(label);
@@ -4250,8 +4253,36 @@ const fgRegleDe=label=>{
 // frais généraux tous deux répartis, le LAB recevait sa part de frais généraux
 // et gardait ce reliquat pour toujours, la passe étant unique. 500 € restaient
 // ainsi sur un code qu'on avait justement demandé de vider.
-function fgCibles(regle,grps){
+// Projets vivants sur un exercice. Les frais généraux 2026 ne peuvent pas être
+// supportés par un parcours de 2024 qui n'existe plus que dans la liste des
+// codes — c'est ce qui se passait, et ça diluait la répartition sur des dizaines
+// de projets éteints.
+// Deux cas à ne pas confondre, et c'est un test qui me l'a appris :
+//   • un projet ÉTEINT porte des écritures sur d'autres exercices et aucune sur
+//     celui-ci : il est mort pour cet exercice, il ne doit rien recevoir ;
+//   • un projet PAS ENCORE DÉMARRÉ n'en porte nulle part : ses heures sont
+//     prévues, la dépense n'a pas commencé. L'écarter laisserait les frais du
+//     territoire non répartis alors qu'un parcours va bien les consommer.
+// Mémorisé par exercice : le balayage est trop coûteux pour être refait à chaque
+// ligne.
+function fgActifsAn(y){
+  const c=fgMemo();const k="an|"+y;
+  if(!(k in c)){
+    const ici=new Set(), ailleurs=new Set();
+    (D.rows||[]).forEach(r=>{
+      if(!r.act)return;
+      const code=actCode(r.act);
+      if(anEq(fgExoDe(r),y))ici.add(code);else ailleurs.add(code);
+    });
+    c[k]={ici,ailleurs,
+      vivant:code=>ici.has(code)||!ailleurs.has(code),
+      get size(){return ici.size}};
+  }
+  return c[k];
+}
+function fgCibles(regle,grps,y){
   const actifs=grps&&grps.length?grps:[regle.grp];
+  const vivants=y?fgActifsAn(y):null;
   return actLabels().filter(l=>{
     if(rhExclu(l))return false;
     const cat=actCat(l);
@@ -4260,6 +4291,7 @@ function fgCibles(regle,grps){
     // Ni sa propre enveloppe, ni une enveloppe elle-même en cours de répartition.
     if(FG_REGLES.some(r=>(r.pfx===regle.pfx||actifs.indexOf(r.grp)>=0)&&r.cat===cat&&rhPfxMatch(c,r.pfx)))return false;
     if(regle.terr&&terrNorm(actTerr(l))!==regle.terr)return false;
+    if(vivants&&!vivants.vivant(c))return false;
     return true;
   });
 }
@@ -4311,9 +4343,9 @@ function fgPoids(k,label){
   const m=fgPoidsManuel(k,c);
   return m!==null?{v:m,src:"manuel"}:{v:actHeures(c),src:"heures"};
 }
-function fgParts(regle,grps){
+function fgParts(regle,grps,y){
   const k=regle.k;
-  const brut=fgCibles(regle,grps);
+  const brut=fgCibles(regle,grps,y);
   const ecartes=brut.filter(l=>fgExclu(k,actCode(l)));
   const tous=brut.filter(l=>!fgExclu(k,actCode(l)));
   const avec=tous.filter(l=>fgPoids(k,l).v>0);
@@ -4331,9 +4363,9 @@ function fgParts(regle,grps){
 // _fgMemo est déclaré tout en haut, à côté de _actCache : le déclarer ici le
 // rendait inaccessible à invalidateActCache, défini plus haut dans le fichier.
 function fgMemo(){if(!_fgMemo)_fgMemo={};return _fgMemo}
-function fgPartsMemo(regle,grps){
-  const c=fgMemo(),k=regle.pfx+"|"+((grps||[]).slice().sort().join(","));
-  if(!(k in c))c[k]=fgParts(regle,grps);
+function fgPartsMemo(regle,grps,y){
+  const c=fgMemo(),k=regle.pfx+"|"+((grps||[]).slice().sort().join(","))+"|"+(y||"");
+  if(!(k in c))c[k]=fgParts(regle,grps,y);
   return c[k];
 }
 // Deuxième passe d'affichage, après la ventilation des salaires : ce qui reste
@@ -4353,12 +4385,14 @@ function fgRows(rows,grps){
     if((r.cre||0)>0){out.push(r);produits.push({r,lib:rg.lib,mt:Math.round((r.cre||0)*100)/100});return}
     const mt=r.deb||0;
     if(Math.abs(mt)<0.005){out.push(r);return}
-    const k=fgPartsMemo(rg,grps);
-    if(!k.cibles.length){out.push(r);ratees.push({r,lib:rg.lib,why:"aucun projet destinataire pour "+rg.ou});return}
+    const exo=fgExoDe(r);
+    const k=fgPartsMemo(rg,grps,exo);
+    if(!k.cibles.length){out.push(r);ratees.push({r,lib:rg.lib,
+      why:"aucun projet de l'exercice "+(exo||"?")+" ne peut recevoir "+rg.ou});return}
     out.push(...ventilEclate(r,k.cibles.map((l,i)=>({act:l,part:k.parts[i]})),0,
-      {fg:rg.lib,mode:k.mode,ou:rg.ou}));
+      {fg:rg.lib,mode:k.mode,ou:rg.ou,exo}));
     reparties.push({r,lib:rg.lib,ou:rg.ou,mode:k.mode,n:k.cibles.length,
-      sans:k.sans.length,mt:Math.round(mt*100)/100});
+      sans:k.sans.length,exo,mt:Math.round(mt*100)/100});
   });
   return {rows:out,reparties,ratees,produits};
 }
@@ -4370,17 +4404,31 @@ function fgRows(rows,grps){
 //     pourquoi un projet ne recevait rien.
 //   « par projet »    — combien de structure chaque projet reçoit. C'est la vue
 //     qui sert à expliquer un coût à un financeur.
-let _fgVue="env";
-function openFgDiag(){_fgVue="env";fgDiagDessine()}
+let _fgVue="env",_fgExo="";
+// La répartition se fait exercice par exercice : la modale doit donc en montrer
+// UN. Elle suit le filtre de l'onglet ; quand il est sur « tous », elle prend le
+// dernier exercice présent et le dit, plutôt que de mélanger des projets de
+// plusieurs années — c'est ce mélange qui faisait tomber les frais généraux 2026
+// sur des parcours de 2024.
+function fgExercices(){
+  const S=new Set();(D.rows||[]).forEach(r=>{const y=fgExoDe(r);if(y)S.add(y)});
+  return [...S].sort().reverse();
+}
+function openFgDiag(){
+  _fgVue="env";
+  const L=fgExercices();
+  _fgExo=suiviFilt.yr||L[0]||String(new Date().getFullYear());
+  fgDiagDessine();
+}
 function fgDiagVue(v){_fgVue=v;fgDiagDessine()}
+function fgDiagExo(y){_fgExo=y;fgDiagDessine()}
 function closeFgDiag(){$("modalC").innerHTML=""}
 // Charges de chaque enveloppe sur l'exercice affiché. Seules les charges : un
 // produit de fonctionnement reste sur son code.
-function fgMontants(){
-  const y=suiviFilt.yr;
+function fgMontants(y){
   const out={},prod={};
   (D.rows||[]).forEach(r=>{
-    if(y&&!anEq(r.yr,y))return;
+    if(y&&!anEq(fgExoDe(r),y))return;
     const rg=fgRegleDe(r.act);if(!rg)return;
     if((r.cre||0)>0){prod[rg.k]=Math.round(((prod[rg.k]||0)+(r.cre||0))*100)/100;return}
     out[rg.k]=Math.round(((out[rg.k]||0)+(r.deb||0))*100)/100;
@@ -4394,23 +4442,30 @@ function fgGrpsActifs(){
   return g;
 }
 function fgDiagDessine(){
-  const M=fgMontants();
+  const exo=_fgExo||suiviFilt.yr||"";
+  const M=fgMontants(exo);
   const grps=fgGrpsActifs();
   const actif=k=>{const r=FG_REGLES.find(x=>x.k===k);return !!r&&grps.indexOf(r.grp)>=0};
   const onglet=(v,lib)=>`<button class="b ${_fgVue===v?"bp":"bd"}" style="font-size:9px" onclick="fgDiagVue('${v}')">${lib}</button>`;
   let h=`<div class="modal-bg" onclick="if(event.target===this)closeFgDiag()"><div class="modal" style="max-width:900px">
     <h3>🔎 Où et comment les frais se répartissent</h3>
     <p style="font-size:10px;color:var(--text-2);margin:4px 0 8px;line-height:1.7">
-      Exercice ${escHtml(suiviFilt.yr||"tous")} · <strong>seules les charges</strong> se répartissent : une subvention de fonctionnement reste sur son code.
+      <strong>Exercice ${escHtml(exo||"?")}</strong>${suiviFilt.yr?"":' <span style="color:var(--amber)">— le filtre de l\'onglet est sur « tous », mais la répartition se fait exercice par exercice : en voici un</span>'}
+      · <strong>seules les charges</strong> se répartissent : une subvention de fonctionnement reste sur son code.
       La clé est <strong>commune</strong> au suivi analytique et à tous les bilans financeurs — deux financeurs ne doivent pas voir deux coûts différents pour le même projet.
       <br>Les interrupteurs de l'onglet décident si la répartition est <em>affichée</em> ; cette clé décide <em>comment</em> elle se fait.
     </p>
-    <div style="display:flex;gap:5px;margin-bottom:8px">${onglet("env","Par enveloppe")}${onglet("proj","Par projet")}</div>`;
+    <div style="display:flex;gap:5px;margin-bottom:8px;align-items:center;flex-wrap:wrap">${onglet("env","Par enveloppe")}${onglet("proj","Par projet")}
+      <span style="font-size:8px;color:var(--text-3);margin-left:8px">Exercice</span>
+      <select class="ms" style="width:90px;font-size:9px" onchange="fgDiagExo(this.value)">
+        ${fgExercices().map(y=>`<option value="${y}"${y===exo?" selected":""}>${y}</option>`).join("")}</select>
+      <span style="font-size:9px;color:var(--text-3)">${fgActifsAn(exo).size} projet(s) portent une écriture sur cet exercice</span>
+    </div>`;
 
   if(_fgVue==="env"){
     FG_REGLES.forEach(rg=>{
       const mt=M.charges[rg.k]||0, pr=M.produits[rg.k]||0;
-      const k=fgParts(rg,grps.length?grps:[rg.grp]);
+      const k=fgParts(rg,grps.length?grps:[rg.grp],exo);
       const on=actif(rg.k);
       const nManuels=k.manuels.length, nExclus=k.ecartes.length;
       h+=`<div class="scard" style="margin-bottom:8px;${on?"":"opacity:.6"}">
@@ -4422,7 +4477,7 @@ function fgDiagDessine(){
             ${(nManuels||nExclus)?`<button class="b bd" style="font-size:8px;margin-left:6px" onclick="fgResetCle('${rg.k}')" title="Revenir au prorata des heures d'action">↺ clé d'origine</button>`:""}</div>
         </div>`;
       if(!k.brut.length){
-        h+=`<div style="font-size:10px;color:var(--amber);margin-top:4px">Aucun projet destinataire possible pour ${escHtml(rg.ou)}.</div></div>`;
+        h+=`<div style="font-size:10px;color:var(--amber);margin-top:4px">Aucun projet de l'exercice ${escHtml(exo)} ne peut recevoir ${escHtml(rg.ou)}${mt?" — ces "+fmt(mt)+" resteront sur le code de l'enveloppe":""}.</div></div>`;
         return;
       }
       h+=`<div style="overflow-x:auto;margin-top:5px"><table style="font-size:10px"><thead><tr>
@@ -4462,7 +4517,7 @@ function fgDiagDessine(){
     FG_REGLES.forEach(rg=>{
       if(!actif(rg.k))return;
       const mt=M.charges[rg.k]||0;
-      const k=fgParts(rg,grps);
+      const k=fgParts(rg,grps,exo);
       k.cibles.forEach((l,i)=>{
         const c=actCode(l);
         if(!lignes[c])lignes[c]={code:c,tot:0};
@@ -9764,8 +9819,11 @@ function engFin(e,auJour,opts){
   // ── 2) frais locaux (FV / FP) puis généraux (FG) ──
   // Part du périmètre dans chaque enveloppe de frais : la même clé que le suivi
   // analytique, pour que les deux vues ne se contredisent pas.
-  const partDe=(regle)=>{
-    const k=fgPartsMemo(regle,grpsActifs);
+  // La part du périmètre dépend de l'EXERCICE de la charge : un engagement de
+  // juin à juin traverse deux exercices, et les projets vivants ne sont pas les
+  // mêmes des deux côtés.
+  const partDe=(regle,y)=>{
+    const k=fgPartsMemo(regle,grpsActifs,y);
     let part=0;
     k.cibles.forEach((l,i)=>{if(codes.has(actCode(l)))part+=k.parts[i]});
     return part;
@@ -9791,7 +9849,7 @@ function engFin(e,auJour,opts){
       if(!dedans(r))return;
       const rg=fgRegleDe(r.act);
       if(!rg||pfxs.indexOf(rg.pfx)<0)return;
-      const part=partDe(rg);if(part<=0)return;
+      const part=partDe(rg,fgExoDe(r));if(part<=0)return;
       if((r.cre||0)>0){prodIgnores=r2(prodIgnores+(r.cre||0)*part);return}
       const d=r2((r.deb||0)*part);
       if(!d)return;
