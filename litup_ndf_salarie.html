@@ -464,7 +464,7 @@ function showNewNDF(){
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
       <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
-  window._ndfEditLines=[];window._ndfEditExisting=null;addNdfLine();
+  window._ndfEditLines=[];window._ndfEditExisting=null;window._ndfRemovedPJ=[];addNdfLine();
 }
 function showNewIK(){
   const nom=(D.salarie||"").split(" ").pop().toUpperCase().replace(/[^A-Z]/g,"")||"X";
@@ -481,7 +481,7 @@ function showNewIK(){
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
       <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
-  window._ndfEditLines=[];window._ndfEditExisting=null;addIkLine();
+  window._ndfEditLines=[];window._ndfEditExisting=null;window._ndfRemovedPJ=[];addIkLine();
 }
 
 function addNdfLine(){
@@ -498,11 +498,13 @@ function addNdfLine(){
       <div class="form-row"><label>Type de dépense</label><select class="inp" id="ltype_${_lineIdx}">${expTypeOptions()}</select></div>
       <div class="form-row"><label>Code projet</label><select class="inp" id="lcode_${_lineIdx}">${codeOptions()}</select></div>
       <div class="form-row"><label>Justificatif <span style="color:var(--red)">*</span></label>
-        <div class="drop-zone" id="dz_${_lineIdx}" onclick="$('lfile_'+${_lineIdx}).click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${_lineIdx})">📎 Glissez ou cliquez</div>
+        <div class="drop-zone" id="dz_${_lineIdx}" onclick="dzClick(${_lineIdx})" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');handleDrop(event,${_lineIdx})">📎 Glissez ou cliquez</div>
         <input type="file" id="lfile_${_lineIdx}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="previewFile(${_lineIdx})">
         <div id="fprev_${_lineIdx}" class="file-list"></div>
-        <div id="factions_${_lineIdx}" style="display:none;margin-top:4px;gap:6px">
-          <button type="button" class="b bd" style="font-size:10px;padding:3px 8px" onclick="ocrManual(${_lineIdx})">🤖 Lire le justificatif</button>
+        <div id="factions_${_lineIdx}" style="display:none;margin-top:4px;gap:6px;flex-wrap:wrap">
+          <button type="button" class="b bd" style="font-size:10px;padding:3px 8px" onclick="viewPJ(${_lineIdx})">👁 Voir</button>
+          <button type="button" class="b bd" style="font-size:10px;padding:3px 8px" onclick="$('lfile_${_lineIdx}').click()">🔄 Remplacer</button>
+          <button type="button" class="b bd" id="focr_${_lineIdx}" style="font-size:10px;padding:3px 8px" onclick="ocrManual(${_lineIdx})">🤖 Lire le justificatif</button>
           <button type="button" class="b br" style="font-size:10px;padding:3px 8px" onclick="removeFile(${_lineIdx})">✕ Supprimer</button>
         </div></div>
     </div>`;
@@ -533,22 +535,60 @@ function addIkLine(){
 }
 
 function previewIK(idx){const km=parseFloat($("lkm_"+idx)?.value)||0;const cv=parseInt($("lcv_"+idx)?.value)||D.cv;const a=calcIK(km,cv);const p=$("ikprev_"+idx);if(p)p.innerHTML=`<span class="ik-val">${fmt(a)}</span><span style="font-size:10px;color:var(--text-3);margin-left:6px">${km} km × ${cv} CV</span>`}
-function rmLine(idx){window._ndfEditLines=window._ndfEditLines.filter(l=>l.idx!==idx);$("line_"+idx)?.remove()}
+function rmLine(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);
+  if(meta&&(meta._driveFileId||meta._oldDriveFileId))(window._ndfRemovedPJ=window._ndfRemovedPJ||[]).push(meta._oldDriveFileId||meta._driveFileId);
+  window._ndfEditLines=window._ndfEditLines.filter(l=>l.idx!==idx);$("line_"+idx)?.remove()}
 
-function handleDrop(e,idx){const files=e.dataTransfer?.files;if(!files?.length)return;const dt=new DataTransfer();dt.items.add(files[0]);const inp=$("lfile_"+idx);if(inp){inp.files=dt.files;previewFile(idx)}const dz=$("dz_"+idx);if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+files[0].name}}
+function handleDrop(e,idx){const files=e.dataTransfer?.files;if(!files?.length)return;const dt=new DataTransfer();dt.items.add(files[0]);const inp=$("lfile_"+idx);if(inp){inp.files=dt.files;previewFile(idx)}}
+// ─── PIÈCE JOINTE D'UNE LIGNE ───
+// meta._fileData : fichier choisi sur cet appareil (pas encore forcément sur le Drive)
+// meta._driveUrl / _driveFileId : PJ déjà sur le Drive (consultable depuis n'importe quel appareil)
+// meta._oldDriveFileId : ancienne PJ remplacée ou supprimée, mise à la corbeille Drive à l'enregistrement
+function hasPJ(meta){return !!(meta&&(meta._fileData||meta._driveUrl||meta._fileName))}
+function renderPJ(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);
+  const prev=$("fprev_"+idx),dz=$("dz_"+idx),actions=$("factions_"+idx),ocr=$("focr_"+idx);
+  if(!hasPJ(meta)){
+    if(prev)prev.innerHTML="";
+    if(dz){dz.classList.remove("has-file");dz.innerHTML="📎 Glissez ou cliquez";dz.title=""}
+    if(actions)actions.style.display="none";return}
+  const name=meta._fileName||"justificatif";
+  const where=meta._fileData&&!meta._driveUrl?' <span style="font-size:9px;color:var(--amber)">(sera envoyée sur le Drive à l\'enregistrement)</span>':meta._driveUrl?' <span style="font-size:9px;color:var(--text-3)">☁️ Drive</span>':' <span style="font-size:9px;color:var(--red)">(fichier introuvable, à remplacer)</span>';
+  if(prev)prev.innerHTML=meta._fileData&&(meta._fileType||"").startsWith("image/")
+    ?`<div class="file-item"><img src="${meta._fileData}" style="max-width:100px;max-height:60px;border-radius:4px"> <span class="name">${name}</span>${where}</div>`
+    :`<div class="file-item">📄 <span class="name">${name}</span>${where}</div>`;
+  if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+name+" · 👁 cliquer pour voir";dz.title="Voir la pièce jointe"}
+  if(actions)actions.style.display="flex";
+  if(ocr)ocr.style.display=meta._fileData?"":"none";
+}
+function dzClick(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);
+  if(meta&&(meta._fileData||meta._driveUrl))viewPJ(idx);else $("lfile_"+idx)?.click();
+}
+function viewPJ(idx){
+  const meta=window._ndfEditLines.find(l=>l.idx===idx);if(!meta)return;
+  if(meta._fileData){
+    // Blob plutôt que data: (les navigateurs bloquent l'ouverture directe d'une URL data:)
+    try{const [h,b64]=meta._fileData.split(",");const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+      const type=(h.match(/data:([^;]+)/)||[])[1]||meta._fileType||"application/octet-stream";
+      window.open(URL.createObjectURL(new Blob([u],{type})),"_blank");return}catch(e){console.warn("Aperçu PJ:",e)}
+  }
+  if(meta._driveUrl){window.open(meta._driveUrl,"_blank");return}
+  alert("Ce justificatif n'est pas disponible sur cet appareil ni sur le Drive.\nUtilisez 🔄 Remplacer pour le redéposer.");
+}
+function forgetDrivePJ(meta){
+  if(meta._driveFileId&&!meta._oldDriveFileId)meta._oldDriveFileId=meta._driveFileId;
+  delete meta._driveUrl;delete meta._driveFileId;
+}
 
-function previewFile(idx){const inp=$("lfile_"+idx);const prev=$("fprev_"+idx);if(!inp?.files?.length)return;const f=inp.files[0];const rd=new FileReader();rd.onload=ev=>{const meta=window._ndfEditLines.find(l=>l.idx===idx);if(meta){meta._fileData=ev.target.result;meta._fileName=f.name;meta._fileType=f.type}if(prev){prev.innerHTML=f.type.startsWith("image/")?`<div class="file-item"><img src="${ev.target.result}" style="max-width:100px;max-height:60px;border-radius:4px"> <span class="name">${f.name}</span></div>`:`<div class="file-item">📄 <span class="name">${f.name}</span></div>`}const dz=$("dz_"+idx);if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+f.name}
-  // Show action buttons
-  const actions=$("factions_"+idx);if(actions)actions.style.display="flex";
-};rd.readAsDataURL(f)}
+function previewFile(idx){const inp=$("lfile_"+idx);if(!inp?.files?.length)return;const f=inp.files[0];const rd=new FileReader();rd.onload=ev=>{const meta=window._ndfEditLines.find(l=>l.idx===idx);if(meta){forgetDrivePJ(meta);meta._fileData=ev.target.result;meta._fileName=f.name;meta._fileType=f.type}renderPJ(idx)};rd.readAsDataURL(f)}
 
 function removeFile(idx){
   const meta=window._ndfEditLines.find(l=>l.idx===idx);
-  if(meta){delete meta._fileData;delete meta._fileName;delete meta._fileType}
+  if(meta){forgetDrivePJ(meta);delete meta._fileData;delete meta._fileName;delete meta._fileType}
   const inp=$("lfile_"+idx);if(inp)inp.value="";
-  const prev=$("fprev_"+idx);if(prev)prev.innerHTML="";
-  const dz=$("dz_"+idx);if(dz){dz.classList.remove("has-file");dz.innerHTML="📎 Glissez ou cliquez"}
-  const actions=$("factions_"+idx);if(actions)actions.style.display="none";
+  renderPJ(idx);
 }
 
 
@@ -617,14 +657,14 @@ async function saveNDF(status){
   if(status==="envoyée"&&!confirm("Envoyer cette NDF à la direction ?\nElle ne pourra plus être modifiée après envoi."))return;
   const ref=($("ndf_ref")?.value||"").trim();const date=($("ndf_date")?.value||"").trim();
   if(!ref){alert("Numéro requis");return}
-  const lines=[];
+  const lines=[],oldPJ=[];
   for(const meta of window._ndfEditLines){const i=meta.idx;
     if(meta.type==="ik"){const km=parseFloat($("lkm_"+i)?.value)||0;const cv=parseInt($("lcv_"+i)?.value)||D.cv;if(!km)continue;
       lines.push({type:"ik",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",km,cv,amount:calcIK(km,cv),code:$("lcode_"+i)?.value||"",four:"Indemnité kilométrique",fileName:""})
     } else {const amt=parseFloat($("lamt_"+i)?.value)||0;if(!amt)continue;
-      let fileName=meta._fileName||"",fileData=meta._fileData||"",fileType=meta._fileType||"";
-      if(!fileData&&window._ndfEditExisting){const el=window._ndfEditExisting[window._ndfEditLines.indexOf(meta)];if(el){fileName=el.fileName||"";fileData=el.fileData||"";fileType=el.fileType||"";}}
-      lines.push({type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",expType:$("ltype_"+i)?.value||"",fileName,fileData,fileType,driveUrl:meta._driveUrl||""})
+      const line={type:"expense",date:$("ldate_"+i)?.value||date,desc:$("ldesc_"+i)?.value||"",four:$("lfour_"+i)?.value||"",amount:amt,code:$("lcode_"+i)?.value||"",expType:$("ltype_"+i)?.value||"",fileName:meta._fileName||"",fileData:meta._fileData||"",fileType:meta._fileType||"",driveUrl:meta._driveUrl||"",driveFileId:meta._driveFileId||""};
+      if(meta._oldDriveFileId)oldPJ.push({line,fileId:meta._oldDriveFileId});
+      lines.push(line)
     }
   }
   if(!lines.length){alert("Ajoutez au moins une ligne");return}
@@ -657,6 +697,10 @@ async function saveNDF(status){
     if(log)log.innerHTML+=`<div style="margin-top:6px;font-weight:600">${uploaded} uploadé(s)${failed?" / "+failed+" échoué(s)":""}</div>`;
     setTimeout(()=>prog.remove(),failed?5000:2000);
   }
+  // Anciennes PJ remplacées/supprimées → corbeille Drive (seulement si la nouvelle est bien partie)
+  const toTrash=oldPJ.filter(o=>o.line.driveUrl||!o.line.fileData).map(o=>o.fileId).concat(window._ndfRemovedPJ||[]);
+  window._ndfRemovedPJ=[];
+  toTrash.forEach(fileId=>sheetAPI("deleteDriveFile",{fileId}).catch(e=>console.warn("Corbeille PJ:",e)));
   if(status==="envoyée"){
     // Close the form immediately so user sees the updated list
     closeM();
@@ -740,7 +784,8 @@ function editNDF(id){
       <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Description</th><th>Fournisseur</th><th style="text-align:right">Montant</th><th>Code projet</th><th>Justificatif</th></tr></thead><tbody>`;
     n.lines.forEach((l,i)=>{
       const type=l.type==="ik"?"🚗 IK":"📄 Dép.";
-      const pj=l.fileName?`<span style="color:var(--green)">📎 ${l.fileName.length>25?l.fileName.substring(0,25)+"…":l.fileName}</span>`:'<span style="color:var(--text-3)">—</span>';
+      const pjName=l.fileName?(l.fileName.length>25?l.fileName.substring(0,25)+"…":l.fileName):"";
+      const pj=l.fileName&&l.driveUrl?`<a href="${l.driveUrl}" target="_blank" rel="noopener" style="color:var(--green)" title="Voir la pièce jointe">📎 ${pjName} 👁</a>`:l.fileName?`<span style="color:var(--green)">📎 ${pjName}</span>`:'<span style="color:var(--text-3)">—</span>';
       h+=`<tr><td>${i+1}</td><td style="font-size:10px">${(l.date||"").replace(/T.*$/,"")}</td><td style="font-size:9px">${type}</td><td>${l.desc||""}${l.type==="ik"&&l.km?" ("+l.km+" km)":""}</td><td>${l.four||""}</td><td style="text-align:right;font-family:var(--mono)">${fmt(l.amount||0)}</td><td style="font-size:9px">${l.code||""}</td><td style="font-size:8px">${pj}</td></tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -764,11 +809,13 @@ function editNDF(id){
     <div style="display:flex;gap:6px;margin-top:14px;justify-content:flex-end">
       <button class="b bd" onclick="closeM()">Annuler</button><button class="b bg" onclick="saveNDF('brouillon')">💾 Brouillon</button><button class="b bp" onclick="saveNDF('envoyée')">✉️ Envoyer</button></div>
   </div></div>`;
-  window._ndfEditLines=[];_lineIdx=0;
+  window._ndfEditLines=[];window._ndfRemovedPJ=[];_lineIdx=0;
   n.lines.forEach(l=>{
     if(l.type==="ik"){addIkLine();const i=_lineIdx;if($("ldate_"+i))$("ldate_"+i).value=l.date||"";if($("ldesc_"+i))$("ldesc_"+i).value=l.desc||"";if($("lkm_"+i))$("lkm_"+i).value=l.km||"";if($("lcv_"+i))$("lcv_"+i).value=l.cv||D.cv;if($("lcode_"+i))$("lcode_"+i).value=l.code||"";previewIK(i)}
     else{addNdfLine();const i=_lineIdx;if($("ldate_"+i))$("ldate_"+i).value=l.date||"";if($("lfour_"+i))$("lfour_"+i).value=l.four||"";if($("ldesc_"+i))$("ldesc_"+i).value=l.desc||"";if($("lamt_"+i))$("lamt_"+i).value=l.amount||"";if($("ltype_"+i))$("ltype_"+i).value=l.expType||"";if($("lcode_"+i))$("lcode_"+i).value=l.code||"";
-      if(l.fileName){const p=$("fprev_"+i);const dz=$("dz_"+i);if(p&&l.fileData&&(l.fileType||"").startsWith("image/"))p.innerHTML=`<div class="file-item"><img src="${l.fileData}" style="max-width:100px;max-height:60px;border-radius:4px"> ${l.fileName}</div>`;else if(p&&l.fileData)p.innerHTML=`<div class="file-item">📄 ${l.fileName}</div>`;if(dz){dz.classList.add("has-file");dz.innerHTML="✅ "+l.fileName}}}
+      const meta=window._ndfEditLines.find(m=>m.idx===i);
+      if(meta){if(l.fileName)meta._fileName=l.fileName;if(l.fileData)meta._fileData=l.fileData;if(l.fileType)meta._fileType=l.fileType;if(l.driveUrl)meta._driveUrl=l.driveUrl;if(l.driveFileId)meta._driveFileId=l.driveFileId}
+      renderPJ(i)}
   });
 }
 
