@@ -102,16 +102,39 @@ async function sheetAPI(action,data,params){
     try{return JSON.parse(txt)}catch(e){return{ok:true,raw:txt.substring(0,100)}}
   }catch(e){console.warn("Sheet API error:",e);return{error:e.message}}
 }
-let _syncPending=false;
+// Synchro entre appareils (téléphone ↔ ordinateur) via le Sheet.
+// Chaque NDF modifiée localement reçoit modAt ; syncedAt retient le modAt
+// déjà envoyé au Sheet. Une NDF est « à envoyer au Sheet » si modAt > syncedAt.
+// Seules ces NDF sont poussées : on n'écrase plus un statut posé par la direction.
+let _syncPending=false,_syncAgain=false;
 function setSyncStatus(s){const el=document.getElementById("syncStatus");if(el)el.textContent=s}
+function touch(n){n.modAt=Date.now()}
+function isDirty(n){return (n.modAt||0)>(n.syncedAt||0)}
+function sheetDate(v){
+  // Le Sheet convertit "2026-09-21" en date : il revient en ISO UTC ("2026-09-20T22:00:00.000Z")
+  const s=(v||"").toString();
+  if(!s.includes("T"))return s;
+  const d=new Date(s);if(isNaN(d))return s.split("T")[0];
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
 async function syncToSheet(){
-  if(_syncPending||!D.salarie)return;_syncPending=true;setSyncStatus("🔄");
+  if(!D.salarie)return;
+  if(_syncPending){_syncAgain=true;return} // ne jamais perdre une sauvegarde faite pendant un envoi
+  _syncPending=true;
   try{
-    // Sync ALL NDF (including brouillons) so they are accessible from any terminal
-    if(!D.ndfs.length){setSyncStatus("☁️");_syncPending=false;return}
-    const exportNdfs=D.ndfs.map(n=>({...n,lines:n.lines.map(l=>{const c={...l};delete c.fileData;return c})}));
-    const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:exportNdfs,modifiedBy:D.salarie});
-    setSyncStatus(res.error?"⚠️":"☁️");
+    do{
+      _syncAgain=false;
+      const dirty=D.ndfs.filter(isDirty);
+      if(!dirty.length){setSyncStatus("☁️");break}
+      setSyncStatus("🔄");
+      const sent=dirty.map(n=>({n,modAt:n.modAt}));
+      const exportNdfs=dirty.map(n=>{const c={...n,lines:n.lines.map(l=>{const x={...l};delete x.fileData;return x})};delete c.modAt;delete c.syncedAt;return c});
+      const res=await sheetAPI("saveNDF",{salarie:D.salarie,ndfs:exportNdfs,modifiedBy:D.salarie});
+      if(res.error){setSyncStatus("⚠️");break}
+      sent.forEach(s=>{s.n.syncedAt=s.modAt});
+      persist();
+      setSyncStatus("☁️");
+    }while(_syncAgain);
   }catch(e){console.warn("Sync error:",e);setSyncStatus("⚠️")}
   _syncPending=false;
 }
@@ -137,7 +160,10 @@ async function syncFromSheet(){
       // Only remove if they were synced from Sheet (status envoyée/validée/réglée/refusée)
       D.ndfs=D.ndfs.filter(n=>{
         if(sheetRefs.has(n.ref))return true; // Still in Sheet
-        if(n.status==="brouillon")return true; // Local only, keep
+        if(isDirty(n))return true; // Pas encore envoyée au Sheet : on garde
+        // Brouillon déjà synchronisé mais absent du Sheet : supprimé depuis un autre appareil
+        if(n.status==="brouillon"&&n.syncedAt){console.log("Brouillon "+n.ref+" supprimé ailleurs");removed++;return false}
+        if(n.status==="brouillon")return true;
         // Check if this NDF was replaced by a renamed version (same salarie, same amount, different ref)
         const amt=n.lines.reduce((s,l)=>s+(l.amount||0),0);
         const replacement=myNdfs.find(sn=>sn.ref!==n.ref&&Math.abs((sn.lines||[]).reduce((s2,l)=>s2+(l.amount||0),0)-amt)<0.01);
@@ -149,15 +175,30 @@ async function syncFromSheet(){
       });
       myNdfs.forEach(sn=>{
         const local=D.ndfs.find(n=>n.ref===sn.ref);
+        const sheetStatus=sn.status==="à envoyer"?"brouillon":sn.status||"brouillon";
         if(local){
-          if(sn.status!==local.status||sn.paymentDate!==local.paymentDate||sn.ref!==local.ref){
-            local.status=sn.status;local.statusDate=sn.statusDate;local.ref=sn.ref;
-            if(sn.paymentDate)local.paymentDate=sn.paymentDate;updated++}
+          // Modifs locales pas encore envoyées : elles gagnent, sauf si la NDF
+          // a avancé côté Sheet (envoyée depuis un autre appareil, traitée par la direction)
+          const sheetAhead=sheetStatus!=="brouillon"&&sheetStatus!==local.status;
+          if(isDirty(local)&&!sheetAhead)return;
+          const sheetLines=JSON.stringify(sn.lines||[]);
+          const localLines=JSON.stringify((local.lines||[]).map(l=>{const c={...l};delete c.fileData;return c}));
+          const sheetDt=sheetDate(sn.date);
+          if(sheetStatus!==local.status||(sn.paymentDate||"")!==(local.paymentDate||"")||sheetLines!==localLines||sheetDt!==(local.date||"")){
+            local.status=sheetStatus;local.statusDate=sn.statusDate;
+            if(sn.paymentDate)local.paymentDate=sn.paymentDate;
+            // Garder les pièces jointes pas encore envoyées sur le Drive (même ligne)
+            const keep=(local.lines||[]).map(l=>l.fileData?{fileName:l.fileName,fileData:l.fileData,fileType:l.fileType,amount:l.amount}:null);
+            local.lines=(sn.lines||[]).map((l,i)=>{const k=keep[i];return k&&!l.driveUrl&&k.amount===l.amount?{...l,fileData:k.fileData,fileType:k.fileType}:l});
+            local.date=sheetDt;
+            if(sn.comment!=null)local.prestaComment=sn.comment;
+            updated++}
+          local.syncedAt=local.modAt||0;
         } else {
           D.ndfs.push({
             id:Date.now()+Math.random(),
             ref:sn.ref,
-            date:sn.date||"",
+            date:sheetDate(sn.date),
             lines:sn.lines||[],
             status:sn.status==="à envoyer"?"brouillon":sn.status||"brouillon",
             statusDate:sn.statusDate||"",
@@ -238,6 +279,7 @@ async function majCodes(){
 async function manualSync(){
   setSyncStatus("🔄");
   try{
+    await syncToSheet();
     await syncFromSheet();
     render();
   }catch(e){console.warn("Manual sync error:",e)}
@@ -258,28 +300,30 @@ function calcIK(km,cv){const bar=IK_BAREME[Math.min(Math.max(cv||5,3),7)];for(co
 
 // ─── STATE ───
 let D=JSON.parse(localStorage.getItem("litup_ndf")||"null")||{salarie:"",cv:5,ndfs:[],ndfCounter:0};
+// Anciennes données (avant modAt) : les brouillons n'ont peut-être jamais atteint le Sheet
+D.ndfs.forEach(n=>{if(n.modAt==null&&(n.status==="brouillon"||n.status==="à envoyer"))n.modAt=1});
 // Pre-configure API key if not already set
 const $=id=>document.getElementById(id);
 const fmt=n=>n==null?"":n.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
-function save(){
+function persist(){
   try{
     // Strip fileData before saving to localStorage (base64 blobs are too large)
     const clean=JSON.parse(JSON.stringify(D));
     clean.ndfs.forEach(n=>{(n.lines||[]).forEach(l=>{delete l.fileData})});
     localStorage.setItem("litup_ndf",JSON.stringify(clean));
   }catch(e){console.warn("localStorage save error:",e)}
-  syncToSheet();
 }
+function save(){persist();syncToSheet()}
 function closeM(){$("modalC").innerHTML=""}
 
 // ─── INIT ───
 function initSalarie(){
   if(D.salarie)return;
   $("modalC").innerHTML=`<div class="modal-bg"><div class="modal">
-    <h3>👋 Bienvenue</h3><p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Sélectionnez votre nom. Vos données sont sauvegardées localement dans ce navigateur.</p>
+    <h3>👋 Bienvenue</h3><p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Sélectionnez votre nom. Vos notes de frais, brouillons compris, sont synchronisées entre vos appareils.</p>
     <div class="form-row" style="margin-bottom:10px"><label>Votre nom</label>
       <select class="inp" id="initName"><option value="">— Choisir —</option>${SALARIES.map(s=>`<option>${s}</option>`).join("")}<option value="_other">Autre...</option></select></div>
-    <button class="b bp" onclick="let n=$('initName').value;if(n==='_other')n=prompt('Prénom et NOM :')||'';if(!n){alert('Choisissez un nom');return}D.salarie=n;D.cv=D.cv||5;save();closeM();render()">Commencer</button>
+    <button class="b bp" onclick="let n=$('initName').value;if(n==='_other')n=prompt('Prénom et NOM :')||'';if(!n){alert('Choisissez un nom');return}D.salarie=n;D.cv=D.cv||5;save();closeM();render();syncFromSheet()">Commencer</button>
   </div></div>`;
 }
 
@@ -587,8 +631,8 @@ async function saveNDF(status){
   const noFile=lines.filter(l=>l.type!=="ik"&&!l.fileData&&!l.fileName&&!l.driveUrl);
   if(noFile.length&&status==="envoyée"){alert("⚠️ Justificatif obligatoire !\n"+noFile.length+" ligne(s) sans justificatif.");return}
   const existing=D.ndfs.find(n=>n.ref===ref);
-  if(existing){existing.date=date;existing.lines=lines;existing.status=status}
-  else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie})}
+  if(existing){existing.date=date;existing.lines=lines;existing.status=status;touch(existing)}
+  else{D.ndfs.push({id:Date.now(),ref,date,lines,status,salarie:D.salarie,modAt:Date.now()})}
   save();closeM();render();
   // Upload PJ to Drive with visible progress
   const pjToUpload=lines.filter(l=>l.fileData&&!l.driveUrl);
@@ -609,7 +653,7 @@ async function saveNDF(status){
         else{failed++;if(log)log.innerHTML+=`<div style="color:#f59e0b">⚠️ ${lineDesc} — pas de réponse Drive</div>`}
       }catch(e){failed++;if(log)log.innerHTML+=`<div style="color:#ef4444">❌ ${lineDesc} — ${e.message}</div>`}
     }
-    if(lines.some(l=>l.driveUrl))save(); // Re-save with driveUrls
+    if(lines.some(l=>l.driveUrl)){const nd=existing||D.ndfs.find(n=>n.ref===ref);if(nd)touch(nd);save()} // Re-save with driveUrls
     if(log)log.innerHTML+=`<div style="margin-top:6px;font-weight:600">${uploaded} uploadé(s)${failed?" / "+failed+" échoué(s)":""}</div>`;
     setTimeout(()=>prog.remove(),failed?5000:2000);
   }
@@ -646,7 +690,7 @@ async function envoyerNDF(id){
     }
   }
   if(!confirm("Envoyer cette NDF à la direction ?\nElle ne pourra plus être modifiée."))return;
-  n.status="envoyée";n.statusDate=new Date().toISOString().split("T")[0];
+  n.status="envoyée";n.statusDate=new Date().toISOString().split("T")[0];touch(n);
   save();
   // Force sync: send this specific NDF with envoyée status
   setSyncStatus("✉️");
@@ -787,7 +831,7 @@ function handleImportJSON(inp){
       if(notFound.length)msg+="\n\n⚠️ "+notFound.length+" NDF du retour non trouvées dans vos données :\n"+notFound.join(", ")+"\n\n(Vos NDF : "+D.ndfs.map(n=>n.ref).join(", ")+")";
       alert(msg);D._lastRetour=d.date;save();render();inp.value="";return}
     // Regular NDF
-    if(d.salarie&&d.ndfs){d.ndfs.forEach(n=>{const ex=D.ndfs.find(x=>x.ref===n.ref);if(ex)Object.assign(ex,n);else D.ndfs.push(n)});save();render();alert("Import : "+d.ndfs.length+" NDF de "+d.salarie)}
+    if(d.salarie&&d.ndfs){d.ndfs.forEach(n=>{const ex=D.ndfs.find(x=>x.ref===n.ref);if(ex){Object.assign(ex,n);touch(ex)}else{touch(n);D.ndfs.push(n)}});save();render();alert("Import : "+d.ndfs.length+" NDF de "+d.salarie)}
     if(d.ndfBuffer)alert("Ce fichier est un export comptable, pas un export NDF.")
   }catch(err){alert("Erreur: "+err.message)}inp.value=""};rd.readAsText(f)});
 }
@@ -796,7 +840,7 @@ function handleImportPresta(inp){
   if(!inp.files||!inp.files.length)return;
   Array.from(inp.files).forEach(f=>{const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
     if(d.type!=="litup-ndf-prestataire"){alert("Ce fichier n'est pas une NDF prestataire.");inp.value="";return}
-    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"brouillon",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||""};
+    const ndf={id:Date.now()+Math.random(),ref:d.ref||"PRESTA-"+Date.now(),date:d.date,lines:(d.lines||[]).map(l=>({...l})),status:"brouillon",salarie:d.salarie||"Prestataire",isPresta:true,prestaComment:d.comment||"",prestaMission:d.mission||"",modAt:Date.now()};
     const ex=D.ndfs.find(n=>n.ref===ndf.ref);if(ex){if(!confirm(ndf.ref+" existe déjà. Écraser ?"))return;Object.assign(ex,ndf)}else D.ndfs.push(ndf);
     save();render();
     const total=ndf.lines.reduce((s,l)=>s+(l.amount||0),0);const noCode=ndf.lines.some(l=>!l.code);
@@ -859,8 +903,19 @@ function handleRestore(inp){
   }
 }catch(e){}})();
 initSalarie();
-if(D.salarie){loadCodesFromSheet(true).then(()=>{render();syncFromSheet()})}
+if(D.salarie){render();syncFromSheet().then(()=>syncToSheet());loadCodesFromSheet(true).then(()=>render())}
 else{render()} // Force render even if no salarie selected (will show empty state)
+// Retour sur l'onglet / l'appli : récupérer ce qui a été fait sur un autre appareil.
+// Départ : pousser ce qui n'est pas encore parti (le téléphone coupe souvent l'appli en arrière-plan).
+let _lastPull=Date.now();
+document.addEventListener("visibilitychange",()=>{
+  if(!D.salarie)return;
+  if(document.visibilityState==="hidden"){syncToSheet();return}
+  if(Date.now()-_lastPull<15000)return;
+  _lastPull=Date.now();
+  // Ne pas écraser un formulaire ouvert : on rafraîchit à la prochaine fermeture
+  syncToSheet().then(()=>{if(!$("modalC").innerHTML)syncFromSheet()});
+});
 </script>
 </body>
 </html>
