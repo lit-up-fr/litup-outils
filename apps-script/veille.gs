@@ -24,6 +24,10 @@
  *   - Gmail, libellé « Veille AAP » : lettres d'information des fondations, lues par l'IA
  *   - Annuaires : fondations abritées (Fondation de France, Fondation Caritas France) et membres
  *     d'Un Esprit de Famille ; 30 fiches jamais vues par nuit et par annuaire, chaque fiche n'est lue qu'une fois
+ *   - Carenews : les appels à projets des 3 premières pages de sa liste
+ *
+ * À la demande (bouton « Analyser les comptes » d'un fonds) : téléchargement des derniers comptes annuels
+ * publiés au Journal officiel et lecture par Claude (montant redistribué, taille des aides, montant à solliciter).
  * Chaque annonce est notée de 0 à 100 par Haiku au regard des 4 profils de l'onglet Veille_Profils.
  * Les pistes sous VEILLE_NOTE_MIN_GARDE ne sont pas enregistrées.
  *
@@ -31,7 +35,7 @@
  * pour les pistes « À étudier » et « GO ».
  */
 
-var VEILLE_VERSION = "2026-09-25b";
+var VEILLE_VERSION = "2026-09-25c";
 var VEILLE_SHEET_ID = "1YkW_vcIdh9BKxQ7vRYMOW4DTj0U1OLCuHVRIyouyGR8";
 var VEILLE_TAB_PISTES = "Veille_Pistes";
 var VEILLE_TAB_SOURCES = "Veille_Sources";
@@ -61,7 +65,7 @@ var VEILLE_MOTS_FONDS = ["jeunes", "jeunesse", "décrochage", "insertion", "éga
 
 var VEILLE_COLS = ["id", "type", "source", "ref_externe", "date_detection", "financeur", "titre", "lien",
   "date_limite", "montant", "territoire", "objet", "profil", "note", "raison", "nature", "siren", "adresse",
-  "statut", "issue", "commentaire", "maj_le", "maj_par", "alertes"];
+  "statut", "issue", "commentaire", "maj_le", "maj_par", "alertes", "comptes_pdf", "analyse_comptes"];
 var VEILLE_STATUTS = ["nouveau", "etude", "go", "depose", "clos"];
 
 var VEILLE_SOURCES_DEFAUT = [
@@ -71,7 +75,8 @@ var VEILLE_SOURCES_DEFAUT = [
   ["N00", "Lettres d'information (Gmail « Veille AAP »)", "AAP", "Mails", "oui"],
   ["A01", "Fondation de France, fondations abritées", "FONDS", "Annuaire", "oui"],
   ["A02", "Fondation Caritas France, fondations abritées", "FONDS", "Annuaire", "oui"],
-  ["A03", "Un Esprit de Famille, membres", "FONDS", "Annuaire", "oui"]
+  ["A03", "Un Esprit de Famille, membres", "FONDS", "Annuaire", "oui"],
+  ["C01", "Carenews, appels à projets", "AAP", "Page", "oui"]
 ];
 var VEILLE_TAB_VUS = "Veille_Vus"; // fiches d'annuaire déjà lues (même notées sous le seuil)
 
@@ -88,7 +93,11 @@ var VEILLE_ANNUAIRES = {
          base: "", financeur: "Fondation abritée (Fondation Caritas France)" },
   A03: { listes: ["https://unespritdefamille.org/membres/"],
          fiche: /https:\/\/unespritdefamille\.org\/membre\/[a-z0-9-]+\/?/g,
-         base: "", financeur: "Fondation familiale (Un Esprit de Famille)" }
+         base: "", financeur: "Fondation familiale (Un Esprit de Famille)" },
+  // Carenews : les 3 premières pages de la liste des appels (les plus récents) ; le financeur se lit dans le lien
+  C01: { listes: ["https://www.carenews.com/appels_a_projets", "https://www.carenews.com/appels_a_projets/1/",
+                  "https://www.carenews.com/appels_a_projets/2/"],
+         fiche: /\/[a-z0-9-]+\/appels-a-projet\/[a-z0-9-]+/g, base: "https://www.carenews.com", type: "AAP" }
 };
 var VEILLE_ANNUAIRE_FICHES = 30;
 var VEILLE_SOURCES_COLS = ["id", "nom", "type", "acces", "actif", "curseur", "derniere_collecte",
@@ -110,6 +119,7 @@ function veilleHandle(action, params, data) {
     case "veilleUpdate": return veilleUpdate_(data);
     case "veilleSourceToggle": return veilleSourceToggle_(data);
     case "veilleRun": return veilleCollecter();
+    case "veilleComptes": return veilleAnalyserComptes_(data);
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
   }
@@ -118,7 +128,8 @@ function veilleHandle(action, params, data) {
 // ─── INSTALLATION ───
 function veilleInstaller() {
   var ss = SpreadsheetApp.openById(VEILLE_SHEET_ID);
-  veilleOnglet_(ss, VEILLE_TAB_PISTES, VEILLE_COLS, []);
+  var shP = veilleOnglet_(ss, VEILLE_TAB_PISTES, VEILLE_COLS, []);
+  veilleColonnesManquantes_(shP, VEILLE_COLS);
   veilleOnglet_(ss, VEILLE_TAB_SOURCES, VEILLE_SOURCES_COLS,
     VEILLE_SOURCES_DEFAUT.map(function (s) { return s.concat(["", "", "", "", ""]); }));
   veilleOnglet_(ss, VEILLE_TAB_PROFILS, VEILLE_PROFILS_COLS, VEILLE_PROFILS_DEFAUT);
@@ -156,6 +167,15 @@ function veilleOnglet_(ss, nom, cols, lignes) {
   sh.setFrozenRows(1);
   if (lignes.length) sh.getRange(2, 1, lignes.length, cols.length).setValues(lignes);
   return sh;
+}
+
+/** Mise à jour d'une installation existante : ajoute en fin de ligne d'en-tête les colonnes absentes. */
+function veilleColonnesManquantes_(sh, cols) {
+  var head = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0].map(String);
+  cols.filter(function (k) { return head.indexOf(k) < 0; }).forEach(function (k) {
+    var j = sh.getLastColumn() + 1;
+    sh.getRange(1, j).setValue(k).setFontWeight("bold").setBackground("#f3f4f6");
+  });
 }
 
 // ─── LECTURE / ÉCRITURE DU SHEET ───
@@ -508,7 +528,7 @@ function veilleCollecteAnnuaire_(id, curseur, debut, vus) {
     var html = veilleGet_(url);
     (html.match(new RegExp(a.fiche.source, "g")) || []).forEach(function (u) {
       if (u.charAt(0) === "/") u = a.base + u;
-      u = u.replace(/\/$/, "") + (id === "A01" ? "" : "/");
+      u = u.replace(/\/$/, "") + (id === "A01" || id === "C01" ? "" : "/");
       if (liens.indexOf(u) < 0) liens.push(u);
     });
   });
@@ -522,7 +542,9 @@ function veilleCollecteAnnuaire_(id, curseur, debut, vus) {
     if (!h) return; // fiche supprimée depuis
     var titre = (h.match(/<title>([^<]*)<\/title>/i) || [])[1] || u;
     titre = veilleSansHtml_(titre).split(/ [-|–] /)[0].trim();
-    items.push({ type: "FONDS", ref: u, financeur: a.financeur, titre: titre, lien: u, date_limite: "",
+    // Financeur : fixé par l'annuaire, ou lu dans le lien (carenews.com/fondation-orange/appels-a-projet/… → Fondation Orange)
+    var fin = a.financeur || u.replace(a.base, "").split("/")[1].replace(/-/g, " ").replace(/\b\w/g, function (x) { return x.toUpperCase(); });
+    items.push({ type: a.type || "FONDS", ref: u, financeur: fin, titre: titre, lien: u, date_limite: "",
       montant: "", territoire: "", texte: veilleTexteFiche_(h, titre) || "(fiche sans description : juger sur le nom)",
       force: id === "A03" }); // les fiches Un Esprit de Famille ne donnent que les thèmes
   });
@@ -615,6 +637,104 @@ function veilleExtraireMailIA_(de, sujet, corps) {
   (JSON.parse(resp.getContentText()).content || []).forEach(function (c) { if (c.text) text += c.text; });
   var m = text.match(/\[[\s\S]*\]/);
   try { return m ? JSON.parse(m[0]).filter(function (x) { return x && x.titre; }) : []; } catch (e) { return []; }
+}
+
+// ─── ANALYSE DES COMPTES ANNUELS D'UN FONDS OU D'UNE FONDATION ───
+// Les fonds de dotation, fondations et associations qui reçoivent plus de 153 000 € de dons ou de subventions
+// publient leurs comptes au Journal officiel. Le dépôt est repéré par SIREN dans le JOAFE (source « dca »),
+// le PDF téléchargé sur journal-officiel.gouv.fr puis lu par Claude, qui en tire ce qui intéresse un demandeur.
+var VEILLE_MODELE_COMPTES = "claude-opus-5";   // lecture fine de documents financiers, à la demande seulement
+var VEILLE_PDF_URL = "https://www.journal-officiel.gouv.fr/telechargements/ASSOCIATIONS/DCA/PDF/";
+
+function veilleAnalyserComptes_(data) {
+  if (!data || !data.id) return { error: "id manquant" };
+  var p = veilleLire_(VEILLE_TAB_PISTES);
+  veilleColonnesManquantes_(p.sh, VEILLE_COLS);
+  p = veilleLire_(VEILLE_TAB_PISTES);
+  var row = p.rows.filter(function (r) { return String(r.id) === String(data.id); })[0];
+  if (!row) return { error: "Piste introuvable" };
+  if (/Fondation de France|Caritas/.test(row.financeur) && row.source !== "D01")
+    return { error: "Fondation abritée : elle n'a pas de comptes propres au Journal officiel (ils sont inclus dans ceux de la fondation qui l'abrite). Le montant à solliciter se lit plutôt dans ses appels à projets ou en la contactant." };
+
+  var depot = veilleDernierDepot_(row.siren, row.titre);
+  if (!depot) return { error: "Aucun dépôt de comptes trouvé au Journal officiel pour « " + row.titre + " »"
+    + (row.siren ? " (SIREN " + row.siren + ")" : "") + ". Un fonds créé récemment n'a pas encore clos d'exercice ; "
+    + "un petit fonds de dotation peut aussi être en retard de dépôt." };
+
+  var pdf = UrlFetchApp.fetch(depot.url, { muteHttpExceptions: true });
+  if (pdf.getResponseCode() !== 200) return { error: "PDF des comptes inaccessible (HTTP " + pdf.getResponseCode() + ") : " + depot.url };
+  var octets = pdf.getBlob().getBytes();
+  if (octets.length > 20 * 1024 * 1024) return { error: "PDF trop lourd pour l'analyse (" + Math.round(octets.length / 1048576) + " Mo) : l'ouvrir à la main", pdf: depot.url };
+
+  var consigne = "Tu aides Lit uP, association d'intérêt général qui remobilise des jeunes de 14 à 25 ans (Var, "
+    + "Seine-Saint-Denis) et forme les professionnels qui les accompagnent, à préparer une demande de financement.\n"
+    + "Voici les derniers comptes annuels publiés par « " + row.titre + " » (exercice clos le " + depot.cloture + ").\n"
+    + "Lis-les et réponds UNIQUEMENT par un objet JSON, montants en euros (nombres), null quand l'information n'est pas "
+    + "dans le document. N'invente rien : si tu déduis, dis-le dans le champ concerné.\n"
+    + "{\"exercice\":\"AAAA\",\"total_ressources\":0,\"dons_et_mecenat\":0,\"produits_financiers\":0,"
+    + "\"fonds_propres_ou_dotation\":0,\"montant_redistribue\":0,\"nombre_projets_soutenus\":null,"
+    + "\"don_moyen_ou_fourchette\":\"texte court\",\"charges_de_fonctionnement\":0,\"part_redistribuee_pct\":0,"
+    + "\"mode\":\"redistributeur|operateur|mixte|inconnu\",\"domaines_finances\":[\"…\"],"
+    + "\"exemples_beneficiaires\":[\"…\"],\"montant_a_solliciter\":{\"min\":0,\"max\":0,\"justification\":\"1 à 2 phrases\"},"
+    + "\"points_attention\":[\"…\"],\"synthese\":\"3 à 5 phrases en français clair, sans tiret long\",\"confiance\":\"haute|moyenne|faible\"}\n"
+    + "Montant à solliciter : raisonne à partir du montant redistribué, du nombre de projets et de la taille habituelle "
+    + "des aides ; une première demande raisonnable est souvent sous la moyenne des aides versées.";
+
+  var resp;
+  try {
+  resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+    method: "post", contentType: "application/json", muteHttpExceptions: true,
+    headers: { "x-api-key": PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY"),
+      "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01" },
+    payload: JSON.stringify({
+      model: VEILLE_MODELE_COMPTES, fallbacks: "default", max_tokens: 8000,
+      output_config: { effort: "low" }, // extraction de chiffres : un effort bas suffit et garde l'appel court
+      messages: [{ role: "user", content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: Utilities.base64Encode(octets) } },
+        { type: "text", text: consigne }
+      ] }]
+    })
+  });
+  } catch (e) {
+    // Apps Script coupe les appels externes trop longs : un gros PDF peut dépasser la limite
+    return { error: "L'analyse a pris trop de temps (" + e.message + "). Relancer ; si cela se répète, ouvrir le PDF à la main.", pdf: depot.url };
+  }
+  if (resp.getResponseCode() !== 200) return { error: "API Anthropic HTTP " + resp.getResponseCode() + " : " + resp.getContentText().substring(0, 250), pdf: depot.url };
+  var msg = JSON.parse(resp.getContentText());
+  if (msg.stop_reason === "refusal") return { error: "L'analyse a été refusée par le modèle : ouvrir le PDF à la main", pdf: depot.url };
+  var text = "";
+  (msg.content || []).forEach(function (b) { if (b.type === "text") text += b.text; });
+  var m = text.match(/\{[\s\S]*\}/);
+  if (!m) return { error: "Réponse d'analyse illisible", pdf: depot.url };
+  var analyse;
+  try { analyse = JSON.parse(m[0]); } catch (e) { return { error: "Réponse d'analyse illisible", pdf: depot.url }; }
+  analyse.cloture = depot.cloture;
+  analyse.analyse_le = veilleAujourdhui_();
+
+  var set = function (col, val) { var j = p.head.indexOf(col); if (j >= 0) p.sh.getRange(row._ligne, j + 1).setValue(val); };
+  set("comptes_pdf", depot.url);
+  set("analyse_comptes", JSON.stringify(analyse));
+  if (!row.siren && depot.siren) set("siren", depot.siren);
+  return { ok: true, analyse: analyse, pdf: depot.url };
+}
+
+/** Dernier dépôt de comptes au JOAFE, par SIREN, sinon par nom (sans tenir compte des majuscules ni des accents). */
+function veilleDernierDepot_(siren, titre) {
+  var where = 'source="dca" and ' + (siren
+    ? 'dca_siren="' + String(siren).replace(/\D/g, "") + '"'
+    : 'search(titre,"' + String(titre).replace(/"/g, "") + '")');
+  var url = VEILLE_JOAFE_URL + "?limit=20&order_by=" + encodeURIComponent("dca_datecloture desc")
+    + "&where=" + encodeURIComponent(where) + "&select=" + encodeURIComponent("id,titre,dca_datecloture,dca_siren");
+  var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return null;
+  var norm = function (s) { return veilleNorm_(s).replace(/[^a-z0-9]/g, ""); };
+  var res = (JSON.parse(r.getContentText()).results || []).filter(function (x) {
+    return x.dca_datecloture && (siren || norm(x.titre) === norm(titre)); // par nom : correspondance exacte seulement
+  });
+  if (!res.length) return null;
+  var d = String(res[0].dca_datecloture).substring(0, 10).split("-"); // AAAA-MM-JJ
+  return { id: res[0].id, siren: res[0].dca_siren, cloture: d[2] + "/" + d[1] + "/" + d[0],
+    url: VEILLE_PDF_URL + d[0] + "/" + d[2] + d[1] + "/" + res[0].id + ".pdf" };
 }
 
 // ─── ALERTES ET RÉCAPITULATIF ───

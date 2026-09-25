@@ -59,7 +59,7 @@ h1{font-size:22px;font-weight:700}
 .p-op{background:var(--rouge-l);color:var(--rouge)}.p-red{background:var(--teal-l);color:var(--teal)}
 .com{font-size:13px;margin-top:6px;background:var(--jaune-l);border-radius:7px;padding:5px 8px}
 .acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
-.btn{font-size:12px;font-weight:700;border-radius:7px;padding:6px 10px;border:1.5px solid var(--border);background:#fff;cursor:pointer}
+.btn{text-decoration:none;display:inline-block;font-size:12px;font-weight:700;border-radius:7px;padding:6px 10px;border:1.5px solid var(--border);background:#fff;cursor:pointer}
 .btn:hover{border-color:var(--teal)}
 .btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
 .btn.no{color:var(--t2)}
@@ -124,7 +124,7 @@ window.__bloque=true})();
     <input id="fTexte" type="search" placeholder="🔎 Rechercher">
   </div>
   <div id="view"></div>
-  <p class="foot">Collecte automatique chaque nuit : Aides-territoires, Journal officiel (JOAFE), BOAMP et les lettres d'information reçues dans le libellé Gmail « Veille AAP ». Les notes et leurs raisons sont proposées par l'IA à partir des profils de l'onglet Veille_Profils : c'est une aide au tri, la décision reste la vôtre.</p>
+  <p class="foot">Collecte automatique chaque nuit : Aides-territoires, Journal officiel (JOAFE), BOAMP, Carenews, les annuaires de fondations abritées et les lettres d'information reçues dans le libellé Gmail « Veille AAP ». Les notes et leurs raisons sont proposées par l'IA à partir des profils de l'onglet Veille_Profils : c'est une aide au tri, la décision reste la vôtre.</p>
 </div>
 
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
@@ -216,7 +216,11 @@ function carte(p,compact){
   else if(p.statut==="depose")acts=`<button class="btn pri" data-clos="${esc(p.id)}">Résultat</button>`;
   else acts=`<button class="btn" data-go="${esc(p.id)}" data-to="nouveau">Rouvrir</button>`;
   if(p.type!=="FONDS"&&["nouveau","etude"].includes(p.statut))acts+=`<button class="btn" data-qualif="${esc(p.id)}">📋 Fiche go/no-go</button>`;
-  if(p.type==="FONDS")acts+=`<button class="btn" data-recherche="${esc(p.id)}">🔎 Chercher le fonds</button>`;
+  if(p.type==="FONDS"){
+    const an=analyse(p);
+    acts+=an?`<button class="btn" data-voircomptes="${esc(p.id)}">📊 Voir l'analyse des comptes</button>`:`<button class="btn" data-comptes="${esc(p.id)}">📊 Analyser les comptes</button>`;
+    acts+=`<button class="btn" data-recherche="${esc(p.id)}">🔎 Chercher le fonds</button>`;
+  }
   acts+=`<button class="btn no" data-com="${esc(p.id)}">💬</button>`;
   return `<div class="card ${cls}">
     <div class="ch"><div class="score ${sc}">${n}</div><div class="ct">
@@ -225,6 +229,7 @@ function carte(p,compact){
       ${p.raison?`<div class="why">${esc(p.raison)}</div>`:""}
       ${p.type==="FONDS"&&p.objet?`<div class="objet" data-toggle>« ${esc(p.objet)} »</div>`:""}
       ${p.siren?`<div class="meta">SIREN ${esc(p.siren)}${p.adresse?" · "+esc(p.adresse):""}</div>`:""}
+      ${resumeComptes(p)}
       ${p.commentaire?`<div class="com">💬 ${esc(p.commentaire)}</div>`:""}
       <div class="acts">${acts}</div>
     </div></div></div>`;
@@ -328,6 +333,45 @@ Pré-analyse de la veille (${p.note}/100) : ${p.raison||""}
 ${p.objet?"Extrait : "+p.objet:""}`;
   try{await navigator.clipboard.writeText(t);toast("Texte copié : colle-le dans Claude")}catch(e){ouvrir(`<h3>Fiche go/no-go</h3><div class="sub">Copie ce texte dans Claude</div><textarea style="min-height:240px">${esc(t)}</textarea><div class="mact"><button class="btn pri" data-fermer>Fermer</button></div>`)}
 }
+// ─── Analyse des comptes annuels (Journal officiel) ───
+function analyse(p){if(!p.analyse_comptes)return null;if(typeof p.analyse_comptes==="object")return p.analyse_comptes;try{return JSON.parse(p.analyse_comptes)}catch(e){return null}}
+function eur(n){if(n==null||n===""||isNaN(+n))return "n. c.";return Math.round(+n).toLocaleString("fr-FR")+" €"}
+function resumeComptes(p){
+  const a=analyse(p);if(!a)return "";
+  const s=a.montant_a_solliciter||{};
+  return `<div class="why" style="background:var(--jaune-l)">📊 Comptes ${esc(a.exercice||"")} : redistribue ${eur(a.montant_redistribue)}${a.nombre_projets_soutenus?` à ${esc(a.nombre_projets_soutenus)} projets`:""}${s.min||s.max?` · à solliciter : ${eur(s.min)} à ${eur(s.max)}`:""}</div>`;
+}
+function liste(t,arr){return arr&&arr.length?`<label>${t}</label><ul style="margin:0 0 0 18px;font-size:14px">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+function modaleComptes(p){
+  const a=analyse(p);if(!a)return;
+  const s=a.montant_a_solliciter||{};
+  const lig=(k,v)=>`<tr><td style="color:var(--t2)">${k}</td><td style="text-align:right;font-weight:600">${v}</td></tr>`;
+  ouvrir(`<h3>Comptes ${esc(a.exercice||"")} · ${esc(p.titre)}</h3>
+  <div class="sub">Exercice clos le ${esc(a.cloture||"")} · confiance ${esc(a.confiance||"?")} · analyse du ${esc(a.analyse_le||"")}</div>
+  <div class="why">${esc(a.synthese||"")}</div>
+  <label>Montant à solliciter</label>
+  <div style="font-size:18px;font-weight:700;color:var(--teal)">${eur(s.min)} à ${eur(s.max)}</div>
+  <div class="meta">${esc(s.justification||"")}</div>
+  <label>Chiffres clés</label>
+  <table style="font-size:13px">${lig("Ressources totales",eur(a.total_ressources))}${lig("Dons et mécénat",eur(a.dons_et_mecenat))}${lig("Produits financiers",eur(a.produits_financiers))}${lig("Fonds propres ou dotation",eur(a.fonds_propres_ou_dotation))}${lig("Montant redistribué",eur(a.montant_redistribue))}${lig("Projets soutenus",esc(a.nombre_projets_soutenus??"n. c."))}${lig("Aide moyenne",esc(a.don_moyen_ou_fourchette||"n. c."))}${lig("Part redistribuée",a.part_redistribuee_pct!=null?esc(a.part_redistribuee_pct)+" %":"n. c.")}${lig("Mode",esc(a.mode||"?"))}</table>
+  ${liste("Domaines financés",a.domaines_finances)}${liste("Exemples de bénéficiaires",a.exemples_beneficiaires)}${liste("Points d'attention",a.points_attention)}
+  <p class="foot" style="margin-top:12px">Lecture automatique des comptes publiés au Journal officiel : vérifier les chiffres dans le PDF avant de les citer.</p>
+  <div class="mact">${p.comptes_pdf?`<a class="btn" target="_blank" rel="noopener" href="${esc(p.comptes_pdf)}">📄 Ouvrir le PDF</a>`:""}<button class="btn" data-comptes="${esc(p.id)}">↻ Relancer</button><button class="btn pri" data-fermer>Fermer</button></div>`);
+}
+async function analyserComptes(id,btn){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  fermer();
+  if(btn){btn.disabled=true;btn.textContent="⏳ Lecture des comptes (1 à 2 min)…"}
+  toast("Analyse des comptes lancée : 1 à 2 minutes");
+  const r=await api("veilleComptes",{id:id}).catch(e=>({error:e.message}));
+  if(r.error){
+    render();
+    ouvrir(`<h3>Analyse des comptes</h3><div class="sub">${esc(p.titre)}</div><div class="msg err">${esc(r.error)}</div><div class="mact">${r.pdf?`<a class="btn" target="_blank" rel="noopener" href="${esc(r.pdf)}">📄 Ouvrir le PDF</a>`:""}<button class="btn pri" data-fermer>Fermer</button></div>`);
+    return;
+  }
+  p.analyse_comptes=r.analyse;p.comptes_pdf=r.pdf;render();modaleComptes(p);
+}
+
 function rechercheFonds(id){
   const p=st.pistes.find(x=>x.id===id);if(!p)return;
   const q=encodeURIComponent(p.titre);
@@ -362,6 +406,8 @@ document.addEventListener("click",e=>{
   else if(d.detail)modaleDetail(d.detail);
   else if(d.qualif)copierQualif(d.qualif);
   else if(d.recherche)rechercheFonds(d.recherche);
+  else if(d.comptes)analyserComptes(d.comptes,b);
+  else if(d.voircomptes)modaleComptes(st.pistes.find(x=>x.id===d.voircomptes));
   else if(d.issue){document.querySelectorAll("#mIssues .chip").forEach(c=>c.classList.toggle("on",c===b))}
   else if(d.fermer!==undefined)fermer();
   else if(d.src){const on=d.on!=="1";api("veilleSourceToggle",{id:d.src,actif:on}).then(r=>{if(r.error)toast(r.error);else{const s=st.sources.find(x=>x.id===d.src);if(s)s.actif=on?"oui":"non";render()}})}
