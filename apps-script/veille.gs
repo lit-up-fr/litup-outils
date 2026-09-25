@@ -545,7 +545,7 @@ function veilleTexteFiche_(html, titre) {
   var mot = String(titre).split(" ").slice(0, 3).join(" ");
   var i = mot ? t.lastIndexOf(mot, Math.min(t.length, 4000)) : -1;
   t = t.substring(i > 0 ? i : 0);
-  t = t.replace(/Nous utilisons des cookies[\s\S]*$/i, "");
+  t = t.replace(/Nous utilisons des cookies[\s\S]*$/i, "").replace(/Tous les membres Nous rejoindre/g, "");
   return t.substring(0, 2000);
 }
 

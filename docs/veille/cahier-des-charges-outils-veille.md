@@ -29,8 +29,8 @@ Page d'accueil : bouton **« Outils de veille »**, qui ouvre un choix :
 | M01 | BOAMP | API DILA, sans clé | Avis de marché PACA et Île-de-France sur l'accompagnement et l'insertion des jeunes, les Missions Locales, la formation des professionnels |
 | N00 | Lettres d'information | Gmail, libellé « Veille AAP » | L'IA extrait les appels annoncés dans chaque lettre (fondations, Carenews, CFF, Avise, réseaux…) |
 | A01 | Fondation de France | Annuaire + plan du site | Les ≈ 780 fondations abritées (description complète de chaque fondation) |
-| A02 | Fondation Caritas France | Plan du site | Les ≈ 120 fondations abritées |
-| A03 | Un Esprit de Famille | Page des membres | Les ≈ 150 fondations familiales membres (nom et thèmes seulement) |
+| A02 | Fondation Caritas France | Plan du site | Les ≈ 100 fondations abritées |
+| A03 | Un Esprit de Famille | Page des membres | Les ≈ 190 fondations familiales membres (nom et thèmes seulement) |
 
 Mesures faites le 25/09/2026 : 1 288 fonds de dotation créés avec ces mots-clés dans leur objet depuis 2009, dont 729 en PACA et Île-de-France, et 82 depuis janvier 2026 (≈ 9 par mois) ; ≈ 50 avis BOAMP pertinents en 4 mois.
 
