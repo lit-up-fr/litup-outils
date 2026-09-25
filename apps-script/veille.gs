@@ -1,9 +1,10 @@
 /**
  * veille.gs : veille financements Lit uP (AAP, nouveaux fonds, appels d'offres)
  *
- * PROJET AUTONOME, séparé de la compta : un Google Sheet « Veille financements Lit uP » créé avec le
- * compte developpement@lit-up.fr, et ce fichier comme unique script de ce Sheet (Extensions → Apps Script).
- * Le script tourne sous ce compte : il lit donc directement la boîte developpement@ (lettres d'information).
+ * PROJET AUTONOME, séparé de la compta : un Google Sheet « Veille financements Lit uP » (propriétaire au
+ * choix, partagé en modification avec developpement@lit-up.fr), et ce fichier comme unique script du Sheet.
+ * veilleInstaller et le déploiement se font CONNECTÉ AVEC developpement@ : déclencheurs et application web
+ * tournent alors sous ce compte, et c'est sa boîte qui est lue (garde-fou : aucune autre boîte n'est lue).
  * Guide pas à pas : docs/veille/INSTALLATION-veille-financements.md
  *
  * Propriétés du script (⚙️ Paramètres du projet → Propriétés du script), jamais dans le code :
@@ -29,7 +30,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-25d";
+var VEILLE_VERSION = "2026-09-25e";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -167,7 +168,13 @@ function veilleInstaller() {
   // Alertes de date limite : lecture du Sheet seulement, d'où un passage quotidien sans coût
   ScriptApp.newTrigger("veilleAlertes").timeBased().everyDays(1).atHour(8).inTimezone("Europe/Paris").create();
 
-  if (!GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL_FAIT)) GmailApp.createLabel(VEILLE_GMAIL_LABEL_FAIT);
+  var compte = String(Session.getEffectiveUser().getEmail() || "").toLowerCase();
+  if (compte === VEILLE_BOITE) {
+    if (!GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL_FAIT)) GmailApp.createLabel(VEILLE_GMAIL_LABEL_FAIT);
+  } else {
+    Logger.log("⚠️ Installation faite avec " + compte + " : les déclencheurs tourneront sous ce compte et la boîte "
+      + VEILLE_BOITE + " ne sera pas lue. Pour la lire, relancer veilleInstaller connecté avec " + VEILLE_BOITE + ".");
+  }
 
   var props = PropertiesService.getScriptProperties();
   var manque = ["ANTHROPIC_API_KEY", "AIDES_TERRITOIRES_API_KEY"].filter(function (k) { return !props.getProperty(k); });
@@ -655,7 +662,14 @@ function veilleCollecteBOAMP_(curseur) {
 // d'abonnement sont mises de côté pour le récap du lundi (un clic humain reste nécessaire).
 var VEILLE_RE_CONFIRMATION = /(confirm|valid)[a-zé]*\b[\s\S]{0,60}(abonnement|inscription|newsletter|lettre)|(abonnement|inscription)[\s\S]{0,40}(confirm|valid)/i;
 
+// Seule cette boîte est lue : si le script tourne sous un autre compte (installation faite avec le mauvais
+// compte), la collecte des mails est refusée pour ne jamais lire ni archiver une boîte personnelle.
+var VEILLE_BOITE = "developpement@lit-up.fr";
+
 function veilleCollecteGmail_(curseur, debut) {
+  var compte = String(Session.getEffectiveUser().getEmail() || "").toLowerCase();
+  if (compte !== VEILLE_BOITE) throw new Error("Boîte non lue : le script tourne sous « " + (compte || "compte inconnu")
+    + " » et non sous " + VEILLE_BOITE + ". Refaire veilleInstaller et le déploiement connecté avec " + VEILLE_BOITE + ".");
   var fait = GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL_FAIT) || GmailApp.createLabel(VEILLE_GMAIL_LABEL_FAIT);
   var threads = GmailApp.search('in:inbox -label:"' + VEILLE_GMAIL_LABEL_FAIT + '" newer_than:60d', 0, 25);
   var items = [], lus = [], confirmations = [];

@@ -1,17 +1,25 @@
 # Installer la veille financements
 
-Temps estimé : 30 minutes, à faire une seule fois. Tout se fait **connecté avec le compte developpement@lit-up.fr**. Ce compte possède le fichier et le script, ce qui permet au script de lire sa boîte mail.
+Temps estimé : 30 minutes, à faire une seule fois.
 
 La veille a son **propre Google Sheet et son propre script**, séparés de la compta : le fichier NDF / Compta n'est pas modifié.
 
-## 1. Créer le Sheet et le script (5 min)
+**Deux comptes, deux rôles :**
+- **laetitia.deborde@** crée le Sheet et en reste propriétaire (étape 1).
+- **developpement@** fait l'installation et le déploiement (étapes 2 à 4). Un script agit avec les droits de la personne qui l'installe : c'est ce qui permet de lire la boîte developpement@, et seulement elle. Garde-fou dans le code : si le script tourne sous un autre compte, les mails ne sont pas lus et une erreur s'affiche dans ⚙ Sources.
 
-1. Dans Google Drive (compte developpement@), créer un Google Sheet vide nommé **« Veille financements Lit uP »**.
-2. Le partager en modification avec laetitia.deborde@lit-up.fr et clementine.claudon@lit-up.fr (pour consulter ou corriger les onglets à la main).
+Astuce : ouvrir developpement@ dans une fenêtre de navigation privée (ou un autre profil Chrome) pour ne pas mélanger les deux comptes.
+
+## 1. Créer le Sheet et y coller le script (avec laetitia.deborde@, 5 min)
+
+1. Dans Google Drive, créer un Google Sheet vide nommé **« Veille financements Lit uP »**.
+2. Le partager **en modification** avec developpement@lit-up.fr (et clementine.claudon@lit-up.fr si besoin).
 3. Dans le Sheet : **Extensions → Apps Script**. Renommer le projet « Veille financements ».
 4. Remplacer tout le contenu du fichier `Code.gs` par **tout** le fichier `apps-script/veille.gs` du repo, puis enregistrer (💾).
 
-## 2. Enregistrer les deux clés (10 min)
+**À partir d'ici, se connecter avec developpement@** : ouvrir le Sheet partagé, puis Extensions → Apps Script.
+
+## 2. Enregistrer les deux clés (avec developpement@, 10 min)
 
 Les clés se rangent dans les **Propriétés du script** : ⚙️ Paramètres du projet, puis en bas **Propriétés du script → Ajouter une propriété**. Elles ne vont jamais dans le code, ni dans une conversation.
 
@@ -22,13 +30,13 @@ Les clés se rangent dans les **Propriétés du script** : ⚙️ Paramètres du
 
 Pour Aides-territoires, il n'y a rien à faire sur la page de documentation de l'API (`/api`, rubrique « Connexion ») : c'est le script qui échange la clé contre un jeton de connexion à chaque collecte.
 
-## 3. Installer (5 min)
+## 3. Installer (avec developpement@, 5 min)
 
 1. Dans l'éditeur Apps Script, choisir la fonction **`veilleInstaller`** dans la liste en haut, puis **Exécuter**.
 2. Autoriser les accès demandés (Sheets, Gmail, envoi de mails, requêtes vers des sites externes, déclencheurs). Google peut afficher « application non validée » : Paramètres avancés, puis Accéder à Veille financements.
-3. Vérifier le journal d'exécution : « Veille installée pour developpement@lit-up.fr … Clés présentes. » Les onglets `Veille_Pistes`, `Veille_Sources`, `Veille_Profils`, `Veille_Vus` apparaissent dans le Sheet.
+3. Vérifier le journal d'exécution : « Veille installée pour **developpement@lit-up.fr** … Clés présentes. » Si un autre compte apparaît ou si un avertissement ⚠️ s'affiche, c'est que l'installation a été faite avec le mauvais compte : se reconnecter avec developpement@ et relancer `veilleInstaller`. Les onglets `Veille_Pistes`, `Veille_Sources`, `Veille_Profils`, `Veille_Vus` apparaissent dans le Sheet.
 
-## 4. Publier l'application web (5 min)
+## 4. Publier l'application web (avec developpement@, 5 min)
 
 1. **Déployer → Nouveau déploiement → ⚙️ Application Web.**
 2. Exécuter en tant que : **Moi (developpement@lit-up.fr)**. Qui a accès : **Tout le monde** (comme le backend de la compta : la page n'a pas de connexion Google).
