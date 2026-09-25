@@ -30,7 +30,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-25e";
+var VEILLE_VERSION = "2026-09-25f";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -437,29 +437,35 @@ function veilleNoterIA_(lot, profils) {
 }
 
 // ─── COLLECTEUR : AIDES-TERRITOIRES ───
+// Testé le 25/09/2026 avec une vraie clé : 1 171 aides ouvertes aux associations, dont 435 couvrant le Var,
+// la Seine-Saint-Denis ou Paris (aides nationales et régionales comprises). La plupart sont permanentes ou
+// récurrentes : la première collecte (curseur vide) les passe toutes en revue, les suivantes ne lisent que
+// les aides publiées depuis la dernière collecte. Réponse réelle : { count, next, results: [...] }.
 function veilleCollecteAT_(curseur) {
   var token = veilleTokenAT_();
-  var depuis = curseur || veilleIlYA_(30);
-  var base = "https://aides-territoires.beta.gouv.fr/api/aids/?organization_type_slugs=association&itemsPerPage=50"
-    + "&published_after=" + depuis + VEILLE_DEPTS_AT.map(function (d) { return "&perimeter_codes=" + d; }).join("");
+  var url = "https://aides-territoires.beta.gouv.fr/api/aids/?organization_type_slugs=association&itemsPerPage=50"
+    + (curseur ? "&published_after=" + curseur : "")
+    + VEILLE_DEPTS_AT.map(function (d) { return "&perimeter_codes=" + d; }).join("");
   var items = [];
-  for (var page = 1; page <= 6; page++) {
-    var resp = UrlFetchApp.fetch(base + "&page=" + page, {
-      headers: { Authorization: "Bearer " + token, Accept: "application/ld+json" }, muteHttpExceptions: true });
+  for (var page = 1; page <= 15; page++) {
+    var resp = UrlFetchApp.fetch(url + "&page=" + page, {
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" }, muteHttpExceptions: true });
+    if (resp.getResponseCode() === 404) break; // au-delà de la dernière page
     if (resp.getResponseCode() !== 200) throw new Error("Aides-territoires HTTP " + resp.getResponseCode() + " : " + resp.getContentText().substring(0, 150));
     var d = JSON.parse(resp.getContentText());
-    var liste = d["hydra:member"] || (Array.isArray(d) ? d : []);
+    var liste = d.results || d["hydra:member"] || (Array.isArray(d) ? d : []);
     liste.forEach(function (a) {
-      var fin = (a.aid_financers || []).map(function (f) { return f && f.backer ? f.backer.name : ""; }).filter(String).join(", ");
+      var fin = (a.financers_full || []).map(function (f) { return f && f.name; }).filter(String).join(", ")
+        || (Array.isArray(a.financers) ? a.financers.join(", ") : "");
       items.push({
-        type: "AAP", ref: String(a.slug || a["@id"] || a.name), financeur: fin, titre: a.name || "",
-        lien: a.slug ? "https://aides-territoires.beta.gouv.fr/aides/" + a.slug + "/" : (a.origin_url || ""),
-        date_limite: a.date_submission_deadline ? String(a.date_submission_deadline).substring(0, 10) : "",
-        montant: a.subvention_comment || "", territoire: a.perimeter && a.perimeter.name ? a.perimeter.name : "",
+        type: "AAP", ref: String(a.slug || a.id || a.name), financeur: fin, titre: a.name || "",
+        lien: a.url ? "https://aides-territoires.beta.gouv.fr" + a.url : (a.origin_url || ""),
+        date_limite: a.submission_deadline ? String(a.submission_deadline).substring(0, 10) : "",
+        montant: a.subvention_comment || "", territoire: a.perimeter || "",
         texte: veilleSansHtml_((a.description || "") + " " + (a.eligibility || ""))
       });
     });
-    if (liste.length < 50) break;
+    if (!d.next || !liste.length) break;
   }
   return { items: items, curseur: veilleAujourdhui_() };
 }

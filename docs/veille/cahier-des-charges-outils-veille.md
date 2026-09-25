@@ -26,7 +26,7 @@ Page d'accueil : bouton **« Outils de veille »**, qui ouvre un choix :
 
 | Id | Source | Accès | Ce qui est collecté |
 |---|---|---|---|
-| F01 | Aides-territoires | API (clé personnelle) | Aides ouvertes aux associations, périmètres Var, Seine-Saint-Denis, Paris (et les aides nationales et régionales qui les couvrent) |
+| F01 | Aides-territoires | API (clé personnelle) | Aides ouvertes aux associations, périmètres Var, Seine-Saint-Denis, Paris (et les aides nationales et régionales qui les couvrent). Testé avec une vraie clé le 25/09/2026 : 435 aides en cours, dont 207 passent le pré-filtre ; ≈ 5 nouvelles par mois. La première collecte les passe toutes en revue, les suivantes ne lisent que les nouvelles |
 | D01 | JOAFE (Journal officiel) | API DILA, sans clé | Créations et modifications de **fonds de dotation** dont l'objet parle de jeunes, décrochage, insertion, égalité des chances… ; créations de **fondations d'entreprise** et partenariales (avec le nom des entreprises fondatrices) |
 | M01 | BOAMP | API DILA, sans clé | Avis de marché PACA et Île-de-France sur l'accompagnement et l'insertion des jeunes, les Missions Locales, la formation des professionnels |
 | N00 | Lettres d'information | Boîte de réception de developpement@ | L'IA extrait les appels annoncés dans chaque lettre (fondations, CFF, Avise, réseaux…) ; les confirmations d'abonnement sont signalées dans le récap |
