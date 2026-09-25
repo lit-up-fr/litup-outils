@@ -7,7 +7,7 @@ Fichiers de paramétrage dans ce dossier (à importer dans le Google Sheet, sép
 | Fichier | Contenu |
 |---|---|
 | `profils-veille-financements.csv` | Les 4 profils projets qui servent au tri |
-| `sources-veille-financements.csv` | 48 sources (AAP publics, Europe, AAP privés, lettres de fondations, nouveaux fonds, appels d'offres) |
+| `sources-veille-financements.csv` | 52 sources (AAP publics, Europe, AAP privés, lettres de fondations, nouveaux fonds, appels d'offres) |
 | `sources-veille-qualiopi.csv` | 19 sources rangées par indicateur Qualiopi |
 
 ## 1. Navigation dans litup-outils
