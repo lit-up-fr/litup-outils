@@ -1,62 +1,81 @@
 # Outils de veille Lit uP : cahier des charges
 
-État au 25 septembre 2026. Document de travail, à valider avant développement.
+État au 25 septembre 2026. **Veille financements : version 1 construite** (page `litup_veille_financements.html`, script `apps-script/veille.gs`). Veille Qualiopi : à construire.
 
-Fichiers de paramétrage dans ce dossier (à importer dans le Google Sheet, séparateur `;`) :
+Fichiers de référence dans ce dossier (séparateur `;`) :
 
 | Fichier | Contenu |
 |---|---|
-| `profils-veille-financements.csv` | Les 4 profils projets qui servent au tri |
-| `sources-veille-financements.csv` | 52 sources (AAP publics, Europe, AAP privés, lettres de fondations, nouveaux fonds, appels d'offres) |
+| `profils-veille-financements.csv` | Les 4 profils projets qui servent au tri (repris dans l'onglet `Veille_Profils`, modifiable) |
+| `sources-veille-financements.csv` | 56 sources de référence ; celles marquées API ou Annuaire sont collectées automatiquement, les autres se suivent par leur lettre d'information (libellé Gmail « Veille AAP ») |
 | `sources-veille-qualiopi.csv` | 19 sources rangées par indicateur Qualiopi |
+| `mockup-veille-financements-v1.html` | Maquette validée : options A (cartes) et B (étapes) retenues toutes les deux |
 
 ## 1. Navigation dans litup-outils
 
-Page d'accueil : un nouveau bouton **« Outils de veille »**, qui ouvre un choix :
+Page d'accueil : bouton **« Outils de veille »**, qui ouvre un choix :
 
-- **Veille financements** (`litup_veille_financements.html`)
-- **Veille Qualiopi** (`litup_veille_qualiopi.html`)
+- **Veille financements** (`litup_veille_financements.html`), mot de passe direction
+- **Veille Qualiopi** : affichée « Bientôt disponible »
 
-Même architecture que les outils NDF : pages HTML autonomes, backend Apps Script, données dans le Google Sheet. Même mot de passe que la direction, ou un mot de passe dédié (à trancher).
+## 2. Veille financements (v1)
 
-## 2. Veille financements
+### 2.1 Sources collectées automatiquement
 
-### 2.1 Ce que l'outil couvre
+| Id | Source | Accès | Ce qui est collecté |
+|---|---|---|---|
+| F01 | Aides-territoires | API (clé personnelle) | Aides ouvertes aux associations, périmètres Var, Seine-Saint-Denis, Paris (et les aides nationales et régionales qui les couvrent) |
+| D01 | JOAFE (Journal officiel) | API DILA, sans clé | Créations et modifications de **fonds de dotation** dont l'objet parle de jeunes, décrochage, insertion, égalité des chances… ; créations de **fondations d'entreprise** et partenariales (avec le nom des entreprises fondatrices) |
+| M01 | BOAMP | API DILA, sans clé | Avis de marché PACA et Île-de-France sur l'accompagnement et l'insertion des jeunes, les Missions Locales, la formation des professionnels |
+| N00 | Lettres d'information | Gmail, libellé « Veille AAP » | L'IA extrait les appels annoncés dans chaque lettre (fondations, Carenews, CFF, Avise, réseaux…) |
+| A01 | Fondation de France | Annuaire + plan du site | Les ≈ 780 fondations abritées (description complète de chaque fondation) |
+| A02 | Fondation Caritas France | Plan du site | Les ≈ 120 fondations abritées |
+| A03 | Un Esprit de Famille | Page des membres | Les ≈ 150 fondations familiales membres (nom et thèmes seulement) |
 
-1. **AAP publics et privés** : Aides-territoires, Régions, Départements, Politique de la Ville, Europe, fondations.
-2. **Nouveaux fonds de dotation et fondations** : repérage des fonds déclarés au Journal officiel (JOAFE) dont l'objet touche nos sujets, même sans AAP ouvert. Un fonds repéré va dans une liste « à contacter », pas dans la liste des AAP.
-3. **Quelques appels d'offres** : BOAMP filtré sur la formation et l'accompagnement des jeunes, plus Maximilien (IDF) et la plateforme de la Région Sud.
+Mesures faites le 25/09/2026 : 1 288 fonds de dotation créés avec ces mots-clés dans leur objet depuis 2009, dont 729 en PACA et Île-de-France, et 82 depuis janvier 2026 (≈ 9 par mois) ; ≈ 50 avis BOAMP pertinents en 4 mois.
+
+Pour les annuaires, la première nuit lit 30 fiches par annuaire, puis 30 de plus chaque nuit : le stock est parcouru en 3 à 4 semaines, ensuite seules les nouvelles fondations sont lues. Pour le stock des fonds de dotation, exécuter une fois `veilleChargerStockFonds` (≈ 775 fonds, par lots de 40).
 
 ### 2.2 Chaîne de traitement
 
 ```
-Chaque nuit (Apps Script, déclencheur horaire)
-  1. Collecte     API (Aides-territoires, BOAMP, JOAFE, UE) + pages + mails du libellé Gmail « Veille AAP »
-  2. Extraction   Haiku transforme chaque annonce en fiche : financeur, titre, date limite, montant, public, territoire, lien
-  3. Dédoublonnage  même financeur + titre proche + même date limite = une seule fiche (on garde toutes les sources)
-  4. Tri          pré-filtre de la grille go/no-go (public, thème, territoire, délai) puis note de 0 à 100 par profil
-  5. Écriture     onglet « Veille_AAP » (ou « Veille_Fonds » / « Veille_AO »)
-Chaque lundi
-  6. Mail récapitulatif : nouvelles pistes notées 60 et plus, triées par date limite
-Chaque jour
-  7. Alertes : date limite à 6 semaines et à 2 semaines pour les pistes marquées « À étudier » ou « GO »
+Chaque nuit vers 3 h (Apps Script)
+  1. Collecte       les 7 sources ci-dessus
+  2. Dédoublonnage  une annonce déjà vue (même source + même référence, ou même financeur + même titre) est ignorée
+  3. Pré-filtre     une annonce sans aucun mot de nos sujets n'est pas envoyée à l'IA (économie)
+  4. Notation       Haiku note de 0 à 100 au regard des 4 profils, donne le profil, la raison en une phrase,
+                    la date limite et le montant s'il les trouve ; pour un fonds : opérateur ou redistributeur
+  5. Enrichissement fonds notés 50 et plus : SIREN et adresse du siège (Annuaire des entreprises)
+  6. Écriture       onglet Veille_Pistes (seulement les notes ≥ 30)
+Chaque lundi à 8 h   mail récapitulatif : nouvelles pistes notées ≥ 60, par type, triées par date limite
+Chaque jour à 8 h    alertes à 6 puis 2 semaines de la date limite (pistes « À étudier » et « GO »)
 ```
 
-### 2.3 Onglets du Sheet
+### 2.3 Onglets du Sheet (créés par `veilleInstaller`)
 
-- `Veille_Profils` : contenu de `profils-veille-financements.csv`
-- `Veille_Sources` : contenu de `sources-veille-financements.csv`, plus les colonnes `actif` (oui/non), `derniere_collecte`, `nb_pistes_retenues`
-- `Veille_AAP` : `id`, `date_detection`, `source_ids`, `financeur`, `titre`, `lien`, `date_limite`, `montant_min`, `montant_max`, `public`, `territoire`, `profil_principal`, `note`, `raison_note` (1 phrase de Haiku), `statut` (Nouveau / À étudier / GO / NO-GO / Déposé / Obtenu / Refusé), `montant_demande`, `montant_obtenu`, `commentaire`
-- `Veille_Fonds` : `id`, `date_detection`, `nom`, `objet`, `departement`, `lien_joafe`, `taille_estimee`, `note`, `statut` (Nouveau / À contacter / Contacté / Sans suite)
-- `Veille_AO` : même structure que `Veille_AAP`, plus `acheteur`, `code_cpv`, `date_remise`
+- `Veille_Profils` : les 4 profils ; on peut y modifier mots-clés, exclusions, territoires, montants sans toucher au code
+- `Veille_Sources` : `id`, `nom`, `type`, `acces`, `actif`, `curseur`, `derniere_collecte`, `collectees`, `retenues`, `derniere_erreur`
+- `Veille_Pistes` (un seul onglet pour les 3 types) : `id`, `type` (AAP / FONDS / AO), `source`, `ref_externe`, `date_detection`, `financeur`, `titre`, `lien`, `date_limite`, `montant`, `territoire`, `objet`, `profil`, `note`, `raison`, `nature`, `siren`, `adresse`, `statut`, `issue`, `commentaire`, `maj_le`, `maj_par`, `alertes`
+- `Veille_Vus` : fiches d'annuaire déjà lues (pour ne pas les relire)
 
-Les colonnes `montant_demande` et `montant_obtenu` donnent directement les chiffres du mix de financement et de la dépendance à un même financeur.
+Étapes (`statut`) : nouveau → etude → go → depose → clos. Libellés adaptés au type : pour un fonds, « À contacter » puis « Contacté » ; pour un appel d'offres, « Offre remise ». À la clôture, une issue est demandée (NO-GO / Obtenu / Refusé / Sans suite, ou équivalents) avec un motif.
+
+Le suivi des montants demandés et obtenus reste dans **Airtable (3.2 Suivi subventions)**, déjà relié au suivi comptable : la veille s'arrête au dépôt. Une passerelle « Déposé → créer la ligne dans Airtable 3.2 » est possible ensuite.
 
 ### 2.4 Page « Veille financements »
 
-- Liste des pistes par onglet (AAP, Fonds, Appels d'offres), filtres par profil, note, statut et date limite
-- Sur chaque piste : boutons « À étudier », « NO-GO », et « Qualifier » qui prépare la fiche go/no-go
-- Écran « Sources » : activer ou désactiver une source, voir la dernière collecte et le nombre de pistes retenues (pour supprimer les sources qui n'apportent rien)
+- Deux vues au choix, mémorisées par appareil : **Cartes** (option A, pensée pour le téléphone) et **Étapes** (option B, colonnes avec glisser-déposer sur ordinateur et menu d'étape sur téléphone)
+- Onglets Appels à projets / Nouveaux fonds / Appels d'offres ; filtres profil, note, statut, recherche
+- Sur chaque carte : note, raison, profil, date limite (liseré rouge sous 6 semaines), boutons d'étape, commentaire
+- **📋 Fiche go/no-go** : copie un texte prêt à coller dans Claude (agent subventions) pour produire la fiche de qualification
+- **🔎 Chercher le fonds** (fonds) : liens vers l'Annuaire des entreprises, une recherche web, la page LinkedIn du fonds et l'annonce au JO
+- Vue **Sources** : état de chaque source, erreurs, activation, bouton « Lancer la collecte maintenant »
+
+### 2.5 Dirigeants, contacts et dotation des fonds : ce qui est possible
+
+- **Dirigeants** : l'Annuaire des entreprises ne donne pas les dirigeants des fonds de dotation et fondations (testé : liste vide), et le JOAFE ne publie pas de noms. Les noms se trouvent sur le site du fonds, dans son rapport annuel ou ses comptes publiés.
+- **LinkedIn et adresses mail** : pas de collecte automatique. Aspirer LinkedIn est interdit par ses conditions d'utilisation, et la CNIL a sanctionné Kaspr (240 000 €, décembre 2024) pour avoir constitué des fichiers de contacts à partir de LinkedIn. Deviner ou acheter des adresses nominatives expose aux mêmes risques. L'outil propose donc des **recherches manuelles** (bouton « Chercher le fonds ») ; on contacte via l'adresse ou le formulaire publiés par le fonds, ou par LinkedIn en se présentant.
+- **Capital de départ (dotation initiale)** : n'apparaît ni dans l'Annuaire des entreprises (le capital n'existe que pour les sociétés) ni dans l'annonce du JO (vérifié : objet, siège et numéro RNF seulement). La loi impose une dotation initiale d'au moins 15 000 €. La taille réelle d'un fonds se lit dans ses **comptes annuels**, que tout fonds de dotation doit publier au Journal officiel (à partir de sa première année close).
 
 ### 2.5 À terme : outil de réponse aux AAP
 

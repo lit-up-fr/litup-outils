@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Veille financements</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#00989D">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--anth:#2B3442;--teal:#00989D;--teal-l:#E6F5F5;--jaune:#FCC33E;--jaune-l:#FFF6DD;--violet:#6B2468;--violet-l:#F3E8F2;--bg:#F6F6F8;--card:#fff;--border:#E1E3EA;--t2:#5B6474;--t3:#8A92A0;--rouge:#B42318;--rouge-l:#FDECEC}
+html,body{overflow-x:hidden}
+body{font-family:'Source Sans 3','Source Sans Pro',system-ui,sans-serif;background:var(--bg);color:var(--anth);min-height:100vh;line-height:1.45}
+button,select,input,textarea{font-family:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+header a.back{color:var(--teal);text-decoration:none;font-size:24px;line-height:1;padding:2px 4px}
+h1{font-size:22px;font-weight:700}
+.accroche{font-size:13px;font-style:italic;font-weight:700;color:var(--teal)}
+.hright{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#fff}
+.seg button{border:none;background:none;padding:6px 11px;font-size:13px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--anth);color:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:5px 12px;font-size:14px;font-weight:600;cursor:pointer}
+.tab.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.tab .n{opacity:.8;font-weight:400;margin-left:2px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.filters select,.filters input{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:5px 8px;font-size:13px;max-width:100%}
+.filters input{min-width:0;flex:1 1 140px}
+.msg{padding:12px 14px;border-radius:10px;background:var(--jaune-l);border-left:4px solid var(--jaune);font-size:14px;margin-bottom:12px}
+.msg.err{background:var(--rouge-l);border-color:var(--rouge)}
+.empty{color:var(--t3);font-size:14px;padding:18px 4px}
+/* Cartes */
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;align-items:start}
+.card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:11px 12px}
+.card.urg{border-left:5px solid var(--rouge)}
+.card.hot{border-left:5px solid var(--teal)}
+.ch{display:flex;gap:9px;align-items:flex-start}
+.score{flex-shrink:0;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;background:var(--teal-l);color:var(--teal)}
+.score.m{background:var(--jaune-l);color:#8A5A00}
+.score.b{background:#EEF0F4;color:var(--t2)}
+.ct{flex:1;min-width:0}
+.fin{font-size:12px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.3px;overflow-wrap:anywhere}
+.tit{font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.tit a{color:inherit;text-decoration:none}
+.tit a:hover{text-decoration:underline;color:var(--teal)}
+.meta{font-size:13px;color:var(--t2);margin-top:3px;overflow-wrap:anywhere}
+.why{font-size:13px;margin-top:6px;background:var(--teal-l);border-radius:7px;padding:5px 8px}
+.objet{font-size:13px;margin-top:6px;background:var(--bg);border-radius:7px;padding:6px 8px;max-height:7.5em;overflow:hidden;position:relative;cursor:pointer}
+.objet.open{max-height:none}
+.objet:not(.open)::after{content:"… lire la suite";position:absolute;right:6px;bottom:4px;background:var(--bg);color:var(--teal);font-weight:600;padding-left:6px}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin:5px 4px 0 0}
+.p-JEU{background:#E3F2FD;color:#0B5394}.p-PRO{background:var(--violet-l);color:var(--violet)}.p-LAB{background:var(--jaune-l);color:#8A5A00}.p-STR{background:#EEF0F4;color:var(--anth)}
+.p-urg{background:var(--rouge-l);color:var(--rouge)}.p-st{background:var(--anth);color:#fff}
+.p-op{background:var(--rouge-l);color:var(--rouge)}.p-red{background:var(--teal-l);color:var(--teal)}
+.com{font-size:13px;margin-top:6px;background:var(--jaune-l);border-radius:7px;padding:5px 8px}
+.acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.btn{font-size:12px;font-weight:700;border-radius:7px;padding:6px 10px;border:1.5px solid var(--border);background:#fff;cursor:pointer}
+.btn:hover{border-color:var(--teal)}
+.btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.no{color:var(--t2)}
+.btn:disabled{opacity:.5;cursor:wait}
+/* Kanban */
+.kbwrap{overflow-x:auto;padding-bottom:6px}
+.kb{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px;min-width:1120px}
+.col{background:#EDEEF2;border-radius:10px;padding:8px;min-height:120px}
+.col.over{outline:2px dashed var(--teal)}
+.col h4{font-size:13px;margin:0 0 8px;display:flex;justify-content:space-between;text-transform:uppercase;letter-spacing:.4px;color:var(--t2)}
+.col .card{padding:8px 9px;margin-bottom:8px;cursor:grab}
+.col .tit{font-size:13px}
+.col .meta{font-size:12px}
+.col select{margin-top:6px;width:100%;border:1px solid var(--border);border-radius:6px;padding:3px 5px;font-size:12px;background:#fff}
+/* Sources */
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:10px;overflow:hidden;font-size:13px}
+.tscroll{overflow-x:auto}
+th{background:var(--anth);color:#fff;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.err-src{color:var(--rouge);font-size:12px}
+/* Modale */
+.ov{position:fixed;inset:0;background:rgba(43,52,66,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.ov.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:18px;max-width:440px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);max-height:90vh;overflow:auto}
+.modal h3{font-size:17px;margin-bottom:4px}
+.modal .sub{font-size:13px;color:var(--t2);margin-bottom:12px;overflow-wrap:anywhere}
+.modal label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--t2);display:block;margin:10px 0 4px}
+.modal textarea,.modal input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;outline:none}
+.modal textarea{min-height:80px;resize:vertical}
+.modal textarea:focus,.modal input:focus{border-color:var(--teal)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer}
+.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.mact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--anth);color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;display:none;z-index:60;max-width:calc(100% - 32px)}
+.foot{font-size:12px;color:var(--t3);margin-top:22px;line-height:1.5}
+@media(max-width:560px){.list{grid-template-columns:1fr}h1{font-size:19px}.hright{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<script>
+// Même accès que la direction
+(function(){var ok=["litup_pwd_veille","litup_pwd_dir"].some(function(k){try{return localStorage.getItem(k)==="litup-dir-2026"}catch(e){return false}});
+if(ok)return;document.write('<style>#app{display:none}</style><div style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#F6F6F8;color:#2B3442;padding:16px"><div style="text-align:center;max-width:340px;width:100%"><h2 style="margin-bottom:8px">🔒 Veille financements</h2><p style="color:#5B6474;font-size:13px;margin-bottom:16px">Mot de passe direction.</p><input id="gPwd" type="password" placeholder="Mot de passe" style="width:100%;padding:10px 14px;border:1.5px solid #E1E3EA;border-radius:8px;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key===\'Enter\')gCheck()"><div id="gErr" style="color:#B42318;font-size:12px;min-height:16px"></div><button onclick="gCheck()" style="width:100%;padding:10px;margin-top:6px;background:#00989D;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Accéder</button></div></div>');
+window.gCheck=function(){var p=document.getElementById("gPwd").value;if(p==="litup-dir-2026"){try{localStorage.setItem("litup_pwd_veille",p)}catch(e){}location.reload()}else{document.getElementById("gErr").textContent="Mot de passe incorrect"}};
+window.__bloque=true})();
+</script>
+<div class="wrap" id="app">
+  <header>
+    <a class="back" href="index.html" aria-label="Retour aux outils">‹</a>
+    <div><h1>Veille financements</h1><div class="accroche">Repérer, trier, décider</div></div>
+    <div class="hright">
+      <div class="seg" id="vues"><button data-vue="cartes">▦ Cartes</button><button data-vue="kanban">☰ Étapes</button><button data-vue="sources">⚙ Sources</button></div>
+    </div>
+  </header>
+  <div id="msg"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="filters" id="filters">
+    <select id="fProfil"><option value="">Tous les profils</option></select>
+    <select id="fNote"><option value="0">Toutes les notes</option><option value="50">Note ≥ 50</option><option value="60" selected>Note ≥ 60</option><option value="80">Note ≥ 80</option></select>
+    <select id="fStatut"><option value="actifs">À traiter (nouveau, à étudier, GO)</option><option value="">Tous les statuts</option></select>
+    <input id="fTexte" type="search" placeholder="🔎 Rechercher">
+  </div>
+  <div id="view"></div>
+  <p class="foot">Collecte automatique chaque nuit : Aides-territoires, Journal officiel (JOAFE), BOAMP et les lettres d'information reçues dans le libellé Gmail « Veille AAP ». Les notes et leurs raisons sont proposées par l'IA à partir des profils de l'onglet Veille_Profils : c'est une aide au tri, la décision reste la vôtre.</p>
+</div>
+
+<div class="ov" id="ov"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+if(!window.__bloque){
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+async function api(action,data){
+  const url=BACKEND_URL+"?action="+action;
+  const r=data?await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}):await fetch(url,{redirect:"follow"});
+  const t=await r.text();try{return JSON.parse(t)}catch(e){return{error:"Réponse illisible du serveur"}}
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem("litup_veille_"+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem("litup_veille_"+k,v)}catch(e){}}};
+
+const TYPES={AAP:"Appels à projets",FONDS:"Nouveaux fonds",AO:"Appels d'offres"};
+// Libellés des étapes : les fonds n'ont pas de dossier à déposer, on les contacte
+const ETAPES={
+  AAP:{nouveau:"Nouveau",etude:"À étudier",go:"GO",depose:"Déposé",clos:"Clos"},
+  AO:{nouveau:"Nouveau",etude:"À étudier",go:"GO",depose:"Offre remise",clos:"Clos"},
+  FONDS:{nouveau:"Nouveau",etude:"À étudier",go:"À contacter",depose:"Contacté",clos:"Clos"}
+};
+const ORDRE=["nouveau","etude","go","depose","clos"];
+const ISSUES={AAP:["NO-GO","Obtenu","Refusé","Sans suite"],AO:["NO-GO","Gagné","Perdu","Sans suite"],FONDS:["Hors sujet","Partenariat engagé","Sans réponse","Sans suite"]};
+
+const st={pistes:[],sources:[],profils:[],vue:store.get("vue","cartes"),type:store.get("type","AAP"),charge:false};
+
+function msg(t,err){$("msg").innerHTML=t?`<div class="msg${err?" err":""}">${t}</div>`:""}
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast._t);toast._t=setTimeout(()=>e.style.display="none",2600)}
+function joursAvant(d){if(!d)return null;const x=new Date(String(d).slice(0,10)+"T00:00:00");if(isNaN(x))return null;const a=new Date();a.setHours(0,0,0,0);return Math.round((x-a)/864e5)}
+function dateFr(d){const p=String(d||"").slice(0,10).split("-");return p.length===3?`${+p[2]} ${["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."][+p[1]-1]} ${p[0]}`:""}
+function nomProfil(c){const p=st.profils.find(x=>x.code===c);return p?p.nom.split(" (")[0]:c}
+
+async function charger(){
+  msg("Chargement des pistes…");
+  const r=await api("veilleList").catch(e=>({error:e.message}));
+  if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+"<br>Si c'est la première fois : le script veille.gs doit être installé et le backend redéployé (voir docs/veille).",true);return}
+  st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.charge=true;msg("");
+  $("fProfil").innerHTML='<option value="">Tous les profils</option>'+st.profils.map(p=>`<option value="${esc(p.code)}">${esc(nomProfil(p.code))}</option>`).join("");
+  $("fProfil").value=store.get("profil","");
+  render();
+}
+
+function filtrer(type){
+  const prof=$("fProfil").value,nmin=+$("fNote").value,sta=$("fStatut").value,q=$("fTexte").value.trim().toLowerCase();
+  return st.pistes.filter(p=>{
+    if(type&&p.type!==type)return false;
+    if(prof&&p.profil!==prof)return false;
+    if((+p.note||0)<nmin)return false;
+    if(sta==="actifs"&&!["nouveau","etude","go"].includes(p.statut))return false;
+    if(sta&&sta!=="actifs"&&p.statut!==sta)return false;
+    if(q&&!(p.titre+" "+p.financeur+" "+p.objet+" "+p.raison+" "+p.commentaire).toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+function trier(l){
+  return l.slice().sort((a,b)=>{
+    const ja=joursAvant(a.date_limite),jb=joursAvant(b.date_limite);
+    const ua=ja!=null&&ja>=0&&ja<=42,ub=jb!=null&&jb>=0&&jb<=42;
+    if(ua!==ub)return ua?-1:1;
+    if(ua&&ub)return ja-jb;
+    return (+b.note||0)-(+a.note||0);
+  });
+}
+
+function carte(p,compact){
+  const j=joursAvant(p.date_limite),n=+p.note||0;
+  const urg=j!=null&&j>=0&&j<=42&&p.statut!=="clos";
+  const cls=urg?"urg":n>=70?"hot":"";
+  const sc=n>=70?"":n>=50?"m":"b";
+  const et=(ETAPES[p.type]||ETAPES.AAP)[p.statut]||p.statut;
+  const lien=p.lien?`<a href="${esc(p.lien)}" target="_blank" rel="noopener">${esc(p.titre)}</a>`:esc(p.titre);
+  const meta=[p.date_limite?`📅 ${dateFr(p.date_limite)}${j!=null&&j>=0?` (J-${j})`:j<0?" (passée)":""}`:"",p.montant?`💶 ${esc(p.montant)}`:"",p.territoire?`📍 ${esc(p.territoire)}`:""].filter(Boolean).join(" · ");
+  const pills=`${urg?`<span class="pill p-urg">J-${j}</span>`:""}${p.profil?`<span class="pill p-${esc(p.profil)}">${esc(nomProfil(p.profil))}</span>`:""}${p.nature==="operateur"?'<span class="pill p-op">Fonds opérateur</span>':p.nature==="redistributeur"?'<span class="pill p-red">Redistributeur probable</span>':""}${p.statut!=="nouveau"?`<span class="pill p-st">${esc(et)}${p.issue?" · "+esc(p.issue):""}</span>`:""}`;
+  if(compact){
+    return `<div class="card ${cls}" draggable="true" data-id="${esc(p.id)}">
+      <div class="fin">${esc(p.financeur)}</div><div class="tit">${lien}</div>
+      <div class="meta">${n}/100${p.date_limite?" · 📅 "+dateFr(p.date_limite):""}</div>${pills.replace(/<span class="pill p-st">[^<]*<\/span>/,"")}
+      <select data-move="${esc(p.id)}" aria-label="Changer d'étape">${ORDRE.map(s=>`<option value="${s}"${s===p.statut?" selected":""}>${esc((ETAPES[p.type]||ETAPES.AAP)[s])}</option>`).join("")}</select>
+      <div class="acts"><button class="btn" data-detail="${esc(p.id)}">Détail</button></div></div>`;
+  }
+  const et2=ETAPES[p.type]||ETAPES.AAP;
+  let acts="";
+  if(p.statut==="nouveau")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="etude">${esc(et2.etude)}</button><button class="btn" data-go="${esc(p.id)}" data-to="go">${esc(et2.go)}</button><button class="btn no" data-clos="${esc(p.id)}">${p.type==="FONDS"?"Sans suite":"NO-GO"}</button>`;
+  else if(p.statut==="etude")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="go">${esc(et2.go)}</button><button class="btn no" data-clos="${esc(p.id)}">${p.type==="FONDS"?"Sans suite":"NO-GO"}</button>`;
+  else if(p.statut==="go")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="depose">${esc(et2.depose)}</button><button class="btn no" data-clos="${esc(p.id)}">Clore</button>`;
+  else if(p.statut==="depose")acts=`<button class="btn pri" data-clos="${esc(p.id)}">Résultat</button>`;
+  else acts=`<button class="btn" data-go="${esc(p.id)}" data-to="nouveau">Rouvrir</button>`;
+  if(p.type!=="FONDS"&&["nouveau","etude"].includes(p.statut))acts+=`<button class="btn" data-qualif="${esc(p.id)}">📋 Fiche go/no-go</button>`;
+  if(p.type==="FONDS")acts+=`<button class="btn" data-recherche="${esc(p.id)}">🔎 Chercher le fonds</button>`;
+  acts+=`<button class="btn no" data-com="${esc(p.id)}">💬</button>`;
+  return `<div class="card ${cls}">
+    <div class="ch"><div class="score ${sc}">${n}</div><div class="ct">
+      <div class="fin">${esc(p.financeur)}</div><div class="tit">${lien}</div>
+      ${meta?`<div class="meta">${meta}</div>`:""}${pills}
+      ${p.raison?`<div class="why">${esc(p.raison)}</div>`:""}
+      ${p.type==="FONDS"&&p.objet?`<div class="objet" data-toggle>« ${esc(p.objet)} »</div>`:""}
+      ${p.siren?`<div class="meta">SIREN ${esc(p.siren)}${p.adresse?" · "+esc(p.adresse):""}</div>`:""}
+      ${p.commentaire?`<div class="com">💬 ${esc(p.commentaire)}</div>`:""}
+      <div class="acts">${acts}</div>
+    </div></div></div>`;
+}
+
+function renderTabs(){
+  $("tabs").innerHTML=Object.keys(TYPES).map(t=>{
+    const n=filtrer(t).length;
+    return `<button class="tab${st.type===t?" on":""}" data-type="${t}">${TYPES[t]} <span class="n">${n}</span></button>`}).join("");
+}
+function render(){
+  document.querySelectorAll("#vues button").forEach(b=>b.classList.toggle("on",b.dataset.vue===st.vue));
+  const src=st.vue==="sources";
+  $("tabs").style.display=$("filters").style.display=src?"none":"";
+  $("fStatut").disabled=st.vue==="kanban";
+  if(!st.charge)return;
+  if(src)return renderSources();
+  renderTabs();
+  const l=trier(filtrer(st.type));
+  if(st.vue==="kanban"){
+    // En vue étapes, le filtre de statut est ignoré : chaque colonne est une étape
+    const vis=trier(filtrerSansStatut(st.type)),tout=st.pistes.filter(p=>p.type===st.type);
+    const et=ETAPES[st.type];
+    $("view").innerHTML=`<div class="kbwrap"><div class="kb">${ORDRE.map(s=>{
+      let items=vis.filter(p=>p.statut===s);
+      if(s==="clos")items=items.slice(0,15);
+      return `<div class="col" data-col="${s}"><h4>${esc(et[s])} <span>${vis.filter(p=>p.statut===s).length}</span></h4>${items.map(p=>carte(p,true)).join("")||'<div class="empty" style="padding:6px">Vide</div>'}</div>`}).join("")}</div></div>`;
+    if(!tout.length)$("view").insertAdjacentHTML("afterbegin",'<p class="empty">Aucune piste pour le moment : la première collecte a lieu cette nuit (ou via ⚙ Sources → Lancer maintenant).</p>');
+    brancherDnD();
+    return;
+  }
+  $("view").innerHTML=l.length?`<div class="list">${l.map(p=>carte(p)).join("")}</div>`:`<p class="empty">${st.pistes.length?"Aucune piste avec ces filtres.":"Aucune piste pour le moment : la première collecte a lieu cette nuit (ou via ⚙ Sources → Lancer maintenant)."}</p>`;
+}
+function filtrerSansStatut(type){const v=$("fStatut").value;$("fStatut").value="";const r=filtrer(type);$("fStatut").value=v;return r}
+
+function renderSources(){
+  $("view").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button><span class="meta" style="align-self:center">Jusqu'à 5 minutes. La collecte automatique a lieu chaque nuit.</span></div>
+  <div class="tscroll"><table><tr><th>Source</th><th>Type</th><th>Accès</th><th>Dernière collecte</th><th>Nouvelles</th><th>Retenues</th><th>Pistes en base</th><th>Active</th></tr>
+  ${st.sources.map(s=>{const n=st.pistes.filter(p=>p.source===s.id).length;const on=String(s.actif).toLowerCase()==="oui";
+    return `<tr><td><b>${esc(s.nom)}</b>${s.derniere_erreur?`<div class="err-src">⚠️ ${esc(s.derniere_erreur)}</div>`:""}</td><td>${esc(TYPES[s.type]||s.type)}</td><td>${esc(s.acces)}</td><td>${esc(s.derniere_collecte||"jamais")}</td><td>${esc(s.collectees)}</td><td>${esc(s.retenues)}</td><td>${n}</td>
+    <td><button class="btn${on?" pri":""}" data-src="${esc(s.id)}" data-on="${on?1:0}">${on?"Oui":"Non"}</button></td></tr>`}).join("")}
+  </table></div>
+  <p class="foot">« Nouvelles » : annonces jamais vues lors du dernier passage. « Retenues » : celles notées au moins 30/100 et enregistrées. Une source qui ne retient rien pendant plusieurs semaines peut être coupée. Les autres sources de la liste de référence (docs/veille/sources-veille-financements.csv) se suivent en s'abonnant à leurs lettres d'information avec le libellé Gmail « Veille AAP ».</p>`;
+}
+
+// Glisser-déposer (ordinateur) ; sur téléphone, le menu d'étape de chaque carte
+function brancherDnD(){
+  document.querySelectorAll(".col .card").forEach(c=>c.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",c.dataset.id)));
+  document.querySelectorAll(".col").forEach(col=>{
+    col.addEventListener("dragover",e=>{e.preventDefault();col.classList.add("over")});
+    col.addEventListener("dragleave",()=>col.classList.remove("over"));
+    col.addEventListener("drop",e=>{e.preventDefault();col.classList.remove("over");deplacer(e.dataTransfer.getData("text/plain"),col.dataset.col)});
+  });
+}
+function deplacer(id,statut){if(statut==="clos")return modaleClos(id);maj(id,{statut:statut,issue:""})}
+
+function qui(){let n=store.get("nom","");if(!n){n=(prompt("Ton prénom (pour l'historique des décisions) :")||"").trim();if(n)store.set("nom",n)}return n}
+async function maj(id,champs){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  const avant=Object.assign({},p);Object.assign(p,champs);render(); // affichage immédiat
+  const r=await api("veilleUpdate",Object.assign({id:id,par:qui()},champs)).catch(e=>({error:e.message}));
+  if(r.error){Object.assign(p,avant);render();toast("Non enregistré : "+r.error);return}
+  toast("Enregistré");
+}
+
+function ouvrir(html){$("modal").innerHTML=html;$("ov").classList.add("show")}
+function fermer(){$("ov").classList.remove("show")}
+function modaleClos(id){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  const is=ISSUES[p.type]||ISSUES.AAP;
+  ouvrir(`<h3>Clore la piste</h3><div class="sub">${esc(p.titre)}</div>
+  <label>Issue</label><div class="chips" id="mIssues">${is.map((x,i)=>`<button class="chip${i===0&&p.statut!=="depose"?" on":""}" data-issue="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+  <label>Motif ou remarque (conseillé)</label><textarea id="mMotif" placeholder="Ex. : public hors cible, délai trop court, montant trop faible">${esc(p.commentaire||"")}</textarea>
+  <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="mOk">Clore</button></div>`);
+  $("mOk").onclick=()=>{const on=document.querySelector("#mIssues .chip.on");if(!on){toast("Choisis une issue");return}
+    const motif=$("mMotif").value.trim();fermer();maj(id,{statut:"clos",issue:on.dataset.issue,commentaire:motif})};
+}
+function modaleCom(id){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  ouvrir(`<h3>Commentaire</h3><div class="sub">${esc(p.titre)}</div><textarea id="mCom">${esc(p.commentaire||"")}</textarea>
+  <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="mOk">Enregistrer</button></div>`);
+  $("mCom").focus();$("mOk").onclick=()=>{const v=$("mCom").value.trim();fermer();maj(id,{commentaire:v})};
+}
+function modaleDetail(id){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  ouvrir(carte(p)+`<div class="mact"><button class="btn no" data-fermer>Fermer</button></div>`);
+}
+// Texte prêt à coller dans Claude (agent subventions) pour produire la fiche de qualification
+async function copierQualif(id){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  const t=`Qualifie cette opportunité avec la grille go/no-go de Lit uP et produis la fiche de qualification d'une page.
+
+Financeur : ${p.financeur}
+Intitulé : ${p.titre}
+Lien : ${p.lien||"non renseigné"}
+Date limite : ${p.date_limite?dateFr(p.date_limite):"non renseignée"}
+Montant : ${p.montant||"non renseigné"}
+Territoire : ${p.territoire||"non renseigné"}
+Profil pressenti : ${nomProfil(p.profil)||"à déterminer"}
+Pré-analyse de la veille (${p.note}/100) : ${p.raison||""}
+${p.objet?"Extrait : "+p.objet:""}`;
+  try{await navigator.clipboard.writeText(t);toast("Texte copié : colle-le dans Claude")}catch(e){ouvrir(`<h3>Fiche go/no-go</h3><div class="sub">Copie ce texte dans Claude</div><textarea style="min-height:240px">${esc(t)}</textarea><div class="mact"><button class="btn pri" data-fermer>Fermer</button></div>`)}
+}
+function rechercheFonds(id){
+  const p=st.pistes.find(x=>x.id===id);if(!p)return;
+  const q=encodeURIComponent(p.titre);
+  ouvrir(`<h3>Chercher le fonds</h3><div class="sub">${esc(p.titre)}</div>
+  <div class="acts" style="flex-direction:column">
+    <a class="btn" target="_blank" rel="noopener" href="https://annuaire-entreprises.data.gouv.fr/rechercher?terme=${q}">🏛 Annuaire des entreprises (SIREN, siège)</a>
+    <a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=${q}">🌐 Site web et contact (recherche web)</a>
+    <a class="btn" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/all/?keywords=${q}">in Page LinkedIn du fonds</a>
+    ${p.lien?`<a class="btn" target="_blank" rel="noopener" href="${esc(p.lien)}">📰 Annonce au Journal officiel</a>`:""}
+  </div>
+  <p class="foot" style="margin-top:12px">Recherches manuelles, ouvertes dans un nouvel onglet. Pour contacter une personne nommément, passer par l'adresse de contact publiée par le fonds ou par LinkedIn, et se présenter (règles CNIL de la prospection).</p>
+  <div class="mact"><button class="btn pri" data-fermer>Fermer</button></div>`);
+}
+
+async function lancer(btn){
+  btn.disabled=true;btn.textContent="⏳ Collecte en cours…";
+  const r=await api("veilleRun").catch(e=>({error:e.message}));
+  if(r.error)toast("Erreur : "+r.error);else toast("Collecte terminée");
+  await charger();
+}
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button,[data-toggle]");
+  if(e.target===$("ov")){fermer();return}
+  if(!b)return;
+  const d=b.dataset;
+  if(d.vue){st.vue=d.vue;store.set("vue",d.vue);render()}
+  else if(d.type){st.type=d.type;store.set("type",d.type);render()}
+  else if(d.go)maj(d.go,{statut:d.to,issue:""});
+  else if(d.clos)modaleClos(d.clos);
+  else if(d.com)modaleCom(d.com);
+  else if(d.detail)modaleDetail(d.detail);
+  else if(d.qualif)copierQualif(d.qualif);
+  else if(d.recherche)rechercheFonds(d.recherche);
+  else if(d.issue){document.querySelectorAll("#mIssues .chip").forEach(c=>c.classList.toggle("on",c===b))}
+  else if(d.fermer!==undefined)fermer();
+  else if(d.src){const on=d.on!=="1";api("veilleSourceToggle",{id:d.src,actif:on}).then(r=>{if(r.error)toast(r.error);else{const s=st.sources.find(x=>x.id===d.src);if(s)s.actif=on?"oui":"non";render()}})}
+  else if(b.id==="runNow")lancer(b);
+  else if(d.toggle!==undefined)b.classList.toggle("open");
+});
+document.addEventListener("change",e=>{
+  if(e.target.dataset.move){deplacer(e.target.dataset.move,e.target.value);return}
+  if(e.target.id==="fProfil")store.set("profil",e.target.value);
+  if(["fProfil","fNote","fStatut"].includes(e.target.id))render();
+});
+$("fTexte").addEventListener("input",()=>render());
+document.addEventListener("keydown",e=>{if(e.key==="Escape")fermer()});
+render();charger();
+}
+</script>
+</body>
+</html>

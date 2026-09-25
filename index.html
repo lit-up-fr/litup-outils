@@ -77,6 +77,10 @@ h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
       <div class="card-icon" style="background:rgba(99,102,241,.12)">📋</div>
       <div><div class="card-title">Dépenses Lit uP</div><div class="card-desc">Pré-saisie comptable · Justificatifs · Clémentine & Laetitia</div></div>
     </div>
+    <div class="card" onclick="document.getElementById('veilleMenu').classList.add('show')" style="border-color:#00989D;border-style:dashed">
+      <div class="card-icon" style="background:rgba(0,152,157,.14)">🔭</div>
+      <div><div class="card-title">Outils de veille</div><div class="card-desc">Financements · Qualiopi</div></div>
+    </div>
     <a class="card" href="litup_metro_gare.html" style="text-decoration:none;color:inherit;border-color:#00989D;border-style:dashed">
       <div class="card-icon" style="background:rgba(0,152,157,.14)">🚆</div>
       <div><div class="card-title">Métro → quai de gare</div><div class="card-desc">Le chemin le plus court vers ton train, gares parisiennes</div></div>
@@ -84,6 +88,24 @@ h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
   </div>
   
   <div class="footer">Association Lit uP · 2026</div>
+</div>
+
+<!-- Choix des outils de veille -->
+<div class="overlay" id="veilleMenu">
+  <div class="modal">
+    <h2>Outils de veille</h2>
+    <div class="sub">Choisissez votre veille</div>
+    <div class="cards" style="margin-bottom:0">
+      <div class="card" onclick="document.getElementById('veilleMenu').classList.remove('show');askPwd('veille')">
+        <div class="card-icon" style="background:rgba(0,152,157,.14)">💶</div>
+        <div><div class="card-title">Veille financements</div><div class="card-desc">Appels à projets · nouveaux fonds · appels d'offres</div></div>
+      </div>
+      <div class="card" style="opacity:.45;cursor:default">
+        <div class="card-icon" style="background:rgba(148,163,184,.08)">✅</div>
+        <div><div class="card-title">Veille Qualiopi</div><div class="card-desc">Bientôt disponible</div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Password modal -->
@@ -104,7 +126,8 @@ const PROFILES={
   dir:{pwd:"litup-dir-2026",file:"litup_ndf_direction.html",label:"Direction",desc:"Validation des NDF"},
   compta:{pwd:"litup-compta-2026",file:"litup_suivi_comptable_v6.html",label:"Comptabilité",desc:"Suivi comptable"},
   presta:{pwd:"ndf-2026",file:"litup_ndf_prestataire.html",label:"Prestataire",desc:"Formulaire NDF prestataire"},
-  carte:{pwd:"litup-dir-2026",file:"litup_depenses_carte.html",label:"Dépenses Lit uP",desc:"Dépenses directes (carte, virements, prélèvements)"}
+  carte:{pwd:"litup-dir-2026",file:"litup_depenses_carte.html",label:"Dépenses Lit uP",desc:"Dépenses directes (carte, virements, prélèvements)"},
+  veille:{pwd:"litup-dir-2026",file:"litup_veille_financements.html",label:"Veille financements",desc:"Mot de passe direction"}
 };
 
 let currentProfile=null;
@@ -140,6 +163,8 @@ function checkPwd(){
     setTimeout(()=>document.getElementById("pwdInput").classList.remove("error"),400);
   }
 }
+
+document.getElementById("veilleMenu").addEventListener("click",function(e){if(e.target===this)this.classList.remove("show")});
 
 // Close modal on overlay click
 document.getElementById("overlay").addEventListener("click",function(e){
