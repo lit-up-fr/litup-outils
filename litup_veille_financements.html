@@ -124,7 +124,7 @@ window.__bloque=true})();
     <input id="fTexte" type="search" placeholder="🔎 Rechercher">
   </div>
   <div id="view"></div>
-  <p class="foot">Collecte automatique chaque nuit : Aides-territoires, Journal officiel (JOAFE), BOAMP, Carenews, les annuaires de fondations abritées et les lettres d'information reçues dans le libellé Gmail « Veille AAP ». Les notes et leurs raisons sont proposées par l'IA à partir des profils de l'onglet Veille_Profils : c'est une aide au tri, la décision reste la vôtre.</p>
+  <p class="foot">Collecte automatique chaque semaine (dimanche soir) : Aides-territoires, Journal officiel (JOAFE), BOAMP, Carenews, les annuaires de fondations abritées et les lettres d'information reçues sur developpement@lit-up.fr. Les notes et leurs raisons sont proposées par l'IA à partir des profils de l'onglet Veille_Profils : c'est une aide au tri, la décision reste la vôtre.</p>
 </div>
 
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
@@ -132,7 +132,9 @@ window.__bloque=true})();
 
 <script>
 if(!window.__bloque){
-const BACKEND_URL="https://script.google.com/macros/s/AKfycbytfkNPD3wM5VKxlU3xLSe393y4mR3AYVz2C8G-mj3wOMb99cC83tMcXuC7yZWiawSpGw/exec";
+// Application web de la veille (projet Apps Script séparé de la compta, compte developpement@).
+// À renseigner après le premier déploiement : Déployer → Gérer les déploiements → URL de l'application web.
+const BACKEND_URL="A_RENSEIGNER";
 async function api(action,data){
   const url=BACKEND_URL+"?action="+action;
   const r=data?await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}):await fetch(url,{redirect:"follow"});
@@ -161,6 +163,7 @@ function dateFr(d){const p=String(d||"").slice(0,10).split("-");return p.length=
 function nomProfil(c){const p=st.profils.find(x=>x.code===c);return p?p.nom.split(" (")[0]:c}
 
 async function charger(){
+  if(!/^https:\/\/script\.google\.com\//.test(BACKEND_URL)){msg("La veille n'est pas encore branchée : l'adresse de son application web Apps Script reste à renseigner dans la page (voir docs/veille/INSTALLATION-veille-financements.md).",true);return}
   msg("Chargement des pistes…");
   const r=await api("veilleList").catch(e=>({error:e.message}));
   if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+"<br>Si c'est la première fois : le script veille.gs doit être installé et le backend redéployé (voir docs/veille).",true);return}
@@ -257,22 +260,22 @@ function render(){
       let items=vis.filter(p=>p.statut===s);
       if(s==="clos")items=items.slice(0,15);
       return `<div class="col" data-col="${s}"><h4>${esc(et[s])} <span>${vis.filter(p=>p.statut===s).length}</span></h4>${items.map(p=>carte(p,true)).join("")||'<div class="empty" style="padding:6px">Vide</div>'}</div>`}).join("")}</div></div>`;
-    if(!tout.length)$("view").insertAdjacentHTML("afterbegin",'<p class="empty">Aucune piste pour le moment : la première collecte a lieu cette nuit (ou via ⚙ Sources → Lancer maintenant).</p>');
+    if(!tout.length)$("view").insertAdjacentHTML("afterbegin",'<p class="empty">Aucune piste pour le moment : la première collecte a lieu dimanche soir (ou via ⚙ Sources → Lancer maintenant).</p>');
     brancherDnD();
     return;
   }
-  $("view").innerHTML=l.length?`<div class="list">${l.map(p=>carte(p)).join("")}</div>`:`<p class="empty">${st.pistes.length?"Aucune piste avec ces filtres.":"Aucune piste pour le moment : la première collecte a lieu cette nuit (ou via ⚙ Sources → Lancer maintenant)."}</p>`;
+  $("view").innerHTML=l.length?`<div class="list">${l.map(p=>carte(p)).join("")}</div>`:`<p class="empty">${st.pistes.length?"Aucune piste avec ces filtres.":"Aucune piste pour le moment : la première collecte a lieu dimanche soir (ou via ⚙ Sources → Lancer maintenant)."}</p>`;
 }
 function filtrerSansStatut(type){const v=$("fStatut").value;$("fStatut").value="";const r=filtrer(type);$("fStatut").value=v;return r}
 
 function renderSources(){
-  $("view").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button><span class="meta" style="align-self:center">Jusqu'à 5 minutes. La collecte automatique a lieu chaque nuit.</span></div>
+  $("view").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button><span class="meta" style="align-self:center">Une passe de 5 minutes au plus. La collecte complète a lieu chaque dimanche soir.</span></div>
   <div class="tscroll"><table><tr><th>Source</th><th>Type</th><th>Accès</th><th>Dernière collecte</th><th>Nouvelles</th><th>Retenues</th><th>Pistes en base</th><th>Active</th></tr>
   ${st.sources.map(s=>{const n=st.pistes.filter(p=>p.source===s.id).length;const on=String(s.actif).toLowerCase()==="oui";
     return `<tr><td><b>${esc(s.nom)}</b>${s.derniere_erreur?`<div class="err-src">⚠️ ${esc(s.derniere_erreur)}</div>`:""}</td><td>${esc(TYPES[s.type]||s.type)}</td><td>${esc(s.acces)}</td><td>${esc(s.derniere_collecte||"jamais")}</td><td>${esc(s.collectees)}</td><td>${esc(s.retenues)}</td><td>${n}</td>
     <td><button class="btn${on?" pri":""}" data-src="${esc(s.id)}" data-on="${on?1:0}">${on?"Oui":"Non"}</button></td></tr>`}).join("")}
   </table></div>
-  <p class="foot">« Nouvelles » : annonces jamais vues lors du dernier passage. « Retenues » : celles notées au moins 30/100 et enregistrées. Une source qui ne retient rien pendant plusieurs semaines peut être coupée. Les autres sources de la liste de référence (docs/veille/sources-veille-financements.csv) se suivent en s'abonnant à leurs lettres d'information avec le libellé Gmail « Veille AAP ».</p>`;
+  <p class="foot">« Nouvelles » : annonces jamais vues lors du dernier passage. « Retenues » : celles notées au moins 30/100 et enregistrées. Une source qui ne retient rien pendant plusieurs semaines peut être coupée. Les autres sources de la liste de référence (docs/veille/sources-veille-financements.csv) se suivent en abonnant developpement@lit-up.fr à leurs lettres d'information.</p>`;
 }
 
 // Glisser-déposer (ordinateur) ; sur téléphone, le menu d'étape de chaque carte

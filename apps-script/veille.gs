@@ -1,49 +1,49 @@
 /**
  * veille.gs : veille financements Lit uP (AAP, nouveaux fonds, appels d'offres)
  *
- * FICHIER AUTONOME : à ajouter comme NOUVEAU fichier dans le projet Apps Script
- * existant (celui lié au Sheet NDF/Compta), à côté de backend.gs et notifications.gs.
- * backend.gs redirige vers ce fichier toutes les actions qui commencent par « veille ».
+ * PROJET AUTONOME, séparé de la compta : un Google Sheet « Veille financements Lit uP » créé avec le
+ * compte developpement@lit-up.fr, et ce fichier comme unique script de ce Sheet (Extensions → Apps Script).
+ * Le script tourne sous ce compte : il lit donc directement la boîte developpement@ (lettres d'information).
+ * Guide pas à pas : docs/veille/INSTALLATION-veille-financements.md
  *
- * Installation (une seule fois) :
- *   1. Propriétés du script (⚙️ Paramètres du projet → Propriétés du script) :
- *        ANTHROPIC_API_KEY          déjà présente (OCR des justificatifs)
- *        AIDES_TERRITOIRES_API_KEY  clé personnelle (aides-territoires.beta.gouv.fr → Mes paramètres → Ma clé API)
- *   2. Fichier + → Script → nommer « veille » → coller tout ce fichier
- *   3. Remplacer backend.gs par la version du repo (routage des actions « veille »)
- *   4. Exécuter veilleInstaller (autoriser Gmail, Sheets, requêtes externes)
- *      → crée les onglets Veille_Profils / Veille_Sources / Veille_Pistes et les déclencheurs
- *   5. Déployer → Gérer les déploiements → ✏️ → Version : Nouvelle version → Déployer
- *   6. Facultatif : exécuter veilleChargerStockFonds pour passer en revue, une seule fois,
- *      les fonds de dotation déjà créés en PACA et Île-de-France (≈ 730, traités par lots de 40)
+ * Propriétés du script (⚙️ Paramètres du projet → Propriétés du script), jamais dans le code :
+ *   ANTHROPIC_API_KEY          clé de l'API Claude (console.anthropic.com → API Keys)
+ *   AIDES_TERRITOIRES_API_KEY  clé Aides-territoires (aides-territoires.beta.gouv.fr → Mes paramètres → Ma clé API)
  *
- * Collecte (chaque nuit vers 3 h) :
+ * Collecte : une fois par semaine, le dimanche soir, en plusieurs passes de 5 minutes enchaînées
+ * automatiquement jusqu'à ce que tout soit lu (limite Apps Script : 6 minutes par exécution).
  *   - Aides-territoires (API) : aides ouvertes aux associations sur le Var, la Seine-Saint-Denis, Paris
  *   - JOAFE (API DILA) : créations et modifications de fonds de dotation et de fondations d'entreprise
  *   - BOAMP (API DILA) : avis de marché PACA et Île-de-France sur l'accompagnement des jeunes
- *   - Gmail, libellé « Veille AAP » : lettres d'information des fondations, lues par l'IA
+ *   - Boîte mail developpement@ : chaque lettre d'information reçue est lue par l'IA, qui en extrait les appels
  *   - Annuaires : fondations abritées (Fondation de France, Fondation Caritas France) et membres
- *     d'Un Esprit de Famille ; 30 fiches jamais vues par nuit et par annuaire, chaque fiche n'est lue qu'une fois
- *   - Carenews : les appels à projets des 3 premières pages de sa liste
- *
- * À la demande (bouton « Analyser les comptes » d'un fonds) : téléchargement des derniers comptes annuels
- * publiés au Journal officiel et lecture par Claude (montant redistribué, taille des aides, montant à solliciter).
+ *     d'Un Esprit de Famille ; chaque fiche n'est lue qu'une fois
+ *   - Carenews : les appels à projets des 5 premières pages de sa liste
  * Chaque annonce est notée de 0 à 100 par Haiku au regard des 4 profils de l'onglet Veille_Profils.
  * Les pistes sous VEILLE_NOTE_MIN_GARDE ne sont pas enregistrées.
  *
- * Mails : récapitulatif le lundi matin ; alertes à 6 et 2 semaines de la date limite
- * pour les pistes « À étudier » et « GO ».
+ * À la demande (bouton « Analyser les comptes » d'un fonds) : téléchargement des derniers comptes annuels
+ * publiés au Journal officiel et lecture par Claude (montant redistribué, taille des aides, montant à solliciter).
+ *
+ * Mails : récapitulatif le lundi matin (avec les abonnements à confirmer) ; chaque matin, alertes à 6 et
+ * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-25c";
-var VEILLE_SHEET_ID = "1YkW_vcIdh9BKxQ7vRYMOW4DTj0U1OLCuHVRIyouyGR8";
+var VEILLE_VERSION = "2026-09-25d";
+// Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
+// pour les déclencheurs (qui n'ont pas de « Sheet actif »).
+function veilleSS_() {
+  var id = PropertiesService.getScriptProperties().getProperty("VEILLE_SHEET_ID");
+  return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+}
 var VEILLE_TAB_PISTES = "Veille_Pistes";
 var VEILLE_TAB_SOURCES = "Veille_Sources";
 var VEILLE_TAB_PROFILS = "Veille_Profils";
 var VEILLE_EMAILS = "laetitia.deborde@lit-up.fr,clementine.claudon@lit-up.fr";
 var VEILLE_URL = "https://lit-up-fr.github.io/litup-outils/litup_veille_financements.html";
-var VEILLE_GMAIL_LABEL = "Veille AAP";
-var VEILLE_GMAIL_LABEL_FAIT = "Veille AAP/traité";
+// Boîte developpement@ : tous les mails de la boîte de réception sont lus, puis rangés sous ce libellé
+var VEILLE_GMAIL_LABEL_FAIT = "Veille/lu";
+var VEILLE_PASSES_MAX = 10; // passes enchaînées au plus par collecte hebdomadaire (≈ 1 h)
 var VEILLE_MODELE = "claude-haiku-4-5-20251001";
 var VEILLE_NOTE_MIN_GARDE = 30;   // en dessous : pas enregistré
 var VEILLE_NOTE_MIN_MAIL = 60;    // à partir de : dans le mail du lundi
@@ -72,7 +72,7 @@ var VEILLE_SOURCES_DEFAUT = [
   ["F01", "Aides-territoires", "AAP", "API", "oui"],
   ["D01", "JOAFE, fonds de dotation et fondations", "FONDS", "API", "oui"],
   ["M01", "BOAMP, avis de marché", "AO", "API", "oui"],
-  ["N00", "Lettres d'information (Gmail « Veille AAP »)", "AAP", "Mails", "oui"],
+  ["N00", "Lettres d'information (boîte developpement@)", "AAP", "Mails", "oui"],
   ["A01", "Fondation de France, fondations abritées", "FONDS", "Annuaire", "oui"],
   ["A02", "Fondation Caritas France, fondations abritées", "FONDS", "Annuaire", "oui"],
   ["A03", "Un Esprit de Famille, membres", "FONDS", "Annuaire", "oui"],
@@ -94,9 +94,10 @@ var VEILLE_ANNUAIRES = {
   A03: { listes: ["https://unespritdefamille.org/membres/"],
          fiche: /https:\/\/unespritdefamille\.org\/membre\/[a-z0-9-]+\/?/g,
          base: "", financeur: "Fondation familiale (Un Esprit de Famille)" },
-  // Carenews : les 3 premières pages de la liste des appels (les plus récents) ; le financeur se lit dans le lien
+  // Carenews : les 5 premières pages de la liste des appels (les plus récents) ; le financeur se lit dans le lien
   C01: { listes: ["https://www.carenews.com/appels_a_projets", "https://www.carenews.com/appels_a_projets/1/",
-                  "https://www.carenews.com/appels_a_projets/2/"],
+                  "https://www.carenews.com/appels_a_projets/2/", "https://www.carenews.com/appels_a_projets/3/",
+                  "https://www.carenews.com/appels_a_projets/4/"],
          fiche: /\/[a-z0-9-]+\/appels-a-projet\/[a-z0-9-]+/g, base: "https://www.carenews.com", type: "AAP" }
 };
 var VEILLE_ANNUAIRE_FICHES = 30;
@@ -112,13 +113,26 @@ var VEILLE_PROFILS_DEFAUT = [
   ["STR", "Structuration et changement d'échelle", "Fonctionnement de l'association, postes, outils (dont BAO numérique), changement d'échelle 2026-2028", "fonctionnement associatif, emploi associatif, poste FONJEP, consolidation, structuration, changement d'échelle, passage à l'échelle, développement associatif, numérique associatif, transformation numérique, FDVA fonctionnement, accompagnement stratégique, DLA, mécénat de compétences", "investissement immobilier lourd, association sportive, association culturelle", "l'association Lit uP elle-même", "Var, Seine-Saint-Denis, PACA, Île-de-France, national", "FDVA, FONJEP, Région, fondations de changement d'échelle (La France s'engage, Pierre Bellon), fonds de dotation, mécénat d'entreprise", 5000, 21, 2]
 ];
 
-// ─── POINT D'ENTRÉE WEB (appelé par backend.gs) ───
+// ─── POINT D'ENTRÉE WEB (application web propre à la veille) ───
+function doGet(e) { return veilleRepondre_(e); }
+function doPost(e) { return veilleRepondre_(e); }
+function veilleRepondre_(e) {
+  var out;
+  try {
+    var params = (e && e.parameter) || {};
+    var data = e && e.postData ? JSON.parse(e.postData.contents || "{}") : {};
+    out = veilleHandle(params.action || "", params, data);
+  } catch (err) {
+    out = { error: err.message };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
 function veilleHandle(action, params, data) {
   switch (action) {
     case "veilleList": return veilleList_();
     case "veilleUpdate": return veilleUpdate_(data);
     case "veilleSourceToggle": return veilleSourceToggle_(data);
-    case "veilleRun": return veilleCollecter();
+    case "veilleRun": return veilleCollecter(false);
     case "veilleComptes": return veilleAnalyserComptes_(data);
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
@@ -127,7 +141,9 @@ function veilleHandle(action, params, data) {
 
 // ─── INSTALLATION ───
 function veilleInstaller() {
-  var ss = SpreadsheetApp.openById(VEILLE_SHEET_ID);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error("Lancer veilleInstaller depuis le script rattaché au Sheet de la veille (Extensions → Apps Script)");
+  PropertiesService.getScriptProperties().setProperty("VEILLE_SHEET_ID", ss.getId());
   var shP = veilleOnglet_(ss, VEILLE_TAB_PISTES, VEILLE_COLS, []);
   veilleColonnesManquantes_(shP, VEILLE_COLS);
   veilleOnglet_(ss, VEILLE_TAB_SOURCES, VEILLE_SOURCES_COLS,
@@ -141,20 +157,22 @@ function veilleInstaller() {
     if (ids.indexOf(d[0]) < 0) s.sh.appendRow(d.concat(["", "", "", "", ""]));
   });
 
-  var gere = ["veilleCollecter", "veilleAlertes", "veilleRecapHebdo"];
+  var gere = ["veilleCollecter", "veilleCollecteHebdo", "veilleCollecteSuite", "veilleAlertes", "veilleRecapHebdo"];
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (gere.indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger("veilleCollecter").timeBased().everyDays(1).atHour(3).inTimezone("Europe/Paris").create();
+  // Collecte le dimanche soir : les passes s'enchaînent dans la nuit, le récap part le lundi matin
+  ScriptApp.newTrigger("veilleCollecteHebdo").timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(21).inTimezone("Europe/Paris").create();
+  ScriptApp.newTrigger("veilleRecapHebdo").timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).inTimezone("Europe/Paris").create();
+  // Alertes de date limite : lecture du Sheet seulement, d'où un passage quotidien sans coût
   ScriptApp.newTrigger("veilleAlertes").timeBased().everyDays(1).atHour(8).inTimezone("Europe/Paris").create();
-  ScriptApp.newTrigger("veilleRecapHebdo").timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(8).inTimezone("Europe/Paris").create();
 
-  if (!GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL)) GmailApp.createLabel(VEILLE_GMAIL_LABEL);
   if (!GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL_FAIT)) GmailApp.createLabel(VEILLE_GMAIL_LABEL_FAIT);
 
   var props = PropertiesService.getScriptProperties();
   var manque = ["ANTHROPIC_API_KEY", "AIDES_TERRITOIRES_API_KEY"].filter(function (k) { return !props.getProperty(k); });
-  Logger.log("Veille installée (collecte 3 h, alertes 8 h, récap lundi 8 h)."
+  Logger.log("Veille installée pour " + Session.getEffectiveUser().getEmail()
+    + " (collecte le dimanche à 21 h, récap le lundi à 7 h, alertes chaque matin)."
     + (manque.length ? " ⚠️ Propriétés manquantes : " + manque.join(", ") : " Clés présentes."));
 }
 
@@ -180,7 +198,7 @@ function veilleColonnesManquantes_(sh, cols) {
 
 // ─── LECTURE / ÉCRITURE DU SHEET ───
 function veilleLire_(nomOnglet) {
-  var sh = SpreadsheetApp.openById(VEILLE_SHEET_ID).getSheetByName(nomOnglet);
+  var sh = veilleSS_().getSheetByName(nomOnglet);
   if (!sh || sh.getLastRow() < 1) return { sh: sh, head: [], rows: [] };
   var data = sh.getDataRange().getValues();
   var head = data[0].map(function (h) { return String(h).trim(); });
@@ -247,12 +265,25 @@ function veilleMajSource_(s, id, champs) {
 }
 
 // ─── COLLECTE ───
-/** Déclencheur nocturne (et bouton « Lancer maintenant » de la page). */
-function veilleCollecter() {
+/** Déclencheur du dimanche soir : première passe de la collecte hebdomadaire. */
+function veilleCollecteHebdo() {
+  PropertiesService.getScriptProperties().setProperty("VEILLE_PASSE", "1");
+  veilleCollecter(true);
+}
+/** Passes suivantes, programmées automatiquement tant qu'il reste à lire. */
+function veilleCollecteSuite() { veilleCollecter(true); }
+
+/**
+ * Une passe de collecte (5 minutes au plus). Avec enchainer = true (déclencheurs), une nouvelle passe est
+ * programmée 5 minutes plus tard s'il reste des fiches à lire ou des annonces à noter, jusqu'à VEILLE_PASSES_MAX.
+ * Le bouton « Lancer maintenant » de la page fait une seule passe.
+ */
+function veilleCollecter(enchainer) {
+  enchainer = enchainer === true;
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return { error: "Une collecte est déjà en cours" };
   var debut = Date.now();
-  var bilan = {};
+  var bilan = {}, reste = false;
   try {
     var s = veilleLire_(VEILLE_TAB_SOURCES);
     var p = veilleLire_(VEILLE_TAB_PISTES);
@@ -271,7 +302,7 @@ function veilleCollecter() {
     s.rows.forEach(function (src) {
       var id = String(src.id);
       if (!collecteurs[id] || String(src.actif).toLowerCase() !== "oui") return;
-      if (Date.now() - debut > VEILLE_TEMPS_MAX_MS) { bilan[id] = "reporté (temps)"; return; }
+      if (Date.now() - debut > VEILLE_TEMPS_MAX_MS) { bilan[id] = "reporté à la passe suivante"; reste = true; return; }
       try {
         var res = collecteurs[id](String(src.curseur || ""), debut);
         var nouvelles = res.items.filter(function (it) {
@@ -280,30 +311,47 @@ function veilleCollecter() {
           connues[k1] = connues[k2] = true;
           return true;
         });
-        var retenues = veilleNoterEtEnregistrer_(nouvelles, profils, id, p, debut);
-        veilleMajSource_(s, id, { curseur: res.curseur || src.curseur || "",
+        var r = veilleNoterEtEnregistrer_(nouvelles, profils, id, p, debut);
+        // Notation complète : on avance le curseur et on marque comme lu. Sinon, tout repassera à la passe suivante
+        // (les annonces déjà enregistrées sont reconnues et ne sont pas notées deux fois).
+        if (!r.coupe && res.valider) res.valider();
+        if (r.coupe || res.reste) reste = true;
+        veilleMajSource_(s, id, { curseur: r.coupe ? (src.curseur || "") : (res.curseur || src.curseur || ""),
           derniere_collecte: Utilities.formatDate(new Date(), "Europe/Paris", "yyyy-MM-dd HH:mm"),
-          collectees: nouvelles.length, retenues: retenues, derniere_erreur: "" });
-        bilan[id] = nouvelles.length + " nouvelles, " + retenues + " retenues";
+          collectees: nouvelles.length, retenues: r.retenues, derniere_erreur: "" });
+        bilan[id] = nouvelles.length + " nouvelles, " + r.retenues + " retenues" + (r.coupe ? " (suite à la passe suivante)" : "");
       } catch (e) {
         veilleMajSource_(s, id, { derniere_erreur: String(e.message).substring(0, 250),
           derniere_collecte: Utilities.formatDate(new Date(), "Europe/Paris", "yyyy-MM-dd HH:mm") });
         bilan[id] = "erreur : " + e.message;
       }
     });
-    Logger.log(JSON.stringify(bilan));
-    return { ok: true, bilan: bilan };
   } finally {
     lock.releaseLock();
   }
+  if (enchainer) veilleProgrammerSuite_(reste);
+  Logger.log(JSON.stringify(bilan) + (reste ? " · il reste à lire" : " · collecte terminée"));
+  return { ok: true, bilan: bilan, reste: reste };
 }
 
-/** Note les annonces par lots de 8 et écrit celles qui atteignent le seuil. Renvoie le nombre retenu. */
+function veilleProgrammerSuite_(reste) {
+  var props = PropertiesService.getScriptProperties();
+  var passe = Number(props.getProperty("VEILLE_PASSE") || 1);
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "veilleCollecteSuite") ScriptApp.deleteTrigger(t);
+  });
+  if (reste && passe < VEILLE_PASSES_MAX) {
+    props.setProperty("VEILLE_PASSE", String(passe + 1));
+    ScriptApp.newTrigger("veilleCollecteSuite").timeBased().after(5 * 60 * 1000).create();
+  }
+}
+
+/** Note les annonces par lots de 8 et écrit celles qui atteignent le seuil. */
 function veilleNoterEtEnregistrer_(items, profils, sourceId, p, debut) {
   var aNoter = items.filter(function (it) { return it.force || veilleContientMot_(it.financeur + " " + it.titre + " " + it.texte); });
-  var retenues = 0;
+  var retenues = 0, coupe = false;
   for (var i = 0; i < aNoter.length; i += 8) {
-    if (Date.now() - debut > VEILLE_TEMPS_MAX_MS) break; // la suite repassera à la prochaine collecte
+    if (Date.now() - debut > VEILLE_TEMPS_MAX_MS) { coupe = true; break; }
     var lot = aNoter.slice(i, i + 8);
     var notes = veilleNoterIA_(lot, profils);
     var lignes = [];
@@ -329,7 +377,7 @@ function veilleNoterEtEnregistrer_(items, profils, sourceId, p, debut) {
       retenues += lignes.length;
     }
   }
-  return retenues;
+  return { retenues: retenues, coupe: coupe };
 }
 
 function veilleNoterIA_(lot, profils) {
@@ -496,7 +544,7 @@ function veilleChargerStockFonds() {
   var connues = {};
   p.rows.forEach(function (r) { connues[r.source + "|" + r.ref_externe] = true; });
   var nouvelles = res.items.filter(function (it) { return !connues["D01|" + it.ref]; });
-  var retenues = veilleNoterEtEnregistrer_(nouvelles, veilleLire_(VEILLE_TAB_PROFILS).rows, "D01", p, Date.now());
+  var retenues = veilleNoterEtEnregistrer_(nouvelles, veilleLire_(VEILLE_TAB_PROFILS).rows, "D01", p, Date.now()).retenues;
   offset += res.items.length;
   var fini = !res.items.length || offset >= res.total;
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -534,11 +582,11 @@ function veilleCollecteAnnuaire_(id, curseur, debut, vus) {
   });
   if (!liens.length) throw new Error("Aucune fiche trouvée : la page ou le plan du site de l'annuaire a peut-être changé");
   var items = [], lignesVus = [];
-  liens.filter(function (u) { return !vus[id + "|" + u]; }).slice(0, VEILLE_ANNUAIRE_FICHES).forEach(function (u) {
+  var aLire = liens.filter(function (u) { return !vus[id + "|" + u]; });
+  aLire.slice(0, VEILLE_ANNUAIRE_FICHES).forEach(function (u) {
     if (Date.now() - debut > VEILLE_TEMPS_MAX_MS / 2) return;
     var h = veilleGet_(u);
     lignesVus.push([id, u, veilleAujourdhui_()]);
-    vus[id + "|" + u] = true;
     if (!h) return; // fiche supprimée depuis
     var titre = (h.match(/<title>([^<]*)<\/title>/i) || [])[1] || u;
     titre = veilleSansHtml_(titre).split(/ [-|–] /)[0].trim();
@@ -548,8 +596,13 @@ function veilleCollecteAnnuaire_(id, curseur, debut, vus) {
       montant: "", territoire: "", texte: veilleTexteFiche_(h, titre) || "(fiche sans description : juger sur le nom)",
       force: id === "A03" }); // les fiches Un Esprit de Famille ne donnent que les thèmes
   });
-  if (lignesVus.length && vus._sh) vus._sh.getRange(vus._sh.getLastRow() + 1, 1, lignesVus.length, 3).setValues(lignesVus);
-  return { items: items, curseur: (liens.length - Object.keys(vus).filter(function (k) { return k.indexOf(id + "|") === 0; }).length) + " fiches restantes" };
+  var restantes = aLire.length - lignesVus.length;
+  return { items: items, curseur: restantes + " fiches restantes", reste: restantes > 0,
+    valider: function () {
+      if (!lignesVus.length || !vus._sh) return;
+      vus._sh.getRange(vus._sh.getLastRow() + 1, 1, lignesVus.length, 3).setValues(lignesVus);
+      lignesVus.forEach(function (l) { vus[l[0] + "|" + l[1]] = true; });
+    } };
 }
 
 function veilleGet_(url) {
@@ -597,26 +650,41 @@ function veilleCollecteBOAMP_(curseur) {
   return { items: items, curseur: max };
 }
 
-// ─── COLLECTEUR : LETTRES D'INFORMATION (GMAIL) ───
+// ─── COLLECTEUR : LETTRES D'INFORMATION (boîte developpement@) ───
+// Tous les fils de la boîte de réception non encore lus par la veille. Les demandes de confirmation
+// d'abonnement sont mises de côté pour le récap du lundi (un clic humain reste nécessaire).
+var VEILLE_RE_CONFIRMATION = /(confirm|valid)[a-zé]*\b[\s\S]{0,60}(abonnement|inscription|newsletter|lettre)|(abonnement|inscription)[\s\S]{0,40}(confirm|valid)/i;
+
 function veilleCollecteGmail_(curseur, debut) {
-  var label = GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL);
-  if (!label) return { items: [], curseur: curseur };
   var fait = GmailApp.getUserLabelByName(VEILLE_GMAIL_LABEL_FAIT) || GmailApp.createLabel(VEILLE_GMAIL_LABEL_FAIT);
-  var threads = GmailApp.search('label:"' + VEILLE_GMAIL_LABEL + '" -label:"' + VEILLE_GMAIL_LABEL_FAIT + '" newer_than:30d', 0, 15);
-  var items = [];
+  var threads = GmailApp.search('in:inbox -label:"' + VEILLE_GMAIL_LABEL_FAIT + '" newer_than:60d', 0, 25);
+  var items = [], lus = [], confirmations = [];
   threads.forEach(function (th) {
     if (Date.now() - debut > VEILLE_TEMPS_MAX_MS / 2) return; // laisse du temps pour la notation
     th.getMessages().forEach(function (msg) {
-      var extraits = veilleExtraireMailIA_(msg.getFrom(), msg.getSubject(), msg.getPlainBody());
-      extraits.forEach(function (x, k) {
+      var corps = msg.getPlainBody() || "";
+      if (VEILLE_RE_CONFIRMATION.test(msg.getSubject() + " " + corps.substring(0, 1500))) {
+        var lien = (corps.match(/https?:\/\/[^\s<>"]*(confirm|valid|subscribe|optin|opt-in)[^\s<>"]*/i) || [])[0] || "";
+        confirmations.push({ de: msg.getFrom(), sujet: msg.getSubject(), lien: lien, date: veilleAujourdhui_() });
+        return;
+      }
+      veilleExtraireMailIA_(msg.getFrom(), msg.getSubject(), corps).forEach(function (x, k) {
         items.push({ type: "AAP", ref: msg.getId() + "-" + k, financeur: x.financeur || msg.getFrom(),
           titre: x.titre || msg.getSubject(), lien: x.lien || "", date_limite: x.date_limite || "",
           montant: x.montant || "", territoire: x.territoire || "", texte: x.resume || "", force: true });
       });
     });
-    th.addLabel(fait);
+    lus.push(th);
   });
-  return { items: items, curseur: veilleAujourdhui_() };
+  return { items: items, curseur: veilleAujourdhui_(), reste: threads.length > lus.length || threads.length === 25,
+    valider: function () {
+      lus.forEach(function (th) { th.addLabel(fait); th.moveToArchive(); });
+      if (confirmations.length) {
+        var props = PropertiesService.getScriptProperties();
+        var deja = JSON.parse(props.getProperty("VEILLE_CONFIRMATIONS") || "[]");
+        props.setProperty("VEILLE_CONFIRMATIONS", JSON.stringify(deja.concat(confirmations).slice(-30)));
+      }
+    } };
 }
 
 function veilleExtraireMailIA_(de, sujet, corps) {
@@ -774,9 +842,11 @@ function veilleRecapHebdo() {
   var neuves = p.rows.filter(function (r) {
     return r.statut === "nouveau" && String(r.date_detection) >= depuis && Number(r.note) >= VEILLE_NOTE_MIN_MAIL;
   }).sort(function (a, b) { return String(a.date_limite || "9999").localeCompare(String(b.date_limite || "9999")); });
-  if (!neuves.length) return;
+  var props = PropertiesService.getScriptProperties();
+  var conf = JSON.parse(props.getProperty("VEILLE_CONFIRMATIONS") || "[]");
+  if (!neuves.length && !conf.length) return;
   var libType = { AAP: "Appels à projets", FONDS: "Nouveaux fonds et fondations", AO: "Appels d'offres" };
-  var corps = "Bonjour,\n\n" + neuves.length + " nouvelle(s) piste(s) cette semaine :\n";
+  var corps = "Bonjour,\n\n" + (neuves.length ? neuves.length + " nouvelle(s) piste(s) cette semaine :\n" : "Pas de nouvelle piste notée 60 ou plus cette semaine.\n");
   ["AAP", "FONDS", "AO"].forEach(function (t) {
     var l = neuves.filter(function (r) { return r.type === t; });
     if (!l.length) return;
@@ -786,8 +856,15 @@ function veilleRecapHebdo() {
         + "\n  " + (r.raison || "") + (r.lien ? "\n  " + r.lien : "");
     }).join("\n") + "\n";
   });
+  if (conf.length) {
+    corps += "\nAbonnements à confirmer (boîte developpement@) :\n" + conf.map(function (x) {
+      return "• " + x.de + " : " + x.sujet + (x.lien ? "\n  " + x.lien : "\n  (lien à retrouver dans le mail, archivé sous « " + VEILLE_GMAIL_LABEL_FAIT + " »)");
+    }).join("\n") + "\n";
+    props.deleteProperty("VEILLE_CONFIRMATIONS");
+  }
   corps += "\nTrier les pistes :\n" + VEILLE_URL + "\n";
-  MailApp.sendEmail({ to: VEILLE_EMAILS, subject: "🔭 Veille financements : " + neuves.length + " nouvelle(s) piste(s)", body: corps });
+  MailApp.sendEmail({ to: VEILLE_EMAILS, subject: "🔭 Veille financements : " + neuves.length + " nouvelle(s) piste(s)"
+    + (conf.length ? ", " + conf.length + " abonnement(s) à confirmer" : ""), body: corps });
 }
 
 // ─── OUTILS ───
@@ -803,4 +880,4 @@ function veilleIlYA_(j) { return Utilities.formatDate(new Date(Date.now() - j * 
 function veilleDateFr_(s) { var p = String(s).substring(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : s; }
 
 /** Test manuel : lance une collecte et affiche le bilan dans le journal. */
-function testVeille() { Logger.log(JSON.stringify(veilleCollecter())); }
+function testVeille() { Logger.log(JSON.stringify(veilleCollecter(false))); }

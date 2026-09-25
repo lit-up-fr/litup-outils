@@ -1,6 +1,6 @@
 // ============================================
 // Lit uP — Backend Google Apps Script
-// Version : 25 septembre 2026 (routage veille)
+// Version : 28 août 2026
 // Fichier versionné dans le repo : apps-script/backend.gs
 //
 // BACKEND_VERSION est renvoyée à l'outil, qui prévient en haut de l'écran quand
@@ -9,7 +9,7 @@
 // redéployé », et le doute pouvait durer des semaines.
 // ⚠️ À incrémenter à chaque modification de ce fichier.
 // ============================================
-var BACKEND_VERSION = "2026-09-25a";
+var BACKEND_VERSION = "2026-08-31d";
 
 // Configuration
 const SHEET_NDF = "NDF";
@@ -84,10 +84,7 @@ function handleRequest(e) {
       case "getCodesProjets": result = getCodesProjets(params); break;
       case "version": result = { version: BACKEND_VERSION }; break;
       case "comptaStamp": result = comptaStamp(); break;
-      // Veille financements : actions « veille… » traitées par veille.gs
-      default: result = (action.indexOf("veille") === 0 && typeof veilleHandle === "function")
-        ? veilleHandle(action, params, postData)
-        : { error: "Action inconnue: " + action };
+      default: result = { error: "Action inconnue: " + action };
     }
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {

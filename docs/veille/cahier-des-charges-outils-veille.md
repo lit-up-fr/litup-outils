@@ -2,12 +2,14 @@
 
 État au 25 septembre 2026. **Veille financements : version 1 construite** (page `litup_veille_financements.html`, script `apps-script/veille.gs`). Veille Qualiopi : à construire.
 
+**Architecture** : la veille a son propre Google Sheet (« Veille financements Lit uP ») et son propre projet Apps Script, tous deux au compte **developpement@lit-up.fr**. Ils sont séparés du fichier NDF / Compta : pas de risque pour la compta, droits de partage distincts, et le script lit directement la boîte developpement@. Installation : `INSTALLATION-veille-financements.md`.
+
 Fichiers de référence dans ce dossier (séparateur `;`) :
 
 | Fichier | Contenu |
 |---|---|
 | `profils-veille-financements.csv` | Les 4 profils projets qui servent au tri (repris dans l'onglet `Veille_Profils`, modifiable) |
-| `sources-veille-financements.csv` | 57 sources de référence ; celles marquées API ou Annuaire sont collectées automatiquement, les autres se suivent par leur lettre d'information (libellé Gmail « Veille AAP ») |
+| `sources-veille-financements.csv` | 57 sources de référence ; celles marquées API ou Annuaire sont collectées automatiquement, les autres se suivent par leur lettre d'information (abonnements de developpement@lit-up.fr) |
 | `sources-veille-qualiopi.csv` | 19 sources rangées par indicateur Qualiopi |
 | `mockup-veille-financements-v1.html` | Maquette validée : options A (cartes) et B (étapes) retenues toutes les deux |
 
@@ -27,22 +29,22 @@ Page d'accueil : bouton **« Outils de veille »**, qui ouvre un choix :
 | F01 | Aides-territoires | API (clé personnelle) | Aides ouvertes aux associations, périmètres Var, Seine-Saint-Denis, Paris (et les aides nationales et régionales qui les couvrent) |
 | D01 | JOAFE (Journal officiel) | API DILA, sans clé | Créations et modifications de **fonds de dotation** dont l'objet parle de jeunes, décrochage, insertion, égalité des chances… ; créations de **fondations d'entreprise** et partenariales (avec le nom des entreprises fondatrices) |
 | M01 | BOAMP | API DILA, sans clé | Avis de marché PACA et Île-de-France sur l'accompagnement et l'insertion des jeunes, les Missions Locales, la formation des professionnels |
-| N00 | Lettres d'information | Gmail, libellé « Veille AAP » | L'IA extrait les appels annoncés dans chaque lettre (fondations, Carenews, CFF, Avise, réseaux…) |
+| N00 | Lettres d'information | Boîte de réception de developpement@ | L'IA extrait les appels annoncés dans chaque lettre (fondations, CFF, Avise, réseaux…) ; les confirmations d'abonnement sont signalées dans le récap |
 | A01 | Fondation de France | Annuaire + plan du site | Les ≈ 780 fondations abritées (description complète de chaque fondation) |
 | A02 | Fondation Caritas France | Plan du site | Les ≈ 100 fondations abritées |
 | A03 | Un Esprit de Famille | Page des membres | Les ≈ 190 fondations familiales membres (nom et thèmes seulement) |
-| C01 | Carenews | Pages de liste | Les appels à projets des 3 premières pages (les plus récents, ≈ 15 à 25 appels), financeur lu dans le lien |
+| C01 | Carenews | Pages de liste | Les appels à projets des 5 premières pages (les plus récents, ≈ 30 à 40 appels), financeur lu dans le lien |
 
-Non collectables automatiquement (applications qui ne s'affichent que dans un navigateur) : les appels à projets du Centre français des Fonds et Fondations, qui viennent de **Yes Association** (yesasso.org), et l'annuaire du CFF. Ils se suivent par leurs lettres d'information (libellé Gmail « Veille AAP »).
+Non collectables automatiquement (applications qui ne s'affichent que dans un navigateur) : les appels à projets du Centre français des Fonds et Fondations, qui viennent de **Yes Association** (yesasso.org), et l'annuaire du CFF. Ils se suivent par leurs lettres d'information (abonnements de developpement@lit-up.fr).
 
 Mesures faites le 25/09/2026 : 1 288 fonds de dotation créés avec ces mots-clés dans leur objet depuis 2009, dont 729 en PACA et Île-de-France, et 82 depuis janvier 2026 (≈ 9 par mois) ; ≈ 50 avis BOAMP pertinents en 4 mois.
 
-Pour les annuaires, la première nuit lit 30 fiches par annuaire, puis 30 de plus chaque nuit : le stock est parcouru en 3 à 4 semaines, ensuite seules les nouvelles fondations sont lues. Pour le stock des fonds de dotation, exécuter une fois `veilleChargerStockFonds` (≈ 775 fonds, par lots de 40).
+Pour les annuaires, chaque passe lit 30 fiches par annuaire et la collecte hebdomadaire enchaîne jusqu'à 10 passes : le stock (≈ 1 100 fiches) est parcouru en 3 à 4 semaines, ensuite seules les nouvelles fondations sont lues. Pour le stock des fonds de dotation, exécuter une fois `veilleChargerStockFonds` (≈ 775 fonds, par lots de 40).
 
 ### 2.2 Chaîne de traitement
 
 ```
-Chaque nuit vers 3 h (Apps Script)
+Chaque dimanche à 21 h (Apps Script), en passes de 5 min enchaînées (10 au plus)
   1. Collecte       les 8 sources ci-dessus
   2. Dédoublonnage  une annonce déjà vue (même source + même référence, ou même financeur + même titre) est ignorée
   3. Pré-filtre     une annonce sans aucun mot de nos sujets n'est pas envoyée à l'IA (économie)
@@ -50,11 +52,13 @@ Chaque nuit vers 3 h (Apps Script)
                     la date limite et le montant s'il les trouve ; pour un fonds : opérateur ou redistributeur
   5. Enrichissement fonds notés 50 et plus : SIREN et adresse du siège (Annuaire des entreprises)
   6. Écriture       onglet Veille_Pistes (seulement les notes ≥ 30)
-Chaque lundi à 8 h   mail récapitulatif : nouvelles pistes notées ≥ 60, par type, triées par date limite
-Chaque jour à 8 h    alertes à 6 puis 2 semaines de la date limite (pistes « À étudier » et « GO »)
+Chaque lundi à 7 h   mail récapitulatif : nouvelles pistes notées ≥ 60, par type, triées par date limite,
+                     et abonnements à confirmer
+Chaque jour à 8 h    alertes à 6 puis 2 semaines de la date limite (pistes « À étudier » et « GO ») :
+                     simple relecture du Sheet, aucun site visité
 ```
 
-### 2.3 Onglets du Sheet (créés par `veilleInstaller`)
+### 2.3 Onglets du Sheet « Veille financements Lit uP » (créés par `veilleInstaller`)
 
 - `Veille_Profils` : les 4 profils ; on peut y modifier mots-clés, exclusions, territoires, montants sans toucher au code
 - `Veille_Sources` : `id`, `nom`, `type`, `acces`, `actif`, `curseur`, `derniere_collecte`, `collectees`, `retenues`, `derniere_erreur`
