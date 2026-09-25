@@ -1,0 +1,20 @@
+id;indicateur;nom;url;acces;frequence;ce_qu_on_y_cherche;notes
+Q01;23 Veille légale et réglementaire;Légifrance (Journal officiel);https://www.legifrance.gouv.fr/;API (PISTE) ou alerte mail;quotidienne;Décrets et arrêtés formation professionnelle, Qualiopi, CPF, apprentissage;API PISTE gratuite sur inscription. À défaut : alerte mail sur mots-clés.
+Q02;23 Veille légale et réglementaire;Ministère du Travail, formation professionnelle;https://travail-emploi.gouv.fr/;Newsletter + page;hebdomadaire;Réformes, Qualiopi, guide de lecture;Source officielle de référence (guide de lecture V10 attendu).
+Q03;23 Veille légale et réglementaire;France Compétences;https://www.francecompetences.fr/;Page + newsletter;hebdomadaire;Qualiopi, RNCP / RS, financement;
+Q04;23 Veille légale et réglementaire;Centre Inffo, flux RSS;https://www.centre-inffo.fr/centre-inffo/nos-flux-rss;RSS;quotidienne;Actualité juridique de la formation;Le magazine Inffo formation s'est arrêté en juin 2026, les flux RSS du site restent la source à suivre.
+Q05;23 Veille légale et réglementaire;Caisse des Dépôts, Mon Compte Formation / EDOF;https://www.of.moncompteformation.gouv.fr/;Newsletter;au fil de l'eau;Règles CPF si Lit uP référence une formation;
+Q06;23 Veille légale et réglementaire;Certificateur Qualiopi de Lit uP;;Newsletter;au fil de l'eau;Changements d'audit, interprétation des indicateurs;Nom du certificateur à compléter.
+Q07;23 Veille légale et réglementaire;OPCO de Lit uP (Uniformation / OPCO Cohésion sociale);https://www.uniformation.fr/;Newsletter;mensuelle;Règles de prise en charge;OPCO exact à confirmer.
+Q08;24 Compétences, métiers, emplois;France Travail, enquête Besoins en main-d'œuvre (BMO);https://statistiques.francetravail.org/bmo;Page;annuelle;Métiers en tension en PACA et IDF;Utile pour l'orientation des jeunes.
+Q09;24 Compétences, métiers, emplois;DARES;https://dares.travail-emploi.gouv.fr/;RSS / page;mensuelle;Études emploi des jeunes, NEET, insertion;
+Q10;24 Compétences, métiers, emplois;Céreq;https://www.cereq.fr/;Page + newsletter;mensuelle;Insertion des jeunes, enquêtes Génération;
+Q11;24 Compétences, métiers, emplois;Carif-Oref PACA et Défi métiers (IDF);https://www.defi-metiers.fr/;Page + newsletter;mensuelle;Métiers et compétences en région;Ajouter le Carif-Oref PACA.
+Q12;24 Compétences, métiers, emplois;UNML et observatoire de la branche des Missions Locales;https://www.unml.info/;Newsletter;mensuelle;Évolution du métier de conseiller en insertion (public de Boost uP Pro);
+Q13;24 Compétences, métiers, emplois;INJEP (études jeunesse);https://injep.fr/;Page + newsletter;mensuelle;Décrochage, engagement, situation des jeunes;
+Q14;25 Innovations pédagogiques et technologiques;Thot Cursus;https://cursus.edu/;RSS;hebdomadaire;Innovations pédagogiques, numérique éducatif;
+Q15;25 Innovations pédagogiques et technologiques;FFFOD (formation ouverte et à distance);https://www.fffod.org/;Newsletter;mensuelle;Distanciel, outils;
+Q16;25 Innovations pédagogiques et technologiques;Réseau Canopé et Éduscol;https://www.reseau-canope.fr/;Page;mensuelle;Ressources pédagogiques, décrochage;
+Q17;25 Innovations pédagogiques et technologiques;Partenaires recherche (LIRDEF, CNRS / ENS Lyon);;Manuel;trimestrielle;Publications utiles au Lab';Échanges avec les chercheuses = preuve de veille.
+Q18;25 Innovations pédagogiques et technologiques;Événements (Learning Show, salons, webinaires);;Manuel;au fil de l'eau;Participation = preuve;Garder l'attestation ou le programme comme preuve.
+Q19;26 Handicap (en lien avec la veille);Agefiph, Ressource Handicap Formation;https://www.agefiph.fr/;Newsletter;trimestrielle;Adaptations et compensations en formation;L'indicateur 26 n'est pas une veille, mais ses évolutions se suivent au même endroit.
