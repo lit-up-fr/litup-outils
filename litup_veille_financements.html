@@ -64,6 +64,8 @@ h1{font-size:22px;font-weight:700}
 .btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
 .btn.no{color:var(--t2)}
 .btn:disabled{opacity:.5;cursor:wait}
+.etape{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--t2)}
+.etape select{border:1.5px solid var(--teal);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:600;color:var(--anth);background:#fff;font-family:inherit}
 /* Kanban */
 .kbwrap{overflow-x:auto;padding-bottom:6px}
 .kb{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px;min-width:1120px}
@@ -228,11 +230,9 @@ function carte(p,compact){
   }
   const et2=ETAPES[p.type]||ETAPES.AAP;
   let acts="";
-  if(p.statut==="nouveau")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="etude">${esc(et2.etude)}</button><button class="btn" data-go="${esc(p.id)}" data-to="go">${esc(et2.go)}</button><button class="btn no" data-clos="${esc(p.id)}">${p.type==="FONDS"?"Sans suite":"NO-GO"}</button>`;
-  else if(p.statut==="etude")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="go">${esc(et2.go)}</button><button class="btn no" data-clos="${esc(p.id)}">${p.type==="FONDS"?"Sans suite":"NO-GO"}</button>`;
-  else if(p.statut==="go")acts=`<button class="btn pri" data-go="${esc(p.id)}" data-to="depose">${esc(et2.depose)}</button><button class="btn no" data-clos="${esc(p.id)}">Clore</button>`;
-  else if(p.statut==="depose")acts=`<button class="btn pri" data-clos="${esc(p.id)}">Résultat</button>`;
-  else acts=`<button class="btn" data-go="${esc(p.id)}" data-to="nouveau">Rouvrir</button>`;
+  // Étape au choix, dans les deux sens (on peut revenir de GO à À étudier, ou clore en NO-GO à tout moment).
+  // « Clos » ouvre la fenêtre de l'issue et du motif.
+  acts=`<label class="etape">Étape <select data-move="${esc(p.id)}" aria-label="Étape de la piste">${ORDRE.map(s=>`<option value="${s}"${s===p.statut?" selected":""}>${esc(et2[s])}${s==="clos"&&p.statut==="clos"&&p.issue?" · "+esc(p.issue):""}</option>`).join("")}</select></label>`;
   if(p.type!=="FONDS"&&["nouveau","etude"].includes(p.statut))acts+=`<button class="btn" data-qualif="${esc(p.id)}">📋 Fiche go/no-go</button>`;
   if(p.type==="FONDS"){
     const an=analyse(p);
