@@ -10,6 +10,8 @@
  * Propriétés du script (⚙️ Paramètres du projet → Propriétés du script), jamais dans le code :
  *   ANTHROPIC_API_KEY          clé de l'API Claude (console.anthropic.com → API Keys)
  *   AIDES_TERRITOIRES_API_KEY  clé Aides-territoires (aides-territoires.beta.gouv.fr → Mes paramètres → Ma clé API)
+ *   ANTHROPIC_WORKSPACE_ID     seulement si la clé Claude n'appartient à aucun workspace (erreur « not scoped to a
+ *                              workspace ») : identifiant wrkspc_… (console Anthropic → Settings → Workspaces)
  *
  * Collecte : une fois par semaine, le dimanche soir, en plusieurs passes de 5 minutes enchaînées
  * automatiquement jusqu'à ce que tout soit lu (limite Apps Script : 6 minutes par exécution).
@@ -30,7 +32,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-25f";
+var VEILLE_VERSION = "2026-09-26a";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -416,7 +418,7 @@ function veilleNoterIA_(lot, profils) {
 
   var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
-    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    headers: veilleEntetesClaude_(),
     payload: JSON.stringify({ model: VEILLE_MODELE, max_tokens: 1500, messages: [{ role: "user", content: consigne }] })
   });
   if (resp.getResponseCode() !== 200) throw new Error("API Anthropic HTTP " + resp.getResponseCode() + " : " + resp.getContentText().substring(0, 200));
@@ -434,6 +436,19 @@ function veilleNoterIA_(lot, profils) {
     }
   });
   return parIndex;
+}
+
+// En-têtes des appels à l'API Claude. Une clé créée hors de tout « workspace » de la console Anthropic
+// exige l'en-tête anthropic-workspace-id : il est ajouté si la propriété ANTHROPIC_WORKSPACE_ID existe.
+function veilleEntetesClaude_(beta) {
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty("ANTHROPIC_API_KEY");
+  if (!key) throw new Error("ANTHROPIC_API_KEY absente des propriétés du script");
+  var h = { "x-api-key": key, "anthropic-version": "2023-06-01" };
+  var ws = props.getProperty("ANTHROPIC_WORKSPACE_ID");
+  if (ws) h["anthropic-workspace-id"] = ws.trim();
+  if (beta) h["anthropic-beta"] = beta;
+  return h;
 }
 
 // ─── COLLECTEUR : AIDES-TERRITOIRES ───
@@ -717,7 +732,7 @@ function veilleExtraireMailIA_(de, sujet, corps) {
     + "Expéditeur : " + de + "\nSujet : " + sujet + "\n\n" + String(corps || "").substring(0, 12000);
   var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
-    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    headers: veilleEntetesClaude_(),
     payload: JSON.stringify({ model: VEILLE_MODELE, max_tokens: 1500, messages: [{ role: "user", content: consigne }] })
   });
   if (resp.getResponseCode() !== 200) throw new Error("API Anthropic HTTP " + resp.getResponseCode());
@@ -772,8 +787,7 @@ function veilleAnalyserComptes_(data) {
   try {
   resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
-    headers: { "x-api-key": PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY"),
-      "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01" },
+    headers: veilleEntetesClaude_("server-side-fallback-2026-07-01"),
     payload: JSON.stringify({
       model: VEILLE_MODELE_COMPTES, fallbacks: "default", max_tokens: 8000,
       output_config: { effort: "low" }, // extraction de chiffres : un effort bas suffit et garde l'appel court
