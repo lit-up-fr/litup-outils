@@ -109,6 +109,10 @@ td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
 .chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
 .mact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--anth);color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;display:none;z-index:60;max-width:calc(100% - 32px)}
+.sirene{background:var(--teal-l);border-radius:10px;padding:10px;margin:8px 0 4px}
+.sirene .row{display:flex;gap:6px}.sirene .row input{flex:1;min-width:0}
+.resent{display:block;width:100%;text-align:left;border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 9px;margin-top:6px;cursor:pointer;font-size:13px;overflow-wrap:anywhere}
+.resent:hover,.resent.on{border-color:var(--teal)}.resent b{display:block;font-size:14px}.resent .ko{color:var(--rouge);font-weight:700}
 .foot{font-size:12px;color:var(--t3);margin-top:22px;line-height:1.5}
 @media(max-width:560px){
   .list{grid-template-columns:minmax(0,1fr)}h1{font-size:19px}.hright{margin-left:0;width:100%}
@@ -586,12 +590,12 @@ function modaleFiche(id){
   const q=encodeURIComponent(s.nom);
   ouvrir(`<div class="fin">${esc(s.type||"Financeur")} · ${esc({notion:"import Notion",veille:"ajouté depuis la veille",manuel:"ajout manuel"}[s.source]||"")}</div>
    <h3>${s.favori==="oui"?"⭐ ":""}${esc(s.nom)}</h3><span class="pill s-${esc(s.etape)}">${esc(ETAPES_S[s.etape]||s.etape)}</span>
-   <div class="kv">${lig("Pertinence",s.pertinence!==""&&s.pertinence!=null?esc(s.pertinence)+"/5"+(s.pertinence_raison?" · "+esc(s.pertinence_raison):""):"")}${lig("Thématiques",esc(String(s.thematiques||"").slice(0,300)))}${lig("Contact",esc([s.contact_nom,s.contact_role].filter(Boolean).join(", ")))}${lig("Mail",s.contact_mail?`<a href="mailto:${esc(s.contact_mail)}">${esc(s.contact_mail)}</a>`:"")}${lig("Site",site)}${lig("Montant visé",esc(s.montant_vise))}${lig("Note",esc(s.note))}${lig("Prochaine action",aAction(s)?esc(s.prochaine_action)+" · "+dateFr(s.prochaine_date):"")}${lig("SIREN",esc(s.siren))}</div>
+   <div class="kv">${lig("SIREN",s.siren?`<a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${esc(s.siren)}" target="_blank" rel="noopener">${esc(s.siren)}</a>`:"")}${lig("Pertinence",s.pertinence!==""&&s.pertinence!=null?esc(s.pertinence)+"/5"+(s.pertinence_raison?" · "+esc(s.pertinence_raison):""):"")}${lig("Thématiques",esc(String(s.thematiques||"").slice(0,300)))}${lig("Contact",esc([s.contact_nom,s.contact_role].filter(Boolean).join(", ")))}${lig("Mail",s.contact_mail?`<a href="mailto:${esc(s.contact_mail)}">${esc(s.contact_mail)}</a>`:"")}${lig("Site",site)}${lig("Montant visé",esc(s.montant_vise))}${lig("Note",esc(s.note))}${lig("Prochaine action",aAction(s)?esc(s.prochaine_action)+" · "+dateFr(s.prochaine_date):"")}</div>
    ${pistes.length?`<p class="cap">Pistes de la veille liées</p>${pistes.map(p=>`<div class="meta">• ${esc(p.titre)} (${esc(p.note)}/100)</div>`).join("")}`:""}
    <p class="cap">Journal des échanges</p>
    <div class="tl">${echangesDe(s.id).map(e=>`<div class="ev"><b>${dateFr(e.date)} · ${esc(TYPES_ECH[e.type]||"Import")}${e.par?" · "+esc(e.par):""}</b>${esc(e.contenu)}</div>`).join("")||'<div class="meta">Aucun échange pour l\'instant.</div>'}</div>
    <div class="acts" style="margin-top:12px"><button class="btn pri" data-sech="${esc(s.id)}">+ Ajouter un échange</button><button class="btn" data-smodif="${esc(s.id)}">Modifier</button>
-   ${fonds?boutonComptes(fonds,"📊 Comptes"):""}
+   ${fonds?boutonComptes(fonds,"📊 Comptes"):`<button class="btn" data-smodif="${esc(s.id)}">🔎 Retrouver le SIREN</button>`}
    <a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=${q}">🌐 Recherche web</a>
    <a class="btn" target="_blank" rel="noopener" href="https://annuaire-entreprises.data.gouv.fr/rechercher?terme=${q}">🏛 Annuaire</a>
    <a class="btn" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/all/?keywords=${q}">in LinkedIn</a></div>
@@ -601,22 +605,50 @@ function modaleFormSuivi(id){
   const s=id?st.suivis.find(x=>x.id===id):{etape:"contacter",favori:"oui"};if(!s)return;
   const inp=(k,lab,cls,ph)=>`<div class="${cls||""}"><label>${lab}</label><input id="f_${k}" value="${esc(s[k]||"")}" placeholder="${esc(ph||"")}"></div>`;
   ouvrir(`<h3>${id?"Modifier":"Ajouter un financeur"}</h3><div class="sub">${id?esc(s.nom):"Une fondation repérée ailleurs (salon, bouche-à-oreille, presse)"}</div>
+   <div class="sirene"><label style="margin-top:0">🔎 Retrouver au répertoire SIRENE</label>
+   <div class="row"><input id="f_rech" placeholder="Nom, SIREN ou SIRET" value="${esc(id?s.siren||s.nom:"")}"><button class="btn pri" id="fRech">Chercher</button></div>
+   <div id="fRes" class="meta">Avec le SIREN, l'outil va chercher l'objet au Journal officiel, note le fonds et permet d'analyser ses comptes.</div></div>
    <div class="frm">${inp("nom","Nom *","plein","Ex. : Fondation Break Poverty")}
    <div><label>Type</label><select id="f_type"><option value=""></option>${TYPES_FIN.map(t=>`<option${t===s.type?" selected":""}>${esc(t)}</option>`).join("")}${s.type&&!TYPES_FIN.includes(s.type)?`<option selected>${esc(s.type)}</option>`:""}</select></div>
    <div><label>Étape</label><select id="f_etape">${ORDRE_S.map(k=>`<option value="${k}"${k===s.etape?" selected":""}>${ETAPES_S[k]}</option>`).join("")}</select></div>
    <div><label>Pertinence</label><select id="f_pertinence"><option value=""></option>${[5,4,3,2,1].map(n=>`<option${String(n)===String(s.pertinence)?" selected":""}>${n}</option>`).join("")}</select></div>
    <div><label>Favori</label><select id="f_favori"><option value="oui"${s.favori!=="non"?" selected":""}>⭐ Oui</option><option value="non"${s.favori==="non"?" selected":""}>Non</option></select></div>
-   ${inp("thematiques","Thématiques","plein")}${inp("site","Site internet","plein")}${inp("contact_nom","Contact")}${inp("contact_role","Rôle")}${inp("contact_mail","Mail du contact","plein")}${inp("montant_vise","Montant visé")}${inp("siren","SIREN")}
+   ${inp("thematiques","Thématiques","plein")}${inp("site","Site internet","plein")}${inp("contact_nom","Contact")}${inp("contact_role","Rôle")}${inp("contact_mail","Mail du contact","plein")}${inp("montant_vise","Montant visé")}${inp("siren","SIREN","","9 chiffres (ou SIRET)")}
    <div class="plein"><label>Note</label><textarea id="f_note">${esc(s.note||"")}</textarea></div>
    ${inp("prochaine_action","Prochaine action","","Ex. : Premier contact")}<div><label>Pour le</label><input type="date" id="f_prochaine_date" value="${esc(String(s.prochaine_date||"").slice(0,10))}"></div></div>
    <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="fOk">Enregistrer</button></div>`);
+  const chercher=async()=>{
+    const q=$("f_rech").value.trim();if(q.length<3){toast("Tape au moins 3 caractères");return}
+    $("fRech").disabled=true;$("fRes").innerHTML="⏳ Recherche…";
+    const r=await api("veilleChercherEntreprise",{q:q}).catch(e=>({error:e.message}));
+    $("fRech").disabled=false;
+    if(r.error){$("fRes").innerHTML=`<span class="err-src">${esc(r.error)}</span>`;return}
+    if(!r.resultats.length){$("fRes").innerHTML="Aucun résultat : essaie un autre nom ou le SIRET exact.";return}
+    $("fRes").innerHTML=r.resultats.map((x,i)=>`<button class="resent" data-i="${i}"><b>${esc(x.nom)}</b>SIREN ${esc(x.siren)} · ${esc(x.nature_libelle||"autre statut")}${x.ville?" · "+esc(x.ville):""}${x.creation?" · créé en "+esc(x.creation.slice(0,4)):""}${x.actif?"":' · <span class="ko">fermé</span>'}</button>`).join("");
+    $("fRes").querySelectorAll(".resent").forEach(b=>b.onclick=()=>{
+      const x=r.resultats[+b.dataset.i];
+      $("fRes").querySelectorAll(".resent").forEach(y=>y.classList.toggle("on",y===b));
+      if(!id||!$("f_nom").value.trim())$("f_nom").value=x.nom;
+      $("f_siren").value=x.siren;
+      if(!$("f_type").value){const t=/fonds de dotation/i.test(x.nom)?"Fonds de dotation":/fondation d.entreprise/i.test(x.nom)?"Fondation d'entreprise":x.nature==="9300"?"Autre fondation":"";if(t)$("f_type").value=t}
+      toast("SIREN "+x.siren+" retenu : enregistre pour récupérer les infos");
+    });
+  };
+  $("fRech").onclick=chercher;$("f_rech").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();chercher()}};
   $("fOk").onclick=async()=>{
     const d={par:qui()};["nom","type","etape","pertinence","favori","thematiques","site","contact_nom","contact_role","contact_mail","montant_vise","siren","note","prochaine_action","prochaine_date"].forEach(k=>d[k]=($("f_"+k).value||"").trim());
     if(!d.nom){toast("Le nom est obligatoire");return}
     if(id)d.id=id;$("fOk").disabled=true;
-    const r=await api("veilleSuiviSave",d).catch(e=>({error:e.message}));
-    if(r.error){$("fOk").disabled=false;toast("Non enregistré : "+r.error);return}
-    fermer();toast(r.deja?"Ce financeur est déjà suivi : fiche ouverte":"Enregistré");await charger();if(r.id)modaleFiche(r.id);
+    // Avec un SIREN nouveau (ou pas encore de fiche fonds liée) : le serveur va chercher les infos
+    const sir=d.siren.replace(/\D/g,"");
+    const lie=id&&String(s.piste_ids||"").split(",").some(pid=>{const p=st.pistes.find(x=>x.id===pid);return p&&p.type==="FONDS"});
+    const enrichir=sir&&(!id||sir.slice(0,9)!==String(s.siren||"")||!lie);
+    if(enrichir)$("fOk").textContent="⏳ Recherche des infos (30 s)…";
+    const r=await api(enrichir?"veilleEnrichirSuivi":"veilleSuiviSave",d).catch(e=>({error:e.message}));
+    if(r.error){$("fOk").disabled=false;$("fOk").textContent="Enregistrer";toast("Non enregistré : "+r.error);return}
+    fermer();
+    toast(enrichir?(r.deja?"Déjà suivi : SIREN ajouté à sa fiche":"Enregistré")+(r.objet_trouve?" · objet trouvé au Journal officiel":" · objet non trouvé au Journal officiel")+(r.piste_creee?" · fiche fonds créée":""):(r.deja?"Ce financeur est déjà suivi : fiche ouverte":"Enregistré"));
+    await charger();if(r.id)modaleFiche(r.id);
   };
 }
 async function suivrePiste(pid,btn){
