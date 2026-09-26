@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquette suivi financeurs</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--anth:#2B3442;--teal:#00989D;--teal-l:#E6F5F5;--jaune:#FCC33E;--jaune-l:#FFF6DD;--violet:#6B2468;--violet-l:#F3E8F2;--bg:#F6F6F8;--border:#E1E3EA;--t2:#5B6474;--t3:#8A92A0;--rouge:#B42318;--rouge-l:#FDECEC;--vert:#1E7B4F;--vert-l:#E4F4EC}
+html,body{overflow-x:hidden}
+body{font-family:'Source Sans 3','Source Sans Pro',system-ui,sans-serif;background:var(--bg);color:var(--anth);padding:24px 16px 60px;line-height:1.45}
+.page{max-width:1080px;margin:0 auto}
+h1{font-size:28px;font-weight:700}
+.accroche{font-style:italic;font-weight:700;color:var(--teal);margin:2px 0 18px}
+h2{font-size:21px;font-weight:700;margin:40px 0 6px;padding-top:18px;border-top:2px solid var(--border)}
+h2 .lettre{display:inline-flex;width:34px;height:34px;border-radius:9px;background:var(--anth);color:#fff;align-items:center;justify-content:center;margin-right:8px;font-size:18px}
+.intro{color:var(--t2);font-size:15px;margin-bottom:14px;max-width:780px}
+.row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:350px;max-width:100%;background:var(--bg);border:8px solid var(--anth);border-radius:28px;padding:14px 12px;flex-shrink:0}
+.screen{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto}
+.cap{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin:12px 0 6px}
+.bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.bar b{font-size:17px}
+.seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#fff;font-size:12px;font-weight:600}
+.seg span{padding:4px 8px}.seg .on{background:var(--anth);color:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tab{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600}
+.tab.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.flt{font-size:12px;border:1px dashed var(--t3);border-radius:6px;padding:2px 8px;color:var(--t2);background:#fff}
+.card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.card.retard{border-left:5px solid var(--rouge)}.card.semaine{border-left:5px solid var(--jaune)}
+.fin{font-size:12px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.tit{font-weight:700;font-size:15px}
+.meta{font-size:13px;color:var(--t2);margin-top:3px}
+.next{font-size:13px;margin-top:6px;background:var(--jaune-l);border-radius:7px;padding:5px 8px}
+.next.retard{background:var(--rouge-l)}
+.last{font-size:13px;margin-top:5px;color:var(--t2)}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin:4px 4px 0 0}
+.s-qual{background:#EEF0F4;color:var(--t2)}.s-cont{background:var(--teal-l);color:var(--teal)}.s-disc{background:var(--violet-l);color:var(--violet)}.s-part{background:var(--vert-l);color:var(--vert)}.s-pause{background:#EEF0F4;color:var(--t3)}
+.p-src{background:#fff;border:1px solid var(--border);color:var(--t2)}
+.acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.btn{font-size:12px;font-weight:700;border-radius:7px;padding:5px 10px;border:1.5px solid var(--border);background:#fff}
+.btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+.star{color:#C98A00}
+/* Kanban */
+.kb{display:grid;grid-template-columns:repeat(6,minmax(160px,1fr));gap:9px;min-width:1000px}
+.col{background:#EDEEF2;border-radius:10px;padding:8px}
+.col h4{font-size:12px;margin:0 0 8px;display:flex;justify-content:space-between;text-transform:uppercase;letter-spacing:.4px;color:var(--t2)}
+.col .card{padding:7px 8px}.col .tit{font-size:13px}.col .meta,.col .next{font-size:12px}
+/* Fiche */
+.sheet{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:14px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:3px 10px;font-size:13px;margin:8px 0}
+.kv span:nth-child(odd){color:var(--t2)}
+.tl{border-left:3px solid var(--teal-l);margin:6px 0 0 6px;padding-left:12px}
+.ev{position:relative;margin-bottom:10px;font-size:13px}
+.ev::before{content:"";position:absolute;left:-19px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--teal)}
+.ev b{font-size:12px;color:var(--t2);display:block}
+.form label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--t2);margin:8px 0 3px}
+.inp{border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;font-size:13px;color:var(--t3);background:#fff}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--border);border-radius:999px;padding:3px 9px;font-size:12px;font-weight:600;background:#fff}.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+/* Divers */
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:10px;overflow:hidden;font-size:13px}
+th{background:var(--anth);color:#fff;text-align:left;padding:7px 8px;font-weight:600}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.mail{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;max-width:560px;white-space:pre-line}
+.avis{background:#fff;border:2px solid var(--teal);border-radius:12px;padding:16px 18px;margin-top:14px;max-width:820px}
+.avis h3{color:var(--teal);margin-bottom:6px}.avis p{margin-bottom:8px}
+.note{background:var(--jaune-l);border-left:4px solid var(--jaune);padding:10px 14px;border-radius:6px;font-size:14px;margin:12px 0;max-width:780px}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Suivi des financeurs · maquette v1</h1>
+<p class="accroche">Qui contacter, quand, et où on en est</p>
+<p class="intro">Nouvel onglet <b>« ⭐ Suivis »</b> dans la page Veille financements, à côté de Cartes, Étapes et Sources. Maquette non cliquable. Les noms de financeurs viennent de ta base Notion ; <b>les échanges, dates et actions affichés sont fictifs</b>, pour montrer le fonctionnement.</p>
+
+<div class="note">Comment un financeur entre dans le suivi : <b>import des 194 financeurs Notion</b> (une fois), bouton <b>« ⭐ Suivre »</b> sur n'importe quelle piste de la veille (AAP, fonds, fondation abritée), ou bouton <b>« + Ajouter un financeur »</b> pour une fondation repérée ailleurs (salon, bouche-à-oreille).</div>
+
+<!-- ============ A ============ -->
+<h2><span class="lettre">A</span>Liste « À faire » (par date de prochaine action)</h2>
+<p class="intro">On ouvre l'onglet et on voit tout de suite quoi faire : les relances en retard en haut (rouge), celles de la semaine (jaune), puis le reste. Chaque carte montre la dernière interaction et la prochaine action. Pensé pour le téléphone.</p>
+<div class="row">
+ <div class="phone">
+  <div class="bar"><b>Veille financements</b></div>
+  <div class="seg" style="margin-bottom:10px"><span>Cartes</span><span>Étapes</span><span class="on">⭐ Suivis</span><span>Sources</span></div>
+  <div class="tabs"><span class="tab on">À faire <span style="opacity:.8">7</span></span><span class="tab">Tous <span style="opacity:.8">140</span></span><span class="tab">Écartés</span></div>
+  <div class="filters"><span class="flt">Étape ▾</span><span class="flt">Type ▾</span><span class="flt">🔎</span><span class="btn pri" style="margin-left:auto">+ Ajouter</span></div>
+
+  <p class="cap">En retard</p>
+  <div class="card retard">
+   <div class="fin">Fondation familiale · UEF</div>
+   <div class="tit"><span class="star">⭐</span> Fondation Neuvoies</div>
+   <span class="pill s-cont">Contacté</span><span class="pill p-src">Notion</span>
+   <div class="next retard">⏰ <b>Relancer par mail</b> · prévu le 22/09 (4 jours de retard)</div>
+   <div class="last">Dernier échange : mail à Marc le 08/09 · « Présentation Boost uP, demande de RDV » (exemple)</div>
+   <div class="acts"><span class="btn pri">+ Échange</span><span class="btn">Fait ✓</span><span class="btn">Reporter</span></div>
+  </div>
+
+  <p class="cap">Cette semaine</p>
+  <div class="card semaine">
+   <div class="fin">Fondation d'entreprise</div>
+   <div class="tit"><span class="star">⭐</span> Fondation d'entreprise Libellud</div>
+   <span class="pill s-disc">En discussion</span><span class="pill p-src">Notion</span>
+   <div class="next">📞 <b>Appeler pour caler le dépôt</b> · 30/09</div>
+   <div class="last">Dernier échange : RDV visio le 17/09 · « Intéressés par le Lab', dossier à envoyer avant fin octobre » (exemple)</div>
+   <div class="acts"><span class="btn pri">+ Échange</span><span class="btn">Fait ✓</span><span class="btn">Reporter</span></div>
+  </div>
+
+  <p class="cap">Plus tard</p>
+  <div class="card">
+   <div class="fin">Fonds de dotation · Paris (75)</div>
+   <div class="tit"><span class="star">⭐</span> Fonds de dotation Odon Vallet</div>
+   <span class="pill s-qual">À contacter</span><span class="pill p-src">Veille JO</span>
+   <div class="next">✉️ <b>Demander une mise en relation</b> · 15/10</div>
+   <div class="last">Aucun échange · ajouté depuis la veille le 25/09</div>
+   <div class="acts"><span class="btn pri">+ Échange</span><span class="btn">📊 Comptes</span></div>
+  </div>
+ </div>
+
+ <div class="phone">
+  <p class="cap" style="margin-top:0">Fiche financeur (appui sur une carte)</p>
+  <div class="sheet">
+   <div class="fin">Fondation d'entreprise · Notion</div>
+   <div class="tit" style="font-size:17px"><span class="star">⭐</span> Fondation d'entreprise Libellud</div>
+   <span class="pill s-disc">En discussion</span>
+   <div class="kv">
+    <span>Thématiques</span><span>Éducation et jeunesse</span>
+    <span>Pertinence</span><span>5 / 5</span>
+    <span>Contact</span><span>adresse de contact (Notion)</span>
+    <span>Site</span><span>—</span>
+    <span>Montant visé</span><span>15 000 € (exemple)</span>
+    <span>Note</span><span>« Soutient OIM » (Notion)</span>
+   </div>
+   <p class="cap">Journal des échanges</p>
+   <div class="tl">
+    <div class="ev"><b>17/09/2026 · RDV visio · Laetitia</b>Intéressés par le Lab', dossier à envoyer avant fin octobre. (exemple)</div>
+    <div class="ev"><b>02/09/2026 · Mail envoyé · Laetitia</b>Présentation Boost uP Pro + plaquette. (exemple)</div>
+    <div class="ev"><b>2022 · Import Notion</b>Statut 2022 : relancé.</div>
+   </div>
+   <div class="acts"><span class="btn pri">+ Ajouter un échange</span><span class="btn">Modifier</span><span class="btn">🔎 Chercher</span></div>
+  </div>
+ </div>
+
+ <div class="phone">
+  <p class="cap" style="margin-top:0">Ajouter un échange</p>
+  <div class="sheet form">
+   <div class="tit">Fondation d'entreprise Libellud</div>
+   <label>Date</label><div class="inp">26/09/2026</div>
+   <label>Type</label><div class="chips"><span class="chip on">✉️ Mail</span><span class="chip">📞 Appel</span><span class="chip">🤝 RDV</span><span class="chip">📄 Dossier envoyé</span><span class="chip">💬 Autre</span></div>
+   <label>Ce qui s'est dit / contenu</label><div class="inp" style="min-height:56px">Ex. : envoi de la note de présentation, retour attendu sous 15 jours</div>
+   <label>Nouvelle étape</label><div class="chips"><span class="chip">À contacter</span><span class="chip">Contacté</span><span class="chip on">En discussion</span><span class="chip">Soutien obtenu</span><span class="chip">En pause</span></div>
+   <label>Prochaine action</label><div class="chips"><span class="chip on">Relancer</span><span class="chip">Appeler</span><span class="chip">Envoyer un dossier</span><span class="chip">Demander une mise en relation</span><span class="chip">Aucune</span></div>
+   <label>Pour le</label><div class="chips"><span class="chip">+1 sem.</span><span class="chip on">+2 sem.</span><span class="chip">+1 mois</span><span class="chip">+3 mois</span><span class="chip">date…</span></div>
+   <div class="acts"><span class="btn">Annuler</span><span class="btn pri">Enregistrer</span></div>
+  </div>
+ </div>
+</div>
+
+<!-- ============ B ============ -->
+<h2><span class="lettre">B</span>Étapes de la relation (colonnes)</h2>
+<p class="intro">Même logique que la vue Étapes des pistes : une colonne par étape de la relation, glisser-déposer sur ordinateur. Utile pour voir le « portefeuille » d'un coup d'œil et préparer une réunion d'équipe.</p>
+<div class="screen">
+ <div class="kb">
+  <div class="col"><h4>À qualifier <span>63</span></h4>
+   <div class="card"><div class="tit">Fondation AnBer</div><div class="meta">Notion · pertinence 5</div></div>
+   <div class="card"><div class="tit">Fondation X (non trié)</div><div class="meta">Notion · à trier</div></div></div>
+  <div class="col"><h4>À contacter <span>31</span></h4>
+   <div class="card"><div class="tit">⭐ Fonds Odon Vallet</div><div class="next">Mise en relation · 15/10</div></div>
+   <div class="card"><div class="tit">Fondation Adecco</div><div class="meta">Notion · pertinence 5</div></div></div>
+  <div class="col"><h4>Contacté <span>15</span></h4>
+   <div class="card retard"><div class="tit">⭐ Fondation Neuvoies</div><div class="next retard">Relance · 22/09</div></div>
+   <div class="card"><div class="tit">Fondation Cajjed</div><div class="meta">Notion 2022 · relancé</div></div></div>
+  <div class="col"><h4>En discussion <span>18</span></h4>
+   <div class="card semaine"><div class="tit">⭐ Libellud</div><div class="next">Appel · 30/09</div></div>
+   <div class="card"><div class="tit">Fondation Implid</div><div class="meta">Notion 2022 · en cours</div></div></div>
+  <div class="col"><h4>Soutien obtenu <span>4</span></h4>
+   <div class="card"><div class="tit">Fondation Pierre Bellon</div><div class="meta">2026-2028</div></div></div>
+  <div class="col"><h4>En pause / écarté <span>59</span></h4>
+   <div class="card" style="opacity:.7"><div class="tit">Refus 2022 (24)</div><div class="meta">à retenter plus tard ?</div></div></div>
+ </div>
+</div>
+
+<!-- ============ Commun ============ -->
+<h2>Commun · Depuis une piste de la veille</h2>
+<p class="intro">Sur chaque carte de piste (AAP, fonds, fondation abritée), un bouton <b>⭐ Suivre</b> crée la fiche financeur en reprenant son nom, son lien, son objet, son SIREN et, si elle existe, l'analyse des comptes. Si le financeur est déjà suivi (même nom), la piste lui est simplement rattachée.</p>
+<div class="row"><div class="phone">
+ <div class="card"><div class="fin">Fonds de dotation · création</div><div class="tit">Fonds de dotation Odon Vallet</div><div class="meta">82/100 · Paris (75)</div>
+ <div class="acts"><span class="btn pri">À étudier</span><span class="btn">⭐ Suivre</span><span class="btn">📊 Comptes</span><span class="btn">🔎</span></div></div>
+</div></div>
+
+<h2>Commun · Import de ta base Notion</h2>
+<p class="intro">Les 194 financeurs sont importés une fois. Rien n'est modifié dans Notion. Correspondance proposée :</p>
+<div class="screen" style="border:none;padding:0">
+<table>
+ <tr><th>Notion</th><th>Suivi</th></tr>
+ <tr><td>Financeur, Type de soutien, Thématiques, Site internet, Pertinence</td><td>Fiche financeur (mêmes informations)</td></tr>
+ <tr><td>Contact, Rôle contact, Mail contact</td><td>Bloc contact de la fiche</td></tr>
+ <tr><td>Éligibilité « oui »</td><td>Étape « À contacter » (ou l'étape déduite du statut 2022 ci-dessous)</td></tr>
+ <tr><td>Éligibilité « non »</td><td>« En pause / écarté », avec la raison d'inéligibilité</td></tr>
+ <tr><td>« plus tard », « incertain », « à vérifier », vide</td><td>« À qualifier »</td></tr>
+ <tr><td>Statut 2022 : envoyé, relancé, infos compl</td><td>« Contacté »</td></tr>
+ <tr><td>Statut 2022 : en cours, dossier à déposer, attente fondation abritante</td><td>« En discussion »</td></tr>
+ <tr><td>Statut 2022 : validé</td><td>« Soutien obtenu »</td></tr>
+ <tr><td>Statut 2022 : refusé</td><td>« En pause / écarté » (refus 2022 noté dans le journal)</td></tr>
+ <tr><td>Commentaires, montants et dates 2022</td><td>Première entrée du journal : « Import Notion (2022) »</td></tr>
+</table>
+</div>
+
+<h2>Commun · Dans le mail du lundi</h2>
+<div class="mail">🔭 Veille financements : 6 nouvelles pistes, 3 relances cette semaine
+
+⏰ Relances et actions de la semaine
+• EN RETARD · Fondation Neuvoies : relancer par mail (prévu le 22/09)
+• 30/09 · Fondation d'entreprise Libellud : appeler pour caler le dépôt
+• 02/10 · Fondation La Ferthé : envoyer le bilan 2026
+
+Nouvelles pistes notées 60 et plus
+• …</div>
+
+<div class="avis">
+ <h3>Mon avis : A par défaut, B en second, comme pour les pistes</h3>
+ <p>Le suivi sert d'abord à ne pas oublier une relance : la liste « À faire » triée par date répond à ça en un coup d'œil, sur téléphone, et le mail du lundi la rappelle.</p>
+ <p>La vue par étapes (B) sert pour faire le point sur le portefeuille, en réunion ou en fin de mois. Même code que la vue Étapes des pistes : peu d'effort en plus.</p>
+ <p>Pour les 63 financeurs Notion jamais triés, l'IA peut proposer une note de pertinence à partir de leur nom et de leurs thématiques (option, au moment de l'import).</p>
+</div>
+</div>
+</body>
+</html>

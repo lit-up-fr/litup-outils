@@ -85,6 +85,21 @@ Le suivi des montants demandés et obtenus reste dans **Airtable (3.2 Suivi subv
 - **Comptes annuels : analyse à la demande (bouton « 📊 Analyser les comptes » d'un fonds).** Le JOAFE recense les dépôts de comptes par SIREN (source « dca ») et le PDF se télécharge à une adresse fixe : `journal-officiel.gouv.fr/telechargements/ASSOCIATIONS/DCA/PDF/{année}/{jjmm}/{SIREN}_{jjmmaaaa}.pdf` (testé le 25/09/2026). L'outil prend le dernier dépôt, le fait lire par Claude (Opus 5, effort bas, repli automatique en cas de refus) et enregistre : ressources, dons, produits financiers, dotation, **montant redistribué**, nombre de projets, **taille habituelle des aides**, part redistribuée, domaines, exemples de bénéficiaires, **fourchette à solliciter** avec sa justification, points d'attention. Limites : un fonds créé depuis moins d'un an n'a pas encore de comptes ; une **fondation abritée** n'a pas de comptes propres (ils sont dans ceux de la Fondation de France ou de Caritas) ; les petits fonds sont parfois en retard de dépôt. Coût : de l'ordre de quelques dizaines de centimes à 1 € par analyse selon l'épaisseur du PDF (tarif Opus 5 : 5 $ par million de jetons en entrée), d'où une analyse à la demande et non systématique.
 - **Capital de départ (dotation initiale)** : n'apparaît ni dans l'Annuaire des entreprises (le capital n'existe que pour les sociétés) ni dans l'annonce du JO (vérifié : objet, siège et numéro RNF seulement). La loi impose une dotation initiale d'au moins 15 000 €. La taille réelle d'un fonds se lit dans ses **comptes annuels**, que tout fonds de dotation doit publier au Journal officiel (à partir de sa première année close).
 
+
+### 2.6 Suivi des financeurs (onglet « ⭐ Suivis »)
+
+Maquette validée : `mockup-suivis-financeurs-v1.html` (options A et B retenues).
+
+- **Onglets du Sheet** : `Veille_Suivis` (un financeur par ligne : nom, type, étape, favori, pertinence sur 5 et sa raison, thématiques, site, contact, montant visé, note, source, pistes liées, SIREN, prochaine action et sa date, identifiant Notion) et `Veille_Echanges` (journal : date, type mail / appel / RDV / dossier / autre / import, contenu, auteur).
+- **Étapes de la relation** : À qualifier, À contacter, Contacté, En discussion, Soutien obtenu, En pause / écarté.
+- **Entrées** : import unique de la base Notion « Financements - suivi dossier » (191 financeurs ; correspondance des statuts 2022 dans la maquette) ; bouton « ⭐ Suivre » sur une piste (crée la fiche, ou rattache la piste au financeur de même nom) ; bouton « + Ajouter un financeur ».
+- **Vues** : Liste « À faire » (en retard, cette semaine, plus tard ; onglets Tous et Écartés) et Étapes (colonnes, glisser-déposer).
+- **Fiche** : informations, pistes liées, analyse des comptes si c'est un fonds, journal, recherches (web, Annuaire des entreprises, LinkedIn).
+- **Échange** : date, type, contenu, nouvelle étape, prochaine action (liste ou texte libre) et sa date (+1 semaine à +3 mois).
+- **IA** : bouton « 🤖 Noter les non triés » ; pertinence sur 5 et une phrase de raison, marquée « IA ».
+- **Mail du lundi** : section « Relances et actions de la semaine » (en retard et 7 jours à venir).
+- **Données personnelles** : les contacts importés de Notion vont seulement dans le Sheet de la veille, jamais dans le dépôt GitHub.
+
 ### 2.5 À terme : outil de réponse aux AAP
 
 Pour une piste en GO, l'outil prépare un premier jet de dossier à partir de trois corpus :
