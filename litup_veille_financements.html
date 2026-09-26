@@ -52,7 +52,8 @@ h1{font-size:22px;font-weight:700}
 .why{font-size:13px;margin-top:6px;background:var(--teal-l);border-radius:7px;padding:5px 8px}
 .objet{font-size:13px;margin-top:6px;background:var(--bg);border-radius:7px;padding:6px 8px;max-height:7.5em;overflow:hidden;position:relative;cursor:pointer}
 .objet.open{max-height:none}
-.objet:not(.open)::after{content:"… lire la suite";position:absolute;right:6px;bottom:4px;background:var(--bg);color:var(--teal);font-weight:600;padding-left:6px}
+.objet:not(.open)::after{content:"… lire la suite";position:absolute;left:0;right:0;bottom:0;padding:18px 8px 4px;text-align:right;background:linear-gradient(rgba(246,246,248,0),var(--bg) 60%);color:var(--teal);font-weight:600}
+.cb{padding-left:51px}
 .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin:5px 4px 0 0}
 .p-JEU{background:#E3F2FD;color:#0B5394}.p-PRO{background:var(--violet-l);color:var(--violet)}.p-LAB{background:var(--jaune-l);color:#8A5A00}.p-STR{background:#EEF0F4;color:var(--anth)}
 .p-urg{background:var(--rouge-l);color:var(--rouge)}.p-st{background:var(--anth);color:#fff}
@@ -109,7 +110,18 @@ td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
 .mact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--anth);color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;display:none;z-index:60;max-width:calc(100% - 32px)}
 .foot{font-size:12px;color:var(--t3);margin-top:22px;line-height:1.5}
-@media(max-width:560px){.list{grid-template-columns:1fr}h1{font-size:19px}.hright{margin-left:0;width:100%}}
+@media(max-width:560px){
+  .list{grid-template-columns:minmax(0,1fr)}h1{font-size:19px}.hright{margin-left:0;width:100%}
+  /* iPhone zoome la page quand un champ fait moins de 16 px : on les passe à 16 px */
+  input,select,textarea,.filters select,.filters input,.etape select,.col select,.modal select,.modal input,.modal textarea{font-size:16px}
+  .seg{display:flex;width:100%}.seg button{flex:1;padding:7px 4px}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px 10px;padding:0 16px}.tabs::-webkit-scrollbar{display:none}.tab{white-space:nowrap;flex-shrink:0}
+  .filters{display:grid;grid-template-columns:1fr 1fr}.filters select,.filters input{width:100%;padding:7px 8px}.filters #fStatut,.filters input{grid-column:1/-1}
+  .score{width:36px;height:36px;font-size:14px}
+  .cb{padding-left:0}
+  .acts{display:grid;grid-template-columns:1fr 1fr}.acts .btn{text-align:center;padding:8px 6px}
+  .acts .etape{grid-column:1/-1}.acts .etape select{flex:1}
+}
 </style>
 </head>
 <body>
@@ -133,7 +145,7 @@ window.__bloque=true})();
   <div class="filters" id="filters">
     <select id="fProfil"><option value="">Tous les profils</option></select>
     <select id="fNote"><option value="0">Toutes les notes</option><option value="50">Note ≥ 50</option><option value="60" selected>Note ≥ 60</option><option value="80">Note ≥ 80</option></select>
-    <select id="fStatut"><option value="actifs">À traiter (nouveau, à étudier, GO)</option><option value="">Tous les statuts</option></select>
+    <select id="fStatut"><option value="actifs">À traiter</option><option value="">Tous les statuts</option></select>
     <input id="fTexte" type="search" placeholder="🔎 Rechercher">
   </div>
   <div id="view"></div>
@@ -231,7 +243,7 @@ function carte(p,compact){
   const et=(ETAPES[p.type]||ETAPES.AAP)[p.statut]||p.statut;
   const lien=p.lien?`<a href="${esc(p.lien)}" target="_blank" rel="noopener">${esc(p.titre)}</a>`:esc(p.titre);
   const meta=[p.date_limite?`📅 ${dateFr(p.date_limite)}${j!=null&&j>=0?` (J-${j})`:j<0?" (passée)":""}`:"",p.montant?`💶 ${esc(p.montant)}`:"",p.territoire?`📍 ${esc(p.territoire)}`:""].filter(Boolean).join(" · ");
-  const pills=`${urg?`<span class="pill p-urg">J-${j}</span>`:""}${p.profil?`<span class="pill p-${esc(p.profil)}">${esc(nomProfil(p.profil))}</span>`:""}${p.nature==="operateur"?'<span class="pill p-op">Fonds opérateur</span>':p.nature==="redistributeur"?'<span class="pill p-red">Redistributeur probable</span>':""}${p.statut!=="nouveau"?`<span class="pill p-st">${esc(et)}${p.issue?" · "+esc(p.issue):""}</span>`:""}`;
+  const pills=`${urg?`<span class="pill p-urg">J-${j}</span>`:""}${String(p.profil||"").split(/[|,;\s]+/).filter(Boolean).map(c=>`<span class="pill p-${esc(c)}">${esc(nomProfil(c))}</span>`).join("")}${p.nature==="operateur"?'<span class="pill p-op">Fonds opérateur</span>':p.nature==="redistributeur"?'<span class="pill p-red">Redistributeur probable</span>':""}${p.statut!=="nouveau"?`<span class="pill p-st">${esc(et)}${p.issue?" · "+esc(p.issue):""}</span>`:""}`;
   if(compact){
     return `<div class="card ${cls}" draggable="true" data-id="${esc(p.id)}">
       <div class="fin">${esc(p.financeur)}</div><div class="tit">${lien}</div>
@@ -257,13 +269,14 @@ function carte(p,compact){
     <div class="ch"><div class="score ${sc}">${n}</div><div class="ct">
       <div class="fin">${esc(p.financeur)}</div><div class="tit">${lien}</div>
       ${meta?`<div class="meta">${meta}</div>`:""}${pills}
+    </div></div><div class="cb">
       ${p.raison?`<div class="why">${esc(p.raison)}</div>`:""}
       ${p.type==="FONDS"&&p.objet?`<div class="objet" data-toggle>« ${esc(p.objet)} »</div>`:""}
       ${p.siren?`<div class="meta">SIREN ${esc(p.siren)}${p.adresse?" · "+esc(p.adresse):""}</div>`:""}
       ${resumeComptes(p)}
       ${p.commentaire?`<div class="com">💬 ${esc(p.commentaire)}</div>`:""}
       <div class="acts">${acts}</div>
-    </div></div></div>`;
+    </div></div>`;
 }
 
 function renderTabs(){
@@ -275,7 +288,7 @@ function renderTabs(){
 function majFiltreStatut(){
   const f=$("fStatut"),v=f.value,et=ETAPES[st.type]||ETAPES.AAP,cle=st.type;
   if(f.dataset.type===cle)return;
-  const o=[`<option value="actifs">À traiter (${esc(et.nouveau.toLowerCase())}, ${esc(et.etude.toLowerCase())}, ${esc(et.go)})</option>`,`<option value="">Tous les statuts</option>`];
+  const o=[`<option value="actifs" title="${esc(et.nouveau)}, ${esc(et.etude)}, ${esc(et.go)}">À traiter</option>`,`<option value="">Tous les statuts</option>`];
   ORDRE.forEach(s=>o.push(`<option value="${s}">${esc(et[s])}${s==="clos"?" (toutes issues)":""}</option>`));
   (ISSUES[st.type]||[]).forEach(x=>o.push(`<option value="clos:${esc(x)}">${esc(et.clos)} · ${esc(x)}</option>`));
   f.innerHTML=o.join("");f.dataset.type=cle;
