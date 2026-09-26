@@ -326,6 +326,7 @@ function filtrerSansStatut(type){const v=$("fStatut").value;$("fStatut").value="
 
 function renderSources(){
   $("view").innerHTML=`<div class="acts" style="margin:0 0 10px">${st.collecte&&st.collecte.en_cours?`<button class="btn pri" disabled>⏳ Collecte en cours</button>`:`<button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button>`}<span class="meta" style="align-self:center">La collecte tourne en arrière-plan, par passes de 5 minutes enchaînées (tu peux fermer la page). Collecte automatique chaque dimanche soir.</span></div>
+  <div class="acts" style="margin:0 0 10px">${/programm|en cours/.test(st.collecte&&st.collecte.comptes||"")?`<button class="btn" disabled>⏳ Analyse des comptes ${esc(st.collecte.comptes)}</button>`:`<button class="btn" id="comptesNow">📊 Analyser les comptes de tous les fonds</button>`}<span class="meta" style="align-self:center">Automatique après chaque collecte : les fonds non analysés passent en revue, les mieux notés d'abord (≈ 0,15 à 0,35 $ par fonds qui a des comptes publiés, rien pour les autres).${st.collecte&&/à jour/.test(st.collecte.comptes||"")?" Comptes "+esc(st.collecte.comptes)+".":""}</span></div>
   <div class="tscroll"><table><tr><th>Source</th><th>Type</th><th>Accès</th><th>Dernière collecte</th><th>Nouvelles</th><th>Retenues</th><th>Pistes en base</th><th>Active</th></tr>
   ${st.sources.map(s=>{const n=st.pistes.filter(p=>p.source===s.id).length;const on=String(s.actif).toLowerCase()==="oui";
     return `<tr><td><b>${esc(s.nom)}</b>${s.derniere_erreur?`<div class="err-src">⚠️ ${esc(s.derniere_erreur)}</div>`:""}</td><td>${esc(TYPES[s.type]||s.type)}</td><td>${esc(s.acces)}</td><td>${esc(s.derniere_collecte||"jamais")}</td><td>${esc(s.collectees)}</td><td>${esc(s.retenues)}</td><td>${n}</td>
@@ -617,16 +618,17 @@ function modaleFormSuivi(id){
    <div class="plein"><label>Note</label><textarea id="f_note">${esc(s.note||"")}</textarea></div>
    ${inp("prochaine_action","Prochaine action","","Ex. : Premier contact")}<div><label>Pour le</label><input type="date" id="f_prochaine_date" value="${esc(String(s.prochaine_date||"").slice(0,10))}"></div></div>
    <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="fOk">Enregistrer</button></div>`);
+  let choisie=null;
   const chercher=async()=>{
     const q=$("f_rech").value.trim();if(q.length<3){toast("Tape au moins 3 caractères");return}
     $("fRech").disabled=true;$("fRes").innerHTML="⏳ Recherche…";
-    const r=await api("veilleChercherEntreprise",{q:q}).catch(e=>({error:e.message}));
+    const r=await sirene(q).catch(()=>null)||await api("veilleChercherEntreprise",{q:q}).catch(e=>({error:e.message}));
     $("fRech").disabled=false;
     if(r.error){$("fRes").innerHTML=`<span class="err-src">${esc(r.error)}</span>`;return}
     if(!r.resultats.length){$("fRes").innerHTML="Aucun résultat : essaie un autre nom ou le SIRET exact.";return}
     $("fRes").innerHTML=r.resultats.map((x,i)=>`<button class="resent" data-i="${i}"><b>${esc(x.nom)}</b>SIREN ${esc(x.siren)} · ${esc(x.nature_libelle||"autre statut")}${x.ville?" · "+esc(x.ville):""}${x.creation?" · créé en "+esc(x.creation.slice(0,4)):""}${x.actif?"":' · <span class="ko">fermé</span>'}</button>`).join("");
     $("fRes").querySelectorAll(".resent").forEach(b=>b.onclick=()=>{
-      const x=r.resultats[+b.dataset.i];
+      const x=r.resultats[+b.dataset.i];choisie=x;
       $("fRes").querySelectorAll(".resent").forEach(y=>y.classList.toggle("on",y===b));
       if(!id||!$("f_nom").value.trim())$("f_nom").value=x.nom;
       $("f_siren").value=x.siren;
@@ -639,6 +641,7 @@ function modaleFormSuivi(id){
     const d={par:qui()};["nom","type","etape","pertinence","favori","thematiques","site","contact_nom","contact_role","contact_mail","montant_vise","siren","note","prochaine_action","prochaine_date"].forEach(k=>d[k]=($("f_"+k).value||"").trim());
     if(!d.nom){toast("Le nom est obligatoire");return}
     if(id)d.id=id;$("fOk").disabled=true;
+    if(choisie&&choisie.siren===d.siren.replace(/\D/g,"").slice(0,9))d.entreprise=choisie;
     // Avec un SIREN nouveau (ou pas encore de fiche fonds liée) : le serveur va chercher les infos
     const sir=d.siren.replace(/\D/g,"");
     const lie=id&&String(s.piste_ids||"").split(",").some(pid=>{const p=st.pistes.find(x=>x.id===pid);return p&&p.type==="FONDS"});
@@ -650,6 +653,17 @@ function modaleFormSuivi(id){
     toast(enrichir?(r.deja?"Déjà suivi : SIREN ajouté à sa fiche":"Enregistré")+(r.objet_trouve?" · objet trouvé au Journal officiel":" · objet non trouvé au Journal officiel")+(r.piste_creee?" · fiche fonds créée":""):(r.deja?"Ce financeur est déjà suivi : fiche ouverte":"Enregistré"));
     await charger();if(r.id)modaleFiche(r.id);
   };
+}
+// Répertoire SIRENE (API Recherche d'entreprises, ouverte aux navigateurs) : même format que le serveur
+const NATURES={"9300":"Fondation ou fonds de dotation","9220":"Association déclarée","9230":"Association reconnue d'utilité publique","9221":"Association d'insertion","9260":"Association de droit local"};
+async function sirene(q){
+  let t=q.replace(/[\s.]/g,"");if(/^\d{14}$/.test(t))t=t.slice(0,9);
+  const r=await fetch("https://recherche-entreprises.api.gouv.fr/search?per_page=10&q="+encodeURIComponent(/^\d{9}$/.test(t)?t:q));
+  if(!r.ok)return null;
+  const res=((await r.json()).results||[]).map(e=>{const sg=e.siege||{};return{siren:e.siren,nom:e.nom_complet||e.nom_raison_sociale||"",nature:String(e.nature_juridique||""),nature_libelle:NATURES[String(e.nature_juridique||"")]||"",creation:e.date_creation||"",adresse:sg.adresse||"",ville:sg.libelle_commune||"",departement:sg.departement||"",actif:e.etat_administratif!=="C",
+    dirigeants:(e.dirigeants||[]).slice(0,4).map(d=>(d.denomination||[d.prenoms,d.nom].filter(Boolean).join(" "))+(d.qualite?" ("+d.qualite+")":"")).filter(Boolean)}});
+  const rang=x=>x.nature==="9300"?0:/^92/.test(x.nature)?1:2;res.sort((a,b)=>rang(a)-rang(b));
+  return{ok:true,resultats:res};
 }
 async function suivrePiste(pid,btn){
   if(btn){btn.disabled=true;btn.textContent="⭐ …"}
@@ -700,6 +714,7 @@ document.addEventListener("click",e=>{
   else if(d.fermer!==undefined)fermer();
   else if(d.src){const on=d.on!=="1";api("veilleSourceToggle",{id:d.src,actif:on}).then(r=>{if(r.error)toast(r.error);else{const s=st.sources.find(x=>x.id===d.src);if(s)s.actif=on?"oui":"non";render()}})}
   else if(b.id==="runNow")lancer(b);
+  else if(b.id==="comptesNow"){b.disabled=true;api("veilleComptesLancer",{}).then(r=>{if(r.error){toast("Erreur : "+r.error);b.disabled=false;return}toast("Analyse des comptes lancée en arrière-plan : tu peux fermer la page");st.collecte.comptes="programmée";render()})}
   else if(d.toggle!==undefined)b.classList.toggle("open");
 });
 document.addEventListener("change",e=>{

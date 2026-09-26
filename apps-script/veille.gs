@@ -27,6 +27,8 @@
  *
  * À la demande (bouton « Analyser les comptes » d'un fonds) : téléchargement des derniers comptes annuels
  * publiés au Journal officiel et lecture par Claude (montant redistribué, taille des aides, montant à solliciter).
+ * Analyse automatique : à la fin de chaque collecte du dimanche (et une fois à la demande), tous les fonds non
+ * analysés sont passés en revue, les mieux notés d'abord (veilleComptesAuto, passes de 4 minutes enchaînées).
  * Quand aucun compte n'est encore publié, le constat est enregistré avec sa date : la page l'affiche au lieu du
  * bouton, et la collecte du dimanche revérifie ces fonds (tous les 30 jours) sans rien coûter en IA.
  *
@@ -34,7 +36,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-27b";
+var VEILLE_VERSION = "2026-09-27c";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -148,6 +150,7 @@ function veilleHandle(action, params, data) {
     case "veilleImportSuivis": return veilleImportSuivis_(data);
     case "veilleChercherEntreprise": return veilleChercherEntreprise_(params.q || (data && data.q));
     case "veilleEnrichirSuivi": return veilleEnrichirSuivi_(data);
+    case "veilleComptesLancer": return veilleProgrammerComptes_(1);
     case "veilleNoterSuivis": return veilleNoterSuivis_();
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
@@ -310,7 +313,8 @@ function veilleEtatCollecte_() {
   var depuis = props.getProperty("VEILLE_EN_COURS");
   // Sécurité : au-delà de 2 h, on considère la collecte terminée (déclencheur perdu, erreur Google)
   if (depuis && Date.now() - new Date(depuis).getTime() > 2 * 3600 * 1000) { props.deleteProperty("VEILLE_EN_COURS"); depuis = null; }
-  return { en_cours: !!depuis, depuis: depuis || "", passe: Number(props.getProperty("VEILLE_PASSE") || 0), passes_max: VEILLE_PASSES_MAX };
+  return { en_cours: !!depuis, depuis: depuis || "", passe: Number(props.getProperty("VEILLE_PASSE") || 0), passes_max: VEILLE_PASSES_MAX,
+    comptes: props.getProperty("VEILLE_COMPTES_ETAT") || "" };
 }
 
 /** Déclencheur du dimanche soir : première passe de la collecte hebdomadaire. */
@@ -318,6 +322,7 @@ function veilleCollecteHebdo() {
   PropertiesService.getScriptProperties().setProperty("VEILLE_PASSE", "1");
   PropertiesService.getScriptProperties().setProperty("VEILLE_EN_COURS", new Date().toISOString());
   try { veilleReverifierComptes_(); } catch (e) { console.log("Revérification des comptes : " + e.message); }
+  PropertiesService.getScriptProperties().deleteProperty("VEILLE_COMPTES_ECHECS"); // nouvelle chance chaque semaine
   veilleCollecter(true);
 }
 /** Passes suivantes, programmées automatiquement tant qu'il reste à lire. */
@@ -395,6 +400,7 @@ function veilleProgrammerSuite_(reste) {
     ScriptApp.newTrigger("veilleCollecteSuite").timeBased().after(5 * 60 * 1000).create();
   } else {
     props.deleteProperty("VEILLE_EN_COURS");
+    try { veilleProgrammerComptes_(5); } catch (e) { console.log("Analyse des comptes non programmée : " + e.message); }
   }
 }
 
@@ -903,15 +909,76 @@ function veilleReverifierComptes_() {
   p.rows.forEach(function (row) {
     if (n >= 25 || Date.now() - debut > 45000 || row.type !== "FONDS" || String(row.statut) === "clos") return;
     var a; try { a = JSON.parse(row.analyse_comptes || "null"); } catch (e) { return; }
-    if (!a || !a.absent || a.abritee || a.nouveau_depot || String(a.verifie_le || "") > limite) return;
+    if (!a || a.abritee || a.nouveau_depot) return;
+    if (a.absent ? String(a.verifie_le || "") > limite : String(a.verifie_le || a.analyse_le || "") > veilleIlYA_(180)) return;
     var depot = veilleDernierDepot_(row.siren, row.titre);
     if (depot && depot.erreur) return;
     n++;
     a.verifie_le = veilleAujourdhui_();
-    if (depot) a.nouveau_depot = depot.cloture;
+    if (depot && (a.absent || depot.cloture !== a.cloture)) a.nouveau_depot = depot.cloture;
     p.sh.getRange(row._ligne, j + 1).setValue(JSON.stringify(a));
   });
   return n;
+}
+
+/** Programme l'analyse automatique des comptes dans « minutes » minutes (sans doublon de déclencheur). */
+function veilleProgrammerComptes_(minutes) {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "veilleComptesAuto") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("veilleComptesAuto").timeBased().after(Math.max(1, minutes) * 60 * 1000).create();
+  PropertiesService.getScriptProperties().setProperty("VEILLE_COMPTES_ETAT", "programmée");
+  return { ok: true, programmee: true };
+}
+
+/** Fonds à passer en revue : jamais vérifiés, ou dont de nouveaux comptes sont parus. Les mieux notés d'abord. */
+function veilleComptesAFaire_(p, echecs) {
+  return p.rows.filter(function (r) {
+    if (r.type !== "FONDS" || String(r.statut) === "clos" || (echecs[r.id] || 0) >= 2) return false;
+    if (!r.analyse_comptes) return true;
+    var a; try { a = JSON.parse(r.analyse_comptes); } catch (e) { return true; }
+    return !!(a && a.nouveau_depot);
+  }).sort(function (a, b) { return (Number(b.note) || 0) - (Number(a.note) || 0); });
+}
+
+/**
+ * Analyse automatique des comptes, par passes de 4 minutes au plus, relancées toutes les 2 minutes tant qu'il reste
+ * des fonds. Pour un fonds sans comptes publiés, seul le constat daté est enregistré (aucun coût d'IA). Un fonds
+ * dont l'analyse échoue deux fois est laissé de côté (bouton « Analyser les comptes » toujours disponible).
+ */
+function veilleComptesAuto() {
+  var props = PropertiesService.getScriptProperties();
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "veilleComptesAuto") ScriptApp.deleteTrigger(t);
+  });
+  if (props.getProperty("VEILLE_EN_COURS")) { veilleProgrammerComptes_(15); return; } // la collecte d'abord
+  var debut = Date.now(), echecs = {};
+  try { echecs = JSON.parse(props.getProperty("VEILLE_COMPTES_ECHECS") || "{}"); } catch (e) {}
+  var faits = 0, analyses = 0, reste = 0;
+  while (Date.now() - debut < 3 * 60 * 1000) { // on n'entame plus d'analyse après 3 min (une analyse peut durer 1 à 2 min)
+    var afaire = veilleComptesAFaire_(veilleLire_(VEILLE_TAB_PISTES), echecs);
+    reste = afaire.length;
+    if (!afaire.length) break;
+    var piste = afaire[0];
+    var r;
+    try { r = veilleAnalyserComptes_({ id: piste.id }); } catch (e) { r = { error: e.message }; }
+    if (r.error) {
+      echecs[piste.id] = (echecs[piste.id] || 0) + 1;
+      props.setProperty("VEILLE_COMPTES_ECHECS", JSON.stringify(echecs));
+      console.log("Comptes " + piste.titre + " : " + r.error);
+    } else {
+      faits++;
+      if (r.analyse && !r.analyse.absent) analyses++;
+    }
+    reste = afaire.length - 1;
+  }
+  if (reste > 0) {
+    props.setProperty("VEILLE_COMPTES_ETAT", "en cours : " + reste + " fonds restants");
+    ScriptApp.newTrigger("veilleComptesAuto").timeBased().after(2 * 60 * 1000).create();
+  } else {
+    props.setProperty("VEILLE_COMPTES_ETAT", "à jour le " + veilleAujourdhui_());
+  }
+  console.log("Comptes : " + faits + " fonds vérifiés dont " + analyses + " analysés ; " + reste + " restants.");
 }
 
 // ─── SUIVI DES FINANCEURS (onglet « ⭐ Suivis ») ───
@@ -1045,6 +1112,15 @@ function veilleEnrichirSuivi_(data) {
   data.siren = siren;
 
   var ent = null, joignable = false;
+  var fp = data.entreprise; // fiche choisie dans la page (recherche faite depuis le navigateur)
+  if (fp && String(fp.siren) === siren) {
+    ent = { siren: siren, nom: String(fp.nom || ""), nature: String(fp.nature || ""), nature_libelle: VEILLE_NATURES[String(fp.nature || "")] || "",
+      creation: String(fp.creation || ""), adresse: String(fp.adresse || ""), ville: String(fp.ville || ""),
+      departement: String(fp.departement || ""), actif: fp.actif !== false,
+      dirigeants: (fp.dirigeants || []).slice(0, 4).map(String) };
+    joignable = true;
+  }
+  delete data.entreprise;
   for (var essai = 0; essai < 2 && !joignable; essai++) {
     try {
       var r0 = UrlFetchApp.fetch("https://recherche-entreprises.api.gouv.fr/search?per_page=1&q=" + siren, { muteHttpExceptions: true });
