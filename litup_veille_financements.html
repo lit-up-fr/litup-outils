@@ -64,6 +64,17 @@ h1{font-size:22px;font-weight:700}
 .btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
 .btn.no{color:var(--t2)}
 .btn:disabled{opacity:.5;cursor:wait}
+.s-qualifier{background:#EEF0F4;color:var(--t2)}.s-contacter{background:var(--teal-l);color:var(--teal)}.s-contacte{background:#E3F2FD;color:#0B5394}.s-discussion{background:var(--violet-l);color:var(--violet)}.s-obtenu{background:#E4F4EC;color:#1E7B4F}.s-pause{background:#EEF0F4;color:var(--t3)}
+.card.retard{border-left:5px solid var(--rouge)}.card.semaine{border-left:5px solid var(--jaune)}
+.next{font-size:13px;margin-top:6px;background:var(--jaune-l);border-radius:7px;padding:5px 8px}.next.retard{background:var(--rouge-l)}
+.last{font-size:13px;margin-top:5px;color:var(--t2);overflow-wrap:anywhere}
+.cap{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin:14px 0 6px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:3px 10px;font-size:13px;margin:8px 0}.kv span:nth-child(odd){color:var(--t2)}.kv span{overflow-wrap:anywhere}
+.tl{border-left:3px solid var(--teal-l);margin:6px 0 0 6px;padding-left:12px}
+.ev{position:relative;margin-bottom:10px;font-size:13px;overflow-wrap:anywhere}.ev::before{content:"";position:absolute;left:-19px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--teal)}.ev b{font-size:12px;color:var(--t2);display:block}
+.frm{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.frm .plein{grid-column:1/-1}
+.modal select,.modal input[type=date]{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;font-size:14px;background:#fff;font-family:inherit}
+.kb6{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:10px;min-width:1180px}
 .etape{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--t2)}
 .etape select{border:1.5px solid var(--teal);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:600;color:var(--anth);background:#fff;font-family:inherit}
 /* Kanban */
@@ -114,7 +125,7 @@ window.__bloque=true})();
     <a class="back" href="index.html" aria-label="Retour aux outils">‹</a>
     <div><h1>Veille financements</h1><div class="accroche">Repérer, trier, décider</div></div>
     <div class="hright">
-      <div class="seg" id="vues"><button data-vue="cartes">▦ Cartes</button><button data-vue="kanban">☰ Étapes</button><button data-vue="sources">⚙ Sources</button></div>
+      <div class="seg" id="vues"><button data-vue="cartes">▦ Cartes</button><button data-vue="kanban">☰ Étapes</button><button data-vue="suivis">⭐ Suivis</button><button data-vue="sources">⚙ Sources</button></div>
     </div>
   </header>
   <div id="msg"></div>
@@ -181,7 +192,7 @@ async function charger(){
   msg("Chargement des pistes…");
   const r=await api("veilleList").catch(e=>({error:e.message}));
   if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+`<br><button class="btn" style="margin-top:8px" onclick="location.reload()">↻ Réessayer</button>`,true);return}
-  st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.charge=true;st.collecte=r.collecte||{};
+  st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.suivis=r.suivis||[];st.echanges=r.echanges||[];st.charge=true;st.collecte=r.collecte||{};
   const cl=st.collecte;
   msg(cl.en_cours?`⏳ Collecte en cours${cl.passe?` (passe ${cl.passe} sur ${cl.passes_max} au plus)`:""} : les pistes apparaissent au fil des passes, la page se met à jour toute seule chaque minute.`:"");
   clearTimeout(st.suivi);if(cl.en_cours)st.suivi=setTimeout(charger,60000);
@@ -239,6 +250,8 @@ function carte(p,compact){
     acts+=an?`<button class="btn" data-voircomptes="${esc(p.id)}">📊 Voir l'analyse des comptes</button>`:`<button class="btn" data-comptes="${esc(p.id)}">📊 Analyser les comptes</button>`;
     acts+=`<button class="btn" data-recherche="${esc(p.id)}">🔎 Chercher le fonds</button>`;
   }
+  const sv=suiviDePiste(p.id);
+  acts+=sv?`<button class="btn" data-sfiche="${esc(sv.id)}">⭐ Suivi</button>`:`<button class="btn" data-ssuivre="${esc(p.id)}">⭐ Suivre</button>`;
   acts+=`<button class="btn no" data-com="${esc(p.id)}">💬</button>`;
   return `<div class="card ${cls}">
     <div class="ch"><div class="score ${sc}">${n}</div><div class="ct">
@@ -260,10 +273,11 @@ function renderTabs(){
 }
 function render(){
   document.querySelectorAll("#vues button").forEach(b=>b.classList.toggle("on",b.dataset.vue===st.vue));
-  const src=st.vue==="sources";
+  const src=st.vue==="sources"||st.vue==="suivis";
   $("tabs").style.display=$("filters").style.display=src?"none":"";
   $("fStatut").disabled=st.vue==="kanban";
   if(!st.charge)return;
+  if(st.vue==="suivis")return renderSuivis();
   if(src)return renderSources();
   renderTabs();
   const l=trier(filtrer(st.type));
@@ -411,6 +425,188 @@ async function lancer(btn){
   toast(r.deja?"Une collecte est déjà en cours":"Collecte lancée : première passe dans 30 secondes");
   await charger();
 }
+
+// ─── ⭐ SUIVI DES FINANCEURS ───
+const ETAPES_S={qualifier:"À qualifier",contacter:"À contacter",contacte:"Contacté",discussion:"En discussion",obtenu:"Soutien obtenu",pause:"En pause / écarté"};
+const ORDRE_S=Object.keys(ETAPES_S);
+const TYPES_ECH={mail:"✉️ Mail",appel:"📞 Appel",rdv:"🤝 RDV",dossier:"📄 Dossier envoyé",autre:"💬 Autre"};
+const ACTIONS_S=["Relancer","Appeler","Envoyer un dossier","Demander une mise en relation","Premier contact"];
+const TYPES_FIN=["Fondation d'entreprise","Fondation familiale","Fondation abritée","Fonds de dotation","Autre fondation","Subvention publique","Acheteur public","Banque","Autre"];
+st.suivis=[];st.echanges=[];st.svue=store.get("svue","liste");st.songlet=store.get("songlet","afaire");st.sq="";st.setape="";
+function aujIso(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function plusJours(n){const d=new Date();d.setDate(d.getDate()+n);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function suiviDePiste(id){return st.suivis.find(s=>String(s.piste_ids||"").split(",").includes(id))}
+function echangesDe(id){return st.echanges.filter(e=>e.suivi_id===id).sort((a,b)=>String(b.date+b.cree_le).localeCompare(String(a.date+a.cree_le)))}
+function aAction(s){return s.prochaine_action&&s.prochaine_date&&!["obtenu","pause"].includes(s.etape)}
+function carteSuivi(s,compact){
+  const auj=aujIso(),sem=plusJours(7),dt=String(s.prochaine_date||"").slice(0,10);
+  const cls=aAction(s)?(dt<auj?"retard":dt<=sem?"semaine":""):"";
+  const der=echangesDe(s.id)[0];
+  const next=aAction(s)?`<div class="next ${dt<auj?"retard":""}">${dt<auj?"⏰":"📅"} <b>${esc(s.prochaine_action)}</b> · ${dateFr(dt)}${dt<auj?` (${Math.round((new Date(auj)-new Date(dt))/864e5)} j de retard)`:""}</div>`:"";
+  const pert=s.pertinence!==""&&s.pertinence!=null?`<span class="pill p-STR">★ ${esc(s.pertinence)}/5${String(s.pertinence_raison||"").startsWith("IA")?" (IA)":""}</span>`:"";
+  if(compact)return `<div class="card ${cls}" data-sid="${esc(s.id)}"><div class="tit"><a href="#" data-sfiche="${esc(s.id)}">${s.favori==="oui"?"⭐ ":""}${esc(s.nom)}</a></div>${pert}${next}
+    <select data-smove="${esc(s.id)}" aria-label="Étape">${ORDRE_S.map(k=>`<option value="${k}"${k===s.etape?" selected":""}>${ETAPES_S[k]}</option>`).join("")}</select></div>`;
+  return `<div class="card ${cls}"><div class="fin">${esc(s.type||"Financeur")} · ${esc({notion:"Notion",veille:"Veille",manuel:"Ajout"}[s.source]||s.source||"")}</div>
+    <div class="tit"><a href="#" data-sfiche="${esc(s.id)}">${s.favori==="oui"?"⭐ ":""}${esc(s.nom)}</a></div>
+    <span class="pill s-${esc(s.etape)}">${esc(ETAPES_S[s.etape]||s.etape)}</span>${pert}
+    ${next}<div class="last">${der?`Dernier échange : ${esc(TYPES_ECH[der.type]||"Import")} le ${dateFr(der.date)} · « ${esc(String(der.contenu).slice(0,140))} »`:"Aucun échange enregistré"}</div>
+    <div class="acts"><button class="btn pri" data-sech="${esc(s.id)}">+ Échange</button>${aAction(s)?`<button class="btn" data-sfait="${esc(s.id)}">Fait ✓</button><button class="btn" data-srep="${esc(s.id)}">Reporter</button>`:""}<button class="btn" data-sfiche="${esc(s.id)}">Fiche</button></div></div>`;
+}
+function filtrerSuivis(){
+  const q=st.sq.toLowerCase();
+  return st.suivis.filter(s=>{
+    if(st.songlet==="afaire"&&!aAction(s))return false;
+    if(st.songlet==="tous"&&s.etape==="pause")return false;
+    if(st.songlet==="ecartes"&&s.etape!=="pause")return false;
+    if(st.setape&&s.etape!==st.setape)return false;
+    if(q&&!(s.nom+" "+s.type+" "+s.thematiques+" "+s.note).toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+function renderSuivis(){
+  const l=filtrerSuivis(),auj=aujIso(),sem=plusJours(7);
+  const nAF=st.suivis.filter(aAction).length,nEc=st.suivis.filter(s=>s.etape==="pause").length,nTous=st.suivis.length-nEc;
+  const aNoter=st.suivis.filter(s=>s.etape==="qualifier"&&(s.pertinence===""||s.pertinence==null)).length;
+  let h=`<div class="filters" style="display:flex">
+    <div class="seg"><button data-svue="liste" class="${st.svue==="liste"?"on":""}">▦ Liste</button><button data-svue="etapes" class="${st.svue==="etapes"?"on":""}">☰ Étapes</button></div>
+    <button class="btn pri" data-sajout="1">+ Ajouter un financeur</button>
+    ${aNoter?`<button class="btn" data-snoter="1">🤖 Noter les ${aNoter} non triés</button>`:""}</div>
+  <div class="tabs">${st.svue==="liste"?[["afaire","À faire",nAF],["tous","Tous",nTous],["ecartes","Écartés",nEc]].map(([k,t,n])=>`<button class="tab${st.songlet===k?" on":""}" data-songlet="${k}">${t} <span class="n">${n}</span></button>`).join(""):""}</div>
+  <div class="filters"><input id="sQ" type="search" placeholder="🔎 Rechercher un financeur" value="${esc(st.sq)}">${st.svue==="liste"?`<select id="sEtape"><option value="">Toutes les étapes</option>${ORDRE_S.map(k=>`<option value="${k}"${k===st.setape?" selected":""}>${ETAPES_S[k]}</option>`).join("")}</select>`:""}</div>`;
+  if(!st.suivis.length)h+=`<p class="empty">Aucun financeur suivi pour l'instant. Ajoute-en un, ou clique sur « ⭐ Suivre » sur une piste. L'import de la base Notion se fait une fois, depuis Claude.</p>`;
+  else if(st.svue==="etapes"){
+    const vis=st.suivis.filter(s=>!st.sq||(s.nom+" "+s.type).toLowerCase().includes(st.sq.toLowerCase()));
+    h+=`<div class="kbwrap"><div class="kb6">${ORDRE_S.map(k=>{const it=vis.filter(s=>s.etape===k).sort((a,b)=>(+b.pertinence||0)-(+a.pertinence||0));
+      return `<div class="col" data-scol="${k}"><h4>${ETAPES_S[k]} <span>${it.length}</span></h4>${it.slice(0,60).map(s=>carteSuivi(s,true)).join("")||'<div class="empty" style="padding:6px">Vide</div>'}${it.length>60?`<div class="meta">+ ${it.length-60} autres (recherche pour les trouver)</div>`:""}</div>`}).join("")}</div></div>`;
+  } else if(!l.length)h+=`<p class="empty">${st.songlet==="afaire"?"Aucune action prévue. Ajoute une prochaine action depuis la fiche d'un financeur.":"Aucun financeur avec ces filtres."}</p>`;
+  else if(st.songlet==="afaire"){
+    const g=[["En retard",l.filter(s=>s.prochaine_date<auj)],["Cette semaine",l.filter(s=>s.prochaine_date>=auj&&s.prochaine_date<=sem)],["Plus tard",l.filter(s=>s.prochaine_date>sem)]];
+    g.forEach(([t,a])=>{if(a.length)h+=`<p class="cap">${t}</p><div class="list">${a.sort((x,y)=>String(x.prochaine_date).localeCompare(String(y.prochaine_date))).map(s=>carteSuivi(s)).join("")}</div>`});
+  } else {
+    h+=`<div class="list">${l.sort((a,b)=>(+b.pertinence||0)-(+a.pertinence||0)||String(a.nom).localeCompare(String(b.nom))).map(s=>carteSuivi(s)).join("")}</div>`;
+  }
+  $("view").innerHTML=h;
+  const q=$("sQ");if(q)q.oninput=()=>{st.sq=q.value;const pos=q.selectionStart;renderSuivis();const n=$("sQ");n.focus();n.setSelectionRange(pos,pos)};
+  document.querySelectorAll("[data-scol]").forEach(col=>{
+    col.addEventListener("dragover",e=>{e.preventDefault();col.classList.add("over")});
+    col.addEventListener("dragleave",()=>col.classList.remove("over"));
+    col.addEventListener("drop",e=>{e.preventDefault();col.classList.remove("over");majSuivi(e.dataTransfer.getData("text/plain"),{etape:col.dataset.scol})});
+  });
+  document.querySelectorAll("[data-sid]").forEach(cd=>{cd.draggable=true;cd.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",cd.dataset.sid))});
+}
+async function majSuivi(id,champs){
+  const s=st.suivis.find(x=>x.id===id);if(!s)return;
+  const avant=Object.assign({},s);Object.assign(s,champs);render();
+  const r=await api("veilleSuiviSave",Object.assign({id:id,par:qui()},champs)).catch(e=>({error:e.message}));
+  if(r.error){Object.assign(s,avant);render();toast("Non enregistré : "+r.error);return}
+  toast("Enregistré");
+}
+function chipsHtml(id,opts,val){return `<div class="chips" id="${id}">${opts.map(([k,t])=>`<button class="chip${k===val?" on":""}" data-chip="${esc(k)}">${esc(t)}</button>`).join("")}</div>`}
+function chipVal(id){const o=document.querySelector("#"+id+" .chip.on");return o?o.dataset.chip:""}
+function modaleEchange(id,fait){
+  const s=st.suivis.find(x=>x.id===id);if(!s)return;
+  ouvrir(`<h3>${fait?"Action faite":"Nouvel échange"}</h3><div class="sub">${esc(s.nom)}</div>
+   <label>Date</label><input type="date" id="eDate" value="${aujIso()}">
+   <label>Type</label>${chipsHtml("eType",Object.entries(TYPES_ECH),"mail")}
+   <label>Ce qui s'est dit / contenu</label><textarea id="eCont" placeholder="Ex. : envoi de la note de présentation, retour attendu sous 15 jours">${fait?esc("Fait : "+s.prochaine_action):""}</textarea>
+   <label>Étape de la relation</label>${chipsHtml("eEtape",ORDRE_S.map(k=>[k,ETAPES_S[k]]),s.etape==="qualifier"||s.etape==="contacter"?"contacte":s.etape)}
+   <label>Prochaine action</label>${chipsHtml("eAct",ACTIONS_S.map(a=>[a,a]).concat([["","Aucune"]]),fait?"":"Relancer")}
+   <input id="eActLibre" placeholder="…ou une autre action (texte libre)" style="margin-top:6px">
+   <label>Pour le</label>${chipsHtml("eQuand",[["7","+1 sem."],["14","+2 sem."],["30","+1 mois"],["90","+3 mois"]],"14")}
+   <input type="date" id="eDate2" style="margin-top:6px" value="${plusJours(14)}">
+   <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="eOk">Enregistrer</button></div>`);
+  document.querySelectorAll("#eQuand .chip").forEach(ch=>ch.addEventListener("click",()=>{$("eDate2").value=plusJours(+ch.dataset.chip)}));
+  $("eOk").onclick=async()=>{
+    const act=$("eActLibre").value.trim()||chipVal("eAct");
+    const data={suivi_id:id,par:qui(),date:$("eDate").value,type:chipVal("eType")||"autre",contenu:$("eCont").value.trim(),
+      etape:chipVal("eEtape")||s.etape,prochaine_action:act,prochaine_date:act?$("eDate2").value:""};
+    $("eOk").disabled=true;
+    const r=await api("veilleEchangeAdd",data).catch(e=>({error:e.message}));
+    if(r.error){$("eOk").disabled=false;toast("Non enregistré : "+r.error);return}
+    fermer();Object.assign(s,{etape:data.etape,prochaine_action:data.prochaine_action,prochaine_date:data.prochaine_date});
+    if(r.echange)st.echanges.push(r.echange);render();toast("Échange enregistré");
+  };
+}
+function modaleReporter(id){
+  const s=st.suivis.find(x=>x.id===id);if(!s)return;
+  ouvrir(`<h3>Reporter</h3><div class="sub">${esc(s.nom)} · ${esc(s.prochaine_action)}</div>
+   ${chipsHtml("rQuand",[["7","+1 sem."],["14","+2 sem."],["30","+1 mois"],["90","+3 mois"]],"7")}
+   <input type="date" id="rDate" style="margin-top:8px" value="${plusJours(7)}">
+   <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="rOk">Reporter</button></div>`);
+  document.querySelectorAll("#rQuand .chip").forEach(ch=>ch.addEventListener("click",()=>{$("rDate").value=plusJours(+ch.dataset.chip)}));
+  $("rOk").onclick=()=>{const v=$("rDate").value;fermer();majSuivi(id,{prochaine_date:v})};
+}
+function modaleFiche(id){
+  const s=st.suivis.find(x=>x.id===id);if(!s)return;
+  const pistes=String(s.piste_ids||"").split(",").filter(String).map(pid=>st.pistes.find(p=>p.id===pid)).filter(Boolean);
+  const fonds=pistes.find(p=>p.type==="FONDS");
+  const lig=(k,v)=>v?`<span>${k}</span><span>${v}</span>`:"";
+  const site=s.site?`<a href="${esc(/^https?:/.test(s.site)?s.site:"https://"+s.site)}" target="_blank" rel="noopener">${esc(s.site)}</a>`:"";
+  const q=encodeURIComponent(s.nom);
+  ouvrir(`<div class="fin">${esc(s.type||"Financeur")} · ${esc({notion:"import Notion",veille:"ajouté depuis la veille",manuel:"ajout manuel"}[s.source]||"")}</div>
+   <h3>${s.favori==="oui"?"⭐ ":""}${esc(s.nom)}</h3><span class="pill s-${esc(s.etape)}">${esc(ETAPES_S[s.etape]||s.etape)}</span>
+   <div class="kv">${lig("Pertinence",s.pertinence!==""&&s.pertinence!=null?esc(s.pertinence)+"/5"+(s.pertinence_raison?" · "+esc(s.pertinence_raison):""):"")}${lig("Thématiques",esc(String(s.thematiques||"").slice(0,300)))}${lig("Contact",esc([s.contact_nom,s.contact_role].filter(Boolean).join(", ")))}${lig("Mail",s.contact_mail?`<a href="mailto:${esc(s.contact_mail)}">${esc(s.contact_mail)}</a>`:"")}${lig("Site",site)}${lig("Montant visé",esc(s.montant_vise))}${lig("Note",esc(s.note))}${lig("Prochaine action",aAction(s)?esc(s.prochaine_action)+" · "+dateFr(s.prochaine_date):"")}${lig("SIREN",esc(s.siren))}</div>
+   ${pistes.length?`<p class="cap">Pistes de la veille liées</p>${pistes.map(p=>`<div class="meta">• ${esc(p.titre)} (${esc(p.note)}/100)</div>`).join("")}`:""}
+   <p class="cap">Journal des échanges</p>
+   <div class="tl">${echangesDe(s.id).map(e=>`<div class="ev"><b>${dateFr(e.date)} · ${esc(TYPES_ECH[e.type]||"Import")}${e.par?" · "+esc(e.par):""}</b>${esc(e.contenu)}</div>`).join("")||'<div class="meta">Aucun échange pour l\'instant.</div>'}</div>
+   <div class="acts" style="margin-top:12px"><button class="btn pri" data-sech="${esc(s.id)}">+ Ajouter un échange</button><button class="btn" data-smodif="${esc(s.id)}">Modifier</button>
+   ${fonds?(analyse(fonds)?`<button class="btn" data-voircomptes="${esc(fonds.id)}">📊 Comptes</button>`:`<button class="btn" data-comptes="${esc(fonds.id)}">📊 Analyser les comptes</button>`):""}
+   <a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=${q}">🌐 Recherche web</a>
+   <a class="btn" target="_blank" rel="noopener" href="https://annuaire-entreprises.data.gouv.fr/rechercher?terme=${q}">🏛 Annuaire</a>
+   <a class="btn" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/all/?keywords=${q}">in LinkedIn</a></div>
+   <div class="mact"><button class="btn no" data-fermer>Fermer</button></div>`);
+}
+function modaleFormSuivi(id){
+  const s=id?st.suivis.find(x=>x.id===id):{etape:"contacter",favori:"oui"};if(!s)return;
+  const inp=(k,lab,cls,ph)=>`<div class="${cls||""}"><label>${lab}</label><input id="f_${k}" value="${esc(s[k]||"")}" placeholder="${esc(ph||"")}"></div>`;
+  ouvrir(`<h3>${id?"Modifier":"Ajouter un financeur"}</h3><div class="sub">${id?esc(s.nom):"Une fondation repérée ailleurs (salon, bouche-à-oreille, presse)"}</div>
+   <div class="frm">${inp("nom","Nom *","plein","Ex. : Fondation Break Poverty")}
+   <div><label>Type</label><select id="f_type"><option value=""></option>${TYPES_FIN.map(t=>`<option${t===s.type?" selected":""}>${esc(t)}</option>`).join("")}${s.type&&!TYPES_FIN.includes(s.type)?`<option selected>${esc(s.type)}</option>`:""}</select></div>
+   <div><label>Étape</label><select id="f_etape">${ORDRE_S.map(k=>`<option value="${k}"${k===s.etape?" selected":""}>${ETAPES_S[k]}</option>`).join("")}</select></div>
+   <div><label>Pertinence</label><select id="f_pertinence"><option value=""></option>${[5,4,3,2,1].map(n=>`<option${String(n)===String(s.pertinence)?" selected":""}>${n}</option>`).join("")}</select></div>
+   <div><label>Favori</label><select id="f_favori"><option value="oui"${s.favori!=="non"?" selected":""}>⭐ Oui</option><option value="non"${s.favori==="non"?" selected":""}>Non</option></select></div>
+   ${inp("thematiques","Thématiques","plein")}${inp("site","Site internet","plein")}${inp("contact_nom","Contact")}${inp("contact_role","Rôle")}${inp("contact_mail","Mail du contact","plein")}${inp("montant_vise","Montant visé")}${inp("siren","SIREN")}
+   <div class="plein"><label>Note</label><textarea id="f_note">${esc(s.note||"")}</textarea></div>
+   ${inp("prochaine_action","Prochaine action","","Ex. : Premier contact")}<div><label>Pour le</label><input type="date" id="f_prochaine_date" value="${esc(String(s.prochaine_date||"").slice(0,10))}"></div></div>
+   <div class="mact"><button class="btn no" data-fermer>Annuler</button><button class="btn pri" id="fOk">Enregistrer</button></div>`);
+  $("fOk").onclick=async()=>{
+    const d={par:qui()};["nom","type","etape","pertinence","favori","thematiques","site","contact_nom","contact_role","contact_mail","montant_vise","siren","note","prochaine_action","prochaine_date"].forEach(k=>d[k]=($("f_"+k).value||"").trim());
+    if(!d.nom){toast("Le nom est obligatoire");return}
+    if(id)d.id=id;$("fOk").disabled=true;
+    const r=await api("veilleSuiviSave",d).catch(e=>({error:e.message}));
+    if(r.error){$("fOk").disabled=false;toast("Non enregistré : "+r.error);return}
+    fermer();toast(r.deja?"Ce financeur est déjà suivi : fiche ouverte":"Enregistré");await charger();if(r.id)modaleFiche(r.id);
+  };
+}
+async function suivrePiste(pid,btn){
+  if(btn){btn.disabled=true;btn.textContent="⭐ …"}
+  const r=await api("veilleSuivre",{id:pid,par:qui()}).catch(e=>({error:e.message}));
+  if(r.error){toast("Erreur : "+r.error);if(btn){btn.disabled=false;btn.textContent="⭐ Suivre"}return}
+  toast(r.deja?"Déjà suivi : piste rattachée à sa fiche":"Ajouté au suivi, premier contact prévu dans 2 semaines");await charger();
+}
+async function noterSuivis(btn){
+  btn.disabled=true;btn.textContent="🤖 Notation en cours (jusqu'à 4 min)…";
+  const r=await api("veilleNoterSuivis").catch(e=>({error:e.message}));
+  toast(r.error?"Erreur : "+r.error:`${r.notes} financeur(s) noté(s)${r.restants?", "+r.restants+" restant(s) : relancer":""}`);await charger();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button,a[data-sfiche]");if(!b)return;const d=b.dataset;
+  if(d.svue){e.preventDefault();st.svue=d.svue;store.set("svue",d.svue);render()}
+  else if(d.songlet){st.songlet=d.songlet;store.set("songlet",d.songlet);render()}
+  else if(d.sfiche){e.preventDefault();modaleFiche(d.sfiche)}
+  else if(d.sech)modaleEchange(d.sech,false);
+  else if(d.sfait)modaleEchange(d.sfait,true);
+  else if(d.srep)modaleReporter(d.srep);
+  else if(d.smodif)modaleFormSuivi(d.smodif);
+  else if(d.sajout)modaleFormSuivi(null);
+  else if(d.ssuivre)suivrePiste(d.ssuivre,b);
+  else if(d.snoter)noterSuivis(b);
+  else if(d.chip!==undefined){const g=b.parentElement;g.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b))}
+});
+document.addEventListener("change",e=>{
+  if(e.target.dataset.smove)majSuivi(e.target.dataset.smove,{etape:e.target.value});
+  else if(e.target.id==="sEtape"){st.setape=e.target.value;render()}
+});
 
 document.addEventListener("click",e=>{
   const b=e.target.closest("button,[data-toggle]");

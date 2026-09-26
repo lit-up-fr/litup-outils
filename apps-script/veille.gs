@@ -32,7 +32,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-26b";
+var VEILLE_VERSION = "2026-09-26c";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -140,6 +140,11 @@ function veilleHandle(action, params, data) {
     case "veilleSourceToggle": return veilleSourceToggle_(data);
     case "veilleRun": return veilleLancerCollecte_();
     case "veilleComptes": return veilleAnalyserComptes_(data);
+    case "veilleSuiviSave": return veilleSuiviSave_(data);
+    case "veilleSuivre": return veilleSuivre_(data);
+    case "veilleEchangeAdd": return veilleEchangeAdd_(data);
+    case "veilleImportSuivis": return veilleImportSuivis_(data);
+    case "veilleNoterSuivis": return veilleNoterSuivis_();
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
   }
@@ -156,6 +161,8 @@ function veilleInstaller() {
     VEILLE_SOURCES_DEFAUT.map(function (s) { return s.concat(["", "", "", "", ""]); }));
   veilleOnglet_(ss, VEILLE_TAB_PROFILS, VEILLE_PROFILS_COLS, VEILLE_PROFILS_DEFAUT);
   veilleOnglet_(ss, VEILLE_TAB_VUS, ["source", "ref", "date"], []);
+  veilleColonnesManquantes_(veilleOnglet_(ss, VEILLE_TAB_SUIVIS, VEILLE_SUIVIS_COLS, []), VEILLE_SUIVIS_COLS);
+  veilleOnglet_(ss, VEILLE_TAB_ECHANGES, VEILLE_ECHANGES_COLS, []);
   // Mise à jour d'une installation existante : ajoute les sources absentes de l'onglet
   var s = veilleLire_(VEILLE_TAB_SOURCES);
   var ids = s.rows.map(function (r) { return String(r.id); });
@@ -231,8 +238,10 @@ function veilleList_() {
   var pr = veilleLire_(VEILLE_TAB_PROFILS);
   if (!p.sh) return { error: "Onglets veille absents : exécuter veilleInstaller" };
   var clean = function (rows) { return rows.map(function (r) { var o = {}; for (var k in r) if (k !== "_ligne") o[k] = r[k]; return o; }); };
+  var su = veilleLire_(VEILLE_TAB_SUIVIS), ec = veilleLire_(VEILLE_TAB_ECHANGES);
   return { ok: true, version: VEILLE_VERSION, collecte: veilleEtatCollecte_(), pistes: clean(p.rows), sources: clean(s.rows),
-    profils: clean(pr.rows).map(function (x) { return { code: x.code, nom: x.nom }; }) };
+    profils: clean(pr.rows).map(function (x) { return { code: x.code, nom: x.nom }; }),
+    suivis: su.sh ? clean(su.rows) : [], echanges: ec.sh ? clean(ec.rows) : [] };
 }
 
 function veilleUpdate_(data) {
@@ -869,6 +878,172 @@ function veilleDernierDepot_(siren, titre) {
     url: VEILLE_PDF_URL + d[0] + "/" + d[2] + d[1] + "/" + res[0].id + ".pdf" };
 }
 
+// ─── SUIVI DES FINANCEURS (onglet « ⭐ Suivis ») ───
+// Une ligne par financeur suivi (Veille_Suivis) et un journal des échanges (Veille_Echanges).
+// Entrées : import unique de la base Notion, bouton « ⭐ Suivre » sur une piste, ajout manuel.
+var VEILLE_TAB_SUIVIS = "Veille_Suivis";
+var VEILLE_TAB_ECHANGES = "Veille_Echanges";
+var VEILLE_SUIVIS_COLS = ["id", "nom", "type", "etape", "favori", "pertinence", "pertinence_raison", "thematiques", "site",
+  "contact_nom", "contact_role", "contact_mail", "montant_vise", "note", "source", "piste_ids", "siren",
+  "prochaine_action", "prochaine_date", "cree_le", "maj_le", "maj_par", "notion_id"];
+var VEILLE_ECHANGES_COLS = ["id", "suivi_id", "date", "type", "contenu", "par", "cree_le"];
+var VEILLE_ETAPES_SUIVI = ["qualifier", "contacter", "contacte", "discussion", "obtenu", "pause"];
+var VEILLE_CHAMPS_SUIVI = ["nom", "type", "etape", "favori", "pertinence", "pertinence_raison", "thematiques", "site",
+  "contact_nom", "contact_role", "contact_mail", "montant_vise", "note", "siren", "prochaine_action", "prochaine_date"];
+
+function veilleMaintenant_() { return Utilities.formatDate(new Date(), "Europe/Paris", "yyyy-MM-dd HH:mm"); }
+function veilleCleNom_(s) {
+  return veilleNorm_(s).replace(/\b(fondation|fonds|de|du|des|d|la|le|l|dotation|entreprise|pour)\b/g, " ").replace(/[^a-z0-9]/g, "");
+}
+function veilleOngletSuivis_() {
+  var ss = veilleSS_();
+  var sh = veilleOnglet_(ss, VEILLE_TAB_SUIVIS, VEILLE_SUIVIS_COLS, []);
+  veilleOnglet_(ss, VEILLE_TAB_ECHANGES, VEILLE_ECHANGES_COLS, []);
+  return sh;
+}
+function veilleEcrireLigne_(t, o) {
+  var head = t.head.length ? t.head : t.sh.getRange(1, 1, 1, t.sh.getLastColumn()).getValues()[0].map(String);
+  t.sh.appendRow(head.map(function (h) { return o[h] !== undefined && o[h] !== null ? o[h] : ""; }));
+}
+
+/** Crée (sans id) ou met à jour (avec id) un financeur suivi. */
+function veilleSuiviSave_(data) {
+  if (!data) return { error: "Données manquantes" };
+  if (data.etape && VEILLE_ETAPES_SUIVI.indexOf(data.etape) < 0) return { error: "Étape inconnue : " + data.etape };
+  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    veilleOngletSuivis_();
+    var t = veilleLire_(VEILLE_TAB_SUIVIS);
+    if (!data.id) {
+      if (!String(data.nom || "").trim()) return { error: "Nom du financeur manquant" };
+      var cle = veilleCleNom_(data.nom);
+      var existe = t.rows.filter(function (r) { return veilleCleNom_(r.nom) === cle; })[0];
+      if (existe) return { ok: true, id: existe.id, deja: true };
+      var o = { id: "S-" + Utilities.getUuid().substring(0, 8), etape: "contacter", favori: "oui", source: data.source || "manuel",
+        cree_le: veilleMaintenant_(), maj_le: veilleMaintenant_(), maj_par: data.par || "" };
+      VEILLE_CHAMPS_SUIVI.forEach(function (k) { if (data[k] !== undefined) o[k] = data[k]; });
+      if (data.piste_ids) o.piste_ids = data.piste_ids;
+      veilleEcrireLigne_(t, o);
+      return { ok: true, id: o.id, suivi: o };
+    }
+    var row = t.rows.filter(function (r) { return String(r.id) === String(data.id); })[0];
+    if (!row) return { error: "Financeur introuvable" };
+    var set = function (col, val) { var j = t.head.indexOf(col); if (j >= 0) t.sh.getRange(row._ligne, j + 1).setValue(val); };
+    VEILLE_CHAMPS_SUIVI.forEach(function (k) { if (data[k] !== undefined) set(k, data[k]); });
+    set("maj_le", veilleMaintenant_()); set("maj_par", data.par || "");
+    return { ok: true, id: row.id };
+  } finally { lock.releaseLock(); }
+}
+
+/** Bouton « ⭐ Suivre » d'une piste : crée le financeur (ou retrouve celui de même nom) et y rattache la piste. */
+function veilleSuivre_(data) {
+  var p = veilleLire_(VEILLE_TAB_PISTES);
+  var piste = p.rows.filter(function (r) { return String(r.id) === String(data.id); })[0];
+  if (!piste) return { error: "Piste introuvable" };
+  var nom = piste.type === "FONDS" ? piste.titre : (piste.financeur || piste.titre);
+  var an = null; try { an = piste.analyse_comptes ? JSON.parse(piste.analyse_comptes) : null; } catch (e) {}
+  var r = veilleSuiviSave_({ nom: nom, source: "veille", par: data.par,
+    type: piste.type === "FONDS" ? String(piste.financeur || "").split(" · ")[0] : (piste.type === "AO" ? "Acheteur public" : ""),
+    site: piste.type === "FONDS" ? "" : (piste.lien || ""), siren: piste.siren || "", piste_ids: piste.id,
+    note: String(piste.raison || "") + (an && an.synthese ? " · Comptes " + (an.exercice || "") + " : " + an.synthese : ""),
+    thematiques: String(piste.objet || "").substring(0, 300),
+    prochaine_action: "Premier contact", prochaine_date: veilleIlYA_(-14) });
+  if (r.error) return r;
+  if (r.deja) { // rattacher la piste au financeur existant
+    var t = veilleLire_(VEILLE_TAB_SUIVIS);
+    var row = t.rows.filter(function (x) { return x.id === r.id; })[0];
+    var ids = String(row.piste_ids || "").split(",").filter(String);
+    if (ids.indexOf(piste.id) < 0) { ids.push(piste.id); t.sh.getRange(row._ligne, t.head.indexOf("piste_ids") + 1).setValue(ids.join(",")); }
+  }
+  return r;
+}
+
+/** Ajoute un échange au journal et met à jour, si demandé, l'étape et la prochaine action du financeur. */
+function veilleEchangeAdd_(data) {
+  if (!data || !data.suivi_id) return { error: "Financeur manquant" };
+  veilleOngletSuivis_();
+  var e = veilleLire_(VEILLE_TAB_ECHANGES);
+  var o = { id: "E-" + Utilities.getUuid().substring(0, 8), suivi_id: data.suivi_id, date: data.date || veilleAujourdhui_(),
+    type: data.type || "autre", contenu: data.contenu || "", par: data.par || "", cree_le: veilleMaintenant_() };
+  if (o.contenu || o.type !== "autre") veilleEcrireLigne_(e, o);
+  var maj = { id: data.suivi_id, par: data.par };
+  ["etape", "prochaine_action", "prochaine_date"].forEach(function (k) { if (data[k] !== undefined) maj[k] = data[k]; });
+  var r = veilleSuiviSave_(maj);
+  return r.error ? r : { ok: true, echange: o };
+}
+
+/**
+ * Import en une fois (base Notion « Financements - suivi dossier ») : lignes déjà converties par Claude, envoyées par lots.
+ * Mise à jour sans doublon grâce à notion_id ; l'historique Notion devient la première entrée du journal.
+ */
+function veilleImportSuivis_(data) {
+  var lignes = (data && data.lignes) || [];
+  if (!lignes.length) return { error: "Aucune ligne à importer" };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    veilleOngletSuivis_();
+    var t = veilleLire_(VEILLE_TAB_SUIVIS), e = veilleLire_(VEILLE_TAB_ECHANGES);
+    var parNotion = {}; t.rows.forEach(function (r) { if (r.notion_id) parNotion[r.notion_id] = true; });
+    var ajoutS = [], ajoutE = [], ignores = 0;
+    lignes.forEach(function (l) {
+      if (!l.nom || (l.notion_id && parNotion[l.notion_id])) { ignores++; return; }
+      var id = "S-" + Utilities.getUuid().substring(0, 8);
+      var o = { id: id, source: "notion", favori: l.etape === "pause" ? "non" : "oui", cree_le: veilleMaintenant_(),
+        maj_le: veilleMaintenant_(), maj_par: "import Notion", notion_id: l.notion_id || "" };
+      VEILLE_CHAMPS_SUIVI.forEach(function (k) { if (l[k] !== undefined && l[k] !== null) o[k] = l[k]; });
+      if (!o.etape) o.etape = "qualifier";
+      ajoutS.push(t.head.map(function (h) { return o[h] !== undefined ? o[h] : ""; }));
+      if (l.historique) ajoutE.push(e.head.map(function (h) {
+        return ({ id: "E-" + Utilities.getUuid().substring(0, 8), suivi_id: id, date: l.historique_date || "2022-12-31",
+          type: "import", contenu: l.historique, par: "import Notion", cree_le: veilleMaintenant_() })[h] || ""; }));
+    });
+    if (ajoutS.length) t.sh.getRange(t.sh.getLastRow() + 1, 1, ajoutS.length, t.head.length).setValues(ajoutS);
+    if (ajoutE.length) e.sh.getRange(e.sh.getLastRow() + 1, 1, ajoutE.length, e.head.length).setValues(ajoutE);
+    return { ok: true, importes: ajoutS.length, ignores: ignores };
+  } finally { lock.releaseLock(); }
+}
+
+/** L'IA propose une pertinence sur 5 pour les financeurs « À qualifier » qui n'en ont pas (lots de 12, 4 min au plus). */
+function veilleNoterSuivis_() {
+  var debut = Date.now();
+  var t = veilleLire_(VEILLE_TAB_SUIVIS);
+  var aNoter = t.rows.filter(function (r) { return r.etape === "qualifier" && (r.pertinence === "" || r.pertinence === null); });
+  var notes = 0;
+  for (var i = 0; i < aNoter.length && Date.now() - debut < 4 * 60 * 1000; i += 12) {
+    var lot = aNoter.slice(i, i + 12);
+    var consigne = "Lit uP, association d'intérêt général (Var, Seine-Saint-Denis), remobilise des jeunes de 14 à 25 ans en "
+      + "risque de rupture de parcours et forme les professionnels qui les accompagnent (Missions Locales, E2C). "
+      + "Pour chaque financeur ci-dessous, estime sur 5 la pertinence de le solliciter (5 = cœur de cible, 1 = hors sujet), "
+      + "à partir de ce que tu sais de lui et des informations données. Si tu ne le connais pas, dis-le et reste prudent (2 ou 3). "
+      + "Réponds UNIQUEMENT par un tableau JSON : [{\"i\":0,\"note\":3,\"raison\":\"une phrase, sans tiret long\"}]\n\n"
+      + lot.map(function (r, k) { return "### " + k + "\nNom : " + r.nom + "\nType : " + (r.type || "?") + "\nThématiques : "
+        + (r.thematiques || "?") + "\nNotes : " + String(r.note || "").substring(0, 300); }).join("\n\n");
+    var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", { method: "post", contentType: "application/json",
+      muteHttpExceptions: true, headers: veilleEntetesClaude_(),
+      payload: JSON.stringify({ model: VEILLE_MODELE, max_tokens: 1500, messages: [{ role: "user", content: consigne }] }) });
+    if (resp.getResponseCode() !== 200) return { error: "API Anthropic HTTP " + resp.getResponseCode(), notes: notes };
+    var text = ""; (JSON.parse(resp.getContentText()).content || []).forEach(function (b) { if (b.text) text += b.text; });
+    var m = text.match(/\[[\s\S]*\]/); if (!m) continue;
+    JSON.parse(m[0]).forEach(function (o) {
+      var r = lot[Number(o.i)]; if (!r) return;
+      t.sh.getRange(r._ligne, t.head.indexOf("pertinence") + 1).setValue(Number(o.note) || "");
+      t.sh.getRange(r._ligne, t.head.indexOf("pertinence_raison") + 1).setValue("IA : " + (o.raison || ""));
+      notes++;
+    });
+  }
+  return { ok: true, notes: notes, restants: Math.max(0, aNoter.length - notes) };
+}
+
+/** Actions de suivi à faire dans les 7 jours (ou en retard), pour le mail du lundi. */
+function veilleRelancesSemaine_() {
+  var t = veilleLire_(VEILLE_TAB_SUIVIS);
+  if (!t.sh) return [];
+  var limite = veilleIlYA_(-7);
+  return t.rows.filter(function (r) {
+    return r.prochaine_date && r.prochaine_action && ["obtenu", "pause"].indexOf(r.etape) < 0 && String(r.prochaine_date) <= limite;
+  }).sort(function (a, b) { return String(a.prochaine_date).localeCompare(String(b.prochaine_date)); });
+}
+
 // ─── ALERTES ET RÉCAPITULATIF ───
 /** Chaque matin : date limite à 42 puis 14 jours pour les pistes « À étudier » et « GO ». */
 function veilleAlertes() {
@@ -908,7 +1083,8 @@ function veilleRecapHebdo() {
   }).sort(function (a, b) { return String(a.date_limite || "9999").localeCompare(String(b.date_limite || "9999")); });
   var props = PropertiesService.getScriptProperties();
   var conf = JSON.parse(props.getProperty("VEILLE_CONFIRMATIONS") || "[]");
-  if (!neuves.length && !conf.length) return;
+  var relances = veilleRelancesSemaine_();
+  if (!neuves.length && !conf.length && !relances.length) return;
   var libType = { AAP: "Appels à projets", FONDS: "Nouveaux fonds et fondations", AO: "Appels d'offres" };
   var corps = "Bonjour,\n\n" + (neuves.length ? neuves.length + " nouvelle(s) piste(s) cette semaine :\n" : "Pas de nouvelle piste notée 60 ou plus cette semaine.\n");
   ["AAP", "FONDS", "AO"].forEach(function (t) {
@@ -920,6 +1096,12 @@ function veilleRecapHebdo() {
         + "\n  " + (r.raison || "") + (r.lien ? "\n  " + r.lien : "");
     }).join("\n") + "\n";
   });
+  if (relances.length) {
+    var auj = veilleAujourdhui_();
+    corps += "\n⏰ Relances et actions de la semaine\n" + relances.map(function (r) {
+      return "• " + (String(r.prochaine_date) < auj ? "EN RETARD · " : veilleDateFr_(r.prochaine_date) + " · ") + r.nom + " : " + r.prochaine_action;
+    }).join("\n") + "\n";
+  }
   if (conf.length) {
     corps += "\nAbonnements à confirmer (boîte developpement@) :\n" + conf.map(function (x) {
       return "• " + x.de + " : " + x.sujet + (x.lien ? "\n  " + x.lien : "\n  (lien à retrouver dans le mail, archivé sous « " + VEILLE_GMAIL_LABEL_FAIT + " »)");
@@ -928,6 +1110,7 @@ function veilleRecapHebdo() {
   }
   corps += "\nTrier les pistes :\n" + VEILLE_URL + "\n";
   MailApp.sendEmail({ to: VEILLE_EMAILS, subject: "🔭 Veille financements : " + neuves.length + " nouvelle(s) piste(s)"
+    + (relances.length ? ", " + relances.length + " relance(s)" : "")
     + (conf.length ? ", " + conf.length + " abonnement(s) à confirmer" : ""), body: corps });
 }
 
