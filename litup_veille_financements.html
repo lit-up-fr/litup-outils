@@ -258,8 +258,7 @@ function carte(p,compact){
   acts=`<label class="etape">Étape <select data-move="${esc(p.id)}" aria-label="Étape de la piste">${ORDRE.map(s=>`<option value="${s}"${s===p.statut?" selected":""}>${esc(et2[s])}${s==="clos"&&p.statut==="clos"&&p.issue?" · "+esc(p.issue):""}</option>`).join("")}</select></label>`;
   if(p.type!=="FONDS"&&["nouveau","etude"].includes(p.statut))acts+=`<button class="btn" data-qualif="${esc(p.id)}">📋 Fiche go/no-go</button>`;
   if(p.type==="FONDS"){
-    const an=analyse(p);
-    acts+=an?`<button class="btn" data-voircomptes="${esc(p.id)}">📊 Voir l'analyse des comptes</button>`:`<button class="btn" data-comptes="${esc(p.id)}">📊 Analyser les comptes</button>`;
+    acts+=boutonComptes(p,"📊 Voir l'analyse des comptes");
     acts+=`<button class="btn" data-recherche="${esc(p.id)}">🔎 Chercher le fonds</button>`;
   }
   const sv=suiviDePiste(p.id);
@@ -392,14 +391,32 @@ ${p.objet?"Extrait : "+p.objet:""}`;
 // ─── Analyse des comptes annuels (Journal officiel) ───
 function analyse(p){if(!p.analyse_comptes)return null;if(typeof p.analyse_comptes==="object")return p.analyse_comptes;try{return JSON.parse(p.analyse_comptes)}catch(e){return null}}
 function eur(n){if(n==null||n===""||isNaN(+n))return "n. c.";return Math.round(+n).toLocaleString("fr-FR")+" €"}
+// Comptes déjà cherchés sans résultat : constat daté, revérifié automatiquement chaque mois (collecte du dimanche)
+const JOURS_REVERIF=30;
+function aReverifier(a){return !!(a&&a.absent&&!a.abritee&&a.verifie_le&&(Date.now()-new Date(a.verifie_le).getTime())/864e5>=JOURS_REVERIF)}
+function boutonComptes(p,libVoir){
+  const a=analyse(p);
+  if(!a)return `<button class="btn" data-comptes="${esc(p.id)}">📊 Analyser les comptes</button>`;
+  if(!a.absent)return `<button class="btn" data-voircomptes="${esc(p.id)}">${libVoir}</button>`;
+  if(a.nouveau_depot)return `<button class="btn pri" data-comptes="${esc(p.id)}">📊 Nouveaux comptes publiés : analyser</button>`;
+  return `<button class="btn no" data-voircomptes="${esc(p.id)}" title="${esc(a.motif||"")}">📊 ${a.abritee?"Pas de comptes propres":"Pas encore de comptes"}${a.verifie_le&&!a.abritee?" · vu le "+esc(dateFr(a.verifie_le)):""}</button>`;
+}
 function resumeComptes(p){
-  const a=analyse(p);if(!a)return "";
+  const a=analyse(p);if(!a||a.absent)return "";
   const s=a.montant_a_solliciter||{};
   return `<div class="why" style="background:var(--jaune-l)">📊 Comptes ${esc(a.exercice||"")} : redistribue ${eur(a.montant_redistribue)}${a.nombre_projets_soutenus?` à ${esc(a.nombre_projets_soutenus)} projets`:""}${s.min||s.max?` · à solliciter : ${eur(s.min)} à ${eur(s.max)}`:""}</div>`;
 }
 function liste(t,arr){return arr&&arr.length?`<label>${t}</label><ul style="margin:0 0 0 18px;font-size:14px">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
 function modaleComptes(p){
   const a=analyse(p);if(!a)return;
+  if(a.absent){
+    ouvrir(`<h3>Comptes annuels · ${esc(p.titre)}</h3>
+    <div class="sub">${a.abritee?"Fondation abritée":"Recherche faite le "+esc(dateFr(a.verifie_le))}</div>
+    <div class="msg">${esc(a.motif||"Aucun compte publié au Journal officiel.")}</div>
+    ${a.abritee?"":`<p class="meta">Inutile de relancer : l'outil revérifie tout seul ce fonds une fois par mois (collecte du dimanche). Si des comptes paraissent, le bouton devient « Nouveaux comptes publiés : analyser ».</p>`}
+    <div class="mact">${aReverifier(a)?`<button class="btn" data-comptes="${esc(p.id)}">↻ Revérifier maintenant</button>`:""}<button class="btn pri" data-fermer>Fermer</button></div>`);
+    return;
+  }
   const s=a.montant_a_solliciter||{};
   const lig=(k,v)=>`<tr><td style="color:var(--t2)">${k}</td><td style="text-align:right;font-weight:600">${v}</td></tr>`;
   ouvrir(`<h3>Comptes ${esc(a.exercice||"")} · ${esc(p.titre)}</h3>
@@ -425,7 +442,7 @@ async function analyserComptes(id,btn){
     ouvrir(`<h3>Analyse des comptes</h3><div class="sub">${esc(p.titre)}</div><div class="msg err">${esc(r.error)}</div><div class="mact">${r.pdf?`<a class="btn" target="_blank" rel="noopener" href="${esc(r.pdf)}">📄 Ouvrir le PDF</a>`:""}<button class="btn pri" data-fermer>Fermer</button></div>`);
     return;
   }
-  p.analyse_comptes=r.analyse;p.comptes_pdf=r.pdf;render();modaleComptes(p);
+  p.analyse_comptes=r.analyse;if(r.pdf)p.comptes_pdf=r.pdf;render();modaleComptes(p);
 }
 
 function rechercheFonds(id){
@@ -574,7 +591,7 @@ function modaleFiche(id){
    <p class="cap">Journal des échanges</p>
    <div class="tl">${echangesDe(s.id).map(e=>`<div class="ev"><b>${dateFr(e.date)} · ${esc(TYPES_ECH[e.type]||"Import")}${e.par?" · "+esc(e.par):""}</b>${esc(e.contenu)}</div>`).join("")||'<div class="meta">Aucun échange pour l\'instant.</div>'}</div>
    <div class="acts" style="margin-top:12px"><button class="btn pri" data-sech="${esc(s.id)}">+ Ajouter un échange</button><button class="btn" data-smodif="${esc(s.id)}">Modifier</button>
-   ${fonds?(analyse(fonds)?`<button class="btn" data-voircomptes="${esc(fonds.id)}">📊 Comptes</button>`:`<button class="btn" data-comptes="${esc(fonds.id)}">📊 Analyser les comptes</button>`):""}
+   ${fonds?boutonComptes(fonds,"📊 Comptes"):""}
    <a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=${q}">🌐 Recherche web</a>
    <a class="btn" target="_blank" rel="noopener" href="https://annuaire-entreprises.data.gouv.fr/rechercher?terme=${q}">🏛 Annuaire</a>
    <a class="btn" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/all/?keywords=${q}">in LinkedIn</a></div>
