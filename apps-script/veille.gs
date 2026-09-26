@@ -34,7 +34,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-27a";
+var VEILLE_VERSION = "2026-09-27b";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -146,6 +146,8 @@ function veilleHandle(action, params, data) {
     case "veilleSuivre": return veilleSuivre_(data);
     case "veilleEchangeAdd": return veilleEchangeAdd_(data);
     case "veilleImportSuivis": return veilleImportSuivis_(data);
+    case "veilleChercherEntreprise": return veilleChercherEntreprise_(params.q || (data && data.q));
+    case "veilleEnrichirSuivi": return veilleEnrichirSuivi_(data);
     case "veilleNoterSuivis": return veilleNoterSuivis_();
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
@@ -967,6 +969,144 @@ function veilleSuiviSave_(data) {
     set("maj_le", veilleMaintenant_()); set("maj_par", data.par || "");
     return { ok: true, id: row.id };
   } finally { lock.releaseLock(); }
+}
+
+// ─── AJOUT D'UN FONDS OU D'UNE FONDATION PAR SON SIREN ───
+// Le formulaire « + Ajouter un financeur » cherche au répertoire SIRENE (API Recherche d'entreprises, sans clé).
+// À l'enregistrement, le SIREN sert à retrouver l'objet au Journal officiel (annonce de création) et crée une piste
+// « Nouveaux fonds » liée au financeur : l'analyse des comptes et leur revérification mensuelle marchent alors comme
+// pour un fonds repéré par la veille.
+var VEILLE_NATURES = { "9300": "Fondation ou fonds de dotation", "9220": "Association déclarée",
+  "9230": "Association reconnue d'utilité publique", "9221": "Association d'insertion", "9260": "Association de droit local" };
+
+function veilleChercherEntreprise_(q) {
+  q = String(q || "").trim();
+  if (q.length < 3) return { error: "Tape au moins 3 caractères (nom, SIREN ou SIRET)" };
+  var chiffres = q.replace(/[\s.]/g, "");
+  if (/^\d{14}$/.test(chiffres)) chiffres = chiffres.substring(0, 9); // SIRET → SIREN
+  var terme = /^\d{9}$/.test(chiffres) ? chiffres : q;
+  var r = UrlFetchApp.fetch("https://recherche-entreprises.api.gouv.fr/search?per_page=10&q=" + encodeURIComponent(terme), { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return { error: "Répertoire SIRENE injoignable (HTTP " + r.getResponseCode() + "), réessayer dans un instant" };
+  var res = (JSON.parse(r.getContentText()).results || []).map(veilleFicheEntreprise_);
+  // fondations et fonds de dotation d'abord, puis associations, puis le reste
+  var rang = function (x) { return x.nature === "9300" ? 0 : /^92/.test(x.nature) ? 1 : 2; };
+  res.sort(function (a, b) { return rang(a) - rang(b); });
+  return { ok: true, resultats: res };
+}
+
+function veilleFicheEntreprise_(e) {
+  var sg = e.siege || {};
+  var dir = (e.dirigeants || []).slice(0, 4).map(function (d) {
+    var n = d.denomination || [d.prenoms, d.nom].filter(String).join(" ");
+    return n + (d.qualite ? " (" + d.qualite + ")" : "");
+  }).filter(String);
+  return { siren: e.siren, nom: e.nom_complet || e.nom_raison_sociale || "", nature: String(e.nature_juridique || ""),
+    nature_libelle: VEILLE_NATURES[String(e.nature_juridique || "")] || "", creation: e.date_creation || "",
+    adresse: sg.adresse || "", ville: sg.libelle_commune || "", departement: sg.departement || "",
+    actif: e.etat_administratif !== "C", dirigeants: dir };
+}
+
+function veilleSansPrefixe_(nom) {
+  return veilleNorm_(nom).replace(/^\s*(fonds de dotation|fondation d'entreprise|fondation d entreprise|fondation|fonds|fdd)\s+/, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Annonce de création (ou dernière annonce) au JOAFE, retrouvée par le nom : les annonces n'ont pas de SIREN. */
+function veilleAnnonceParNom_(nom) {
+  var cible = veilleSansPrefixe_(nom);
+  if (!cible) return null;
+  var mot = veilleNorm_(nom).replace(/^\s*(fonds de dotation|fondation d'entreprise|fondation|fonds)\s+/, "").replace(/"/g, "");
+  var where = 'source="joafe" and search(titre,"' + mot + '")';
+  var items;
+  try { items = veilleJOAFEPage_(where, 0, 20, "dateparution desc").items; } catch (e) { return null; }
+  var ok = items.filter(function (it) { return veilleSansPrefixe_(it.titre) === cible; });
+  if (!ok.length) return null;
+  var creation = ok.filter(function (it) { return /création/i.test(it.financeur) && !/non publié/.test(it.texte); })[0];
+  return creation || ok.filter(function (it) { return !/non publié/.test(it.texte); })[0] || ok[0];
+}
+
+function veilleTypeDepuis_(ent, jo) {
+  var t = veilleNorm_((jo ? jo.financeur : "") + " " + (ent ? ent.nom : ""));
+  if (/fonds de dotation/.test(t)) return "Fonds de dotation";
+  if (/fondation d.entreprise/.test(t)) return "Fondation d'entreprise";
+  if (ent && ent.nature === "9300") return "Autre fondation";
+  return "";
+}
+
+/**
+ * Enregistre le financeur (création ou mise à jour) puis, grâce au SIREN : fiche SIRENE, objet au JOAFE,
+ * note par l'IA et piste « Nouveaux fonds » liée. Sans doublon : une piste de même SIREN ou de même nom est réutilisée.
+ */
+function veilleEnrichirSuivi_(data) {
+  if (!data) return { error: "Données manquantes" };
+  var siren = String(data.siren || "").replace(/\D/g, "");
+  if (siren.length === 14) siren = siren.substring(0, 9);
+  if (siren.length !== 9) return { error: "SIREN (9 chiffres) ou SIRET (14 chiffres) attendu" };
+  data.siren = siren;
+
+  var ent = null, joignable = false;
+  for (var essai = 0; essai < 2 && !joignable; essai++) {
+    try {
+      var r0 = UrlFetchApp.fetch("https://recherche-entreprises.api.gouv.fr/search?per_page=1&q=" + siren, { muteHttpExceptions: true });
+      if (r0.getResponseCode() !== 200) { Utilities.sleep(1500); continue; }
+      joignable = true;
+      var hit = (JSON.parse(r0.getContentText()).results || []).filter(function (e) { return e.siren === siren; })[0];
+      if (hit) ent = veilleFicheEntreprise_(hit);
+    } catch (e) { Utilities.sleep(1500); }
+  }
+  if (!String(data.nom || "").trim() && ent) data.nom = ent.nom;
+  if (!String(data.nom || "").trim()) return { error: joignable
+    ? "SIREN " + siren + " introuvable au répertoire SIRENE : vérifier le numéro"
+    : "Répertoire SIRENE injoignable pour le moment : réessayer dans un instant (ou saisir le nom)" };
+  var jo = veilleAnnonceParNom_(ent ? ent.nom : data.nom);
+  if (!data.type) data.type = veilleTypeDepuis_(ent, jo);
+  var objet = jo && !/non publié/.test(jo.texte) ? String(jo.texte) : "";
+  if (!data.thematiques && objet) data.thematiques = objet.substring(0, 300);
+  if (ent && !data.id) {
+    var info = "Répertoire SIRENE : " + [ent.nature_libelle, ent.creation ? "créé le " + ent.creation : "", ent.adresse,
+      ent.actif ? "" : "FERMÉ", ent.dirigeants.length ? "dirigeants : " + ent.dirigeants.join(", ") : ""].filter(String).join(" · ");
+    data.note = [data.note, info].filter(String).join("\n");
+  }
+  if (!data.source) data.source = "manuel";
+
+  var r = veilleSuiviSave_(data);
+  if (r.error) return r;
+  if (r.deja) veilleSuiviSave_({ id: r.id, siren: siren, par: data.par });
+
+  // Piste « Nouveaux fonds » liée (réutilisée si elle existe déjà)
+  var p = veilleLire_(VEILLE_TAB_PISTES);
+  veilleColonnesManquantes_(p.sh, VEILLE_COLS);
+  p = veilleLire_(VEILLE_TAB_PISTES);
+  var cle = veilleSansPrefixe_(data.nom);
+  var piste = p.rows.filter(function (x) { return x.type === "FONDS" && String(x.siren) === siren; })[0]
+    || p.rows.filter(function (x) { return x.type === "FONDS" && veilleSansPrefixe_(x.titre) === cle; })[0];
+  var creee = false;
+  if (piste) {
+    if (!piste.siren) { var js = p.head.indexOf("siren"); if (js >= 0) p.sh.getRange(piste._ligne, js + 1).setValue(siren); }
+  } else {
+    var it = { type: "FONDS", financeur: (jo ? String(jo.financeur).split(" · ")[0] : (data.type || "Fondation")) + " · ajout manuel", titre: data.nom,
+      territoire: ent && ent.ville ? ent.ville + (ent.departement ? " (" + ent.departement + ")" : "") : (jo ? jo.territoire : ""),
+      texte: objet || data.thematiques || "(objet non publié : juger sur le nom)", date_limite: "" };
+    var n = {};
+    try { n = veilleNoterIA_([it], veilleLire_(VEILLE_TAB_PROFILS).rows)[0] || {}; } catch (e) { /* note facultative */ }
+    piste = { id: "MAN-" + Utilities.getUuid().substring(0, 8), type: "FONDS", source: "MAN", ref_externe: siren,
+      date_detection: veilleAujourdhui_(), financeur: it.financeur, titre: data.nom, lien: jo ? jo.lien : "",
+      date_limite: "", montant: "", territoire: it.territoire, objet: String(it.texte).substring(0, 1500),
+      profil: n.profil || "", note: Number(n.note) || 0, raison: n.raison || "Ajouté à la main", nature: n.nature || "",
+      siren: siren, adresse: ent ? ent.adresse : "", statut: "etude", issue: "", commentaire: "", maj_le: veilleMaintenant_(),
+      maj_par: data.par || "", alertes: "" };
+    veilleEcrireLigne_(p, piste);
+    creee = true;
+  }
+  // Rattacher la piste au financeur
+  var t = veilleLire_(VEILLE_TAB_SUIVIS);
+  var row = t.rows.filter(function (x) { return x.id === r.id; })[0];
+  if (row) {
+    var ids = String(row.piste_ids || "").split(",").filter(String);
+    if (ids.indexOf(piste.id) < 0) { ids.push(piste.id); t.sh.getRange(row._ligne, t.head.indexOf("piste_ids") + 1).setValue(ids.join(",")); }
+  }
+  return { ok: true, id: r.id, deja: !!r.deja, piste_id: piste.id, piste_creee: creee, entreprise: ent,
+    objet_trouve: !!objet, note: piste.note };
 }
 
 /** Bouton « ⭐ Suivre » d'une piste : crée le financeur (ou retrouve celui de même nom) et y rattache la piste. */
