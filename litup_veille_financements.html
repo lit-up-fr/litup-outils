@@ -134,7 +134,7 @@ window.__bloque=true})();
 if(!window.__bloque){
 // Application web de la veille (projet Apps Script séparé de la compta, compte developpement@).
 // À renseigner après le premier déploiement : Déployer → Gérer les déploiements → URL de l'application web.
-const BACKEND_URL="A_RENSEIGNER";
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbw5RlY2LnW6tSxzWc-eMPJt6Iu9jnKrE2Xm3_xN62b8Ezbb1uuvnArlKHxA1VSALIqz/exec";
 async function api(action,data){
   const url=BACKEND_URL+"?action="+action;
   const r=data?await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}):await fetch(url,{redirect:"follow"});
