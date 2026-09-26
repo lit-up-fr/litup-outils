@@ -138,7 +138,13 @@ const BACKEND_URL="https://script.google.com/macros/s/AKfycbw5RlY2LnW6tSxzWc-eMP
 async function api(action,data){
   const url=BACKEND_URL+"?action="+action;
   const r=data?await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}):await fetch(url,{redirect:"follow"});
-  const t=await r.text();try{return JSON.parse(t)}catch(e){return{error:"Réponse illisible du serveur"}}
+  const t=await r.text();
+  try{return JSON.parse(t)}catch(e){
+    // Diagnostic : ce que le téléphone a réellement reçu (page Google de connexion, d'erreur, etc.)
+    const titre=(t.match(/<title>([^<]*)<\/title>/i)||[])[1]||"";
+    const extrait=t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,160);
+    return{error:"Réponse illisible du serveur (HTTP "+r.status+", "+(r.headers.get("content-type")||"type inconnu")+", "+(r.redirected?"redirigé vers "+new URL(r.url).host:"sans redirection")+")"+(titre?" · page « "+titre+" »":"")+(extrait?" · « "+extrait+" »":" · réponse vide")}
+  }
 }
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -166,7 +172,7 @@ async function charger(){
   if(!/^https:\/\/script\.google\.com\//.test(BACKEND_URL)){msg("La veille n'est pas encore branchée : l'adresse de son application web Apps Script reste à renseigner dans la page (voir docs/veille/INSTALLATION-veille-financements.md).",true);return}
   msg("Chargement des pistes…");
   const r=await api("veilleList").catch(e=>({error:e.message}));
-  if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+"<br>Si c'est la première fois : le script veille.gs doit être installé et le backend redéployé (voir docs/veille).",true);return}
+  if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+`<br><button class="btn" style="margin-top:8px" onclick="location.reload()">↻ Réessayer</button>`,true);return}
   st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.charge=true;msg("");
   $("fProfil").innerHTML='<option value="">Tous les profils</option>'+st.profils.map(p=>`<option value="${esc(p.code)}">${esc(nomProfil(p.code))}</option>`).join("");
   $("fProfil").value=store.get("profil","");
