@@ -27,12 +27,14 @@
  *
  * À la demande (bouton « Analyser les comptes » d'un fonds) : téléchargement des derniers comptes annuels
  * publiés au Journal officiel et lecture par Claude (montant redistribué, taille des aides, montant à solliciter).
+ * Quand aucun compte n'est encore publié, le constat est enregistré avec sa date : la page l'affiche au lieu du
+ * bouton, et la collecte du dimanche revérifie ces fonds (tous les 30 jours) sans rien coûter en IA.
  *
  * Mails : récapitulatif le lundi matin (avec les abonnements à confirmer) ; chaque matin, alertes à 6 et
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-26c";
+var VEILLE_VERSION = "2026-09-27a";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -313,6 +315,7 @@ function veilleEtatCollecte_() {
 function veilleCollecteHebdo() {
   PropertiesService.getScriptProperties().setProperty("VEILLE_PASSE", "1");
   PropertiesService.getScriptProperties().setProperty("VEILLE_EN_COURS", new Date().toISOString());
+  try { veilleReverifierComptes_(); } catch (e) { console.log("Revérification des comptes : " + e.message); }
   veilleCollecter(true);
 }
 /** Passes suivantes, programmées automatiquement tant qu'il reste à lire. */
@@ -795,13 +798,21 @@ function veilleAnalyserComptes_(data) {
   p = veilleLire_(VEILLE_TAB_PISTES);
   var row = p.rows.filter(function (r) { return String(r.id) === String(data.id); })[0];
   if (!row) return { error: "Piste introuvable" };
+  var set = function (col, val) { var j = p.head.indexOf(col); if (j >= 0) p.sh.getRange(row._ligne, j + 1).setValue(val); };
+  // « Pas de comptes » : constat daté, enregistré pour ne pas refaire la recherche à chaque clic
+  var absent = function (motif, abritee) {
+    var a = { absent: true, abritee: !!abritee, motif: motif, verifie_le: veilleAujourdhui_() };
+    set("analyse_comptes", JSON.stringify(a));
+    return { ok: true, analyse: a };
+  };
   if (/Fondation de France|Caritas/.test(row.financeur) && row.source !== "D01")
-    return { error: "Fondation abritée : elle n'a pas de comptes propres au Journal officiel (ils sont inclus dans ceux de la fondation qui l'abrite). Le montant à solliciter se lit plutôt dans ses appels à projets ou en la contactant." };
+    return absent("Fondation abritée : elle n'a pas de comptes propres au Journal officiel (ils sont inclus dans ceux de la fondation qui l'abrite). Le montant à solliciter se lit plutôt dans ses appels à projets ou en la contactant.", true);
 
   var depot = veilleDernierDepot_(row.siren, row.titre);
-  if (!depot) return { error: "Aucun dépôt de comptes trouvé au Journal officiel pour « " + row.titre + " »"
+  if (depot && depot.erreur) return { error: "Journal officiel injoignable pour le moment (HTTP " + depot.erreur + ") : réessayer plus tard." };
+  if (!depot) return absent("Aucun compte publié au Journal officiel"
     + (row.siren ? " (SIREN " + row.siren + ")" : "") + ". Un fonds créé récemment n'a pas encore clos d'exercice ; "
-    + "un petit fonds de dotation peut aussi être en retard de dépôt." };
+    + "un petit fonds de dotation peut aussi être en retard de dépôt.");
 
   var pdf = UrlFetchApp.fetch(depot.url, { muteHttpExceptions: true });
   if (pdf.getResponseCode() !== 200) return { error: "PDF des comptes inaccessible (HTTP " + pdf.getResponseCode() + ") : " + depot.url };
@@ -852,7 +863,6 @@ function veilleAnalyserComptes_(data) {
   analyse.cloture = depot.cloture;
   analyse.analyse_le = veilleAujourdhui_();
 
-  var set = function (col, val) { var j = p.head.indexOf(col); if (j >= 0) p.sh.getRange(row._ligne, j + 1).setValue(val); };
   set("comptes_pdf", depot.url);
   set("analyse_comptes", JSON.stringify(analyse));
   if (!row.siren && depot.siren) set("siren", depot.siren);
@@ -867,7 +877,7 @@ function veilleDernierDepot_(siren, titre) {
   var url = VEILLE_JOAFE_URL + "?limit=20&order_by=" + encodeURIComponent("dca_datecloture desc")
     + "&where=" + encodeURIComponent(where) + "&select=" + encodeURIComponent("id,titre,dca_datecloture,dca_siren");
   var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  if (r.getResponseCode() !== 200) return null;
+  if (r.getResponseCode() !== 200) return { erreur: r.getResponseCode() }; // à ne pas confondre avec « aucun compte »
   var norm = function (s) { return veilleNorm_(s).replace(/[^a-z0-9]/g, ""); };
   var res = (JSON.parse(r.getContentText()).results || []).filter(function (x) {
     return x.dca_datecloture && (siren || norm(x.titre) === norm(titre)); // par nom : correspondance exacte seulement
@@ -876,6 +886,30 @@ function veilleDernierDepot_(siren, titre) {
   var d = String(res[0].dca_datecloture).substring(0, 10).split("-"); // AAAA-MM-JJ
   return { id: res[0].id, siren: res[0].dca_siren, cloture: d[2] + "/" + d[1] + "/" + d[0],
     url: VEILLE_PDF_URL + d[0] + "/" + d[2] + d[1] + "/" + res[0].id + ".pdf" };
+}
+
+/**
+ * Chaque dimanche, avant la collecte : les fonds marqués « pas encore de comptes » depuis 30 jours ou plus sont
+ * revérifiés au Journal officiel (simple requête, sans IA). Si des comptes sont apparus, la page propose de les
+ * analyser ; sinon la date de vérification est mise à jour. 25 fonds et 45 secondes au plus par dimanche.
+ */
+function veilleReverifierComptes_() {
+  var p = veilleLire_(VEILLE_TAB_PISTES);
+  var j = p.head.indexOf("analyse_comptes");
+  if (j < 0) return 0;
+  var limite = veilleIlYA_(30), debut = Date.now(), n = 0;
+  p.rows.forEach(function (row) {
+    if (n >= 25 || Date.now() - debut > 45000 || row.type !== "FONDS" || String(row.statut) === "clos") return;
+    var a; try { a = JSON.parse(row.analyse_comptes || "null"); } catch (e) { return; }
+    if (!a || !a.absent || a.abritee || a.nouveau_depot || String(a.verifie_le || "") > limite) return;
+    var depot = veilleDernierDepot_(row.siren, row.titre);
+    if (depot && depot.erreur) return;
+    n++;
+    a.verifie_le = veilleAujourdhui_();
+    if (depot) a.nouveau_depot = depot.cloture;
+    p.sh.getRange(row._ligne, j + 1).setValue(JSON.stringify(a));
+  });
+  return n;
 }
 
 // ─── SUIVI DES FINANCEURS (onglet « ⭐ Suivis ») ───
