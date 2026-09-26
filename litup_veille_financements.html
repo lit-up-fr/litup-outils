@@ -135,7 +135,13 @@ if(!window.__bloque){
 // Application web de la veille (projet Apps Script séparé de la compta, compte developpement@).
 // À renseigner après le premier déploiement : Déployer → Gérer les déploiements → URL de l'application web.
 const BACKEND_URL="https://script.google.com/macros/s/AKfycbw5RlY2LnW6tSxzWc-eMPJt6Iu9jnKrE2Xm3_xN62b8Ezbb1uuvnArlKHxA1VSALIqz/exec";
-async function api(action,data){
+async function api(action,data,essai){
+  const r0=await api1(action,data);
+  // Google renvoie parfois une page d'erreur passagère : un second essai 3 s plus tard suffit en général
+  if(r0&&r0.illisible&&!essai){await new Promise(ok=>setTimeout(ok,3000));return api(action,data,true)}
+  return r0;
+}
+async function api1(action,data){
   const url=BACKEND_URL+"?action="+action;
   const r=data?await fetch(url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}):await fetch(url,{redirect:"follow"});
   const t=await r.text();
@@ -143,7 +149,7 @@ async function api(action,data){
     // Diagnostic : ce que le téléphone a réellement reçu (page Google de connexion, d'erreur, etc.)
     const titre=(t.match(/<title>([^<]*)<\/title>/i)||[])[1]||"";
     const extrait=t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,160);
-    return{error:"Réponse illisible du serveur (HTTP "+r.status+", "+(r.headers.get("content-type")||"type inconnu")+", "+(r.redirected?"redirigé vers "+new URL(r.url).host:"sans redirection")+")"+(titre?" · page « "+titre+" »":"")+(extrait?" · « "+extrait+" »":" · réponse vide")}
+    return{illisible:true,error:"Réponse illisible du serveur (HTTP "+r.status+", "+(r.headers.get("content-type")||"type inconnu")+", "+(r.redirected?"redirigé vers "+new URL(r.url).host:"sans redirection")+")"+(titre?" · page « "+titre+" »":"")+(extrait?" · « "+extrait+" »":" · réponse vide")}
   }
 }
 const $=id=>document.getElementById(id);
@@ -173,7 +179,10 @@ async function charger(){
   msg("Chargement des pistes…");
   const r=await api("veilleList").catch(e=>({error:e.message}));
   if(r.error){msg("Impossible de charger la veille : "+esc(r.error)+`<br><button class="btn" style="margin-top:8px" onclick="location.reload()">↻ Réessayer</button>`,true);return}
-  st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.charge=true;msg("");
+  st.pistes=r.pistes||[];st.sources=r.sources||[];st.profils=r.profils||[];st.charge=true;st.collecte=r.collecte||{};
+  const cl=st.collecte;
+  msg(cl.en_cours?`⏳ Collecte en cours${cl.passe?` (passe ${cl.passe} sur ${cl.passes_max} au plus)`:""} : les pistes apparaissent au fil des passes, la page se met à jour toute seule chaque minute.`:"");
+  clearTimeout(st.suivi);if(cl.en_cours)st.suivi=setTimeout(charger,60000);
   $("fProfil").innerHTML='<option value="">Tous les profils</option>'+st.profils.map(p=>`<option value="${esc(p.code)}">${esc(nomProfil(p.code))}</option>`).join("");
   $("fProfil").value=store.get("profil","");
   render();
@@ -275,7 +284,7 @@ function render(){
 function filtrerSansStatut(type){const v=$("fStatut").value;$("fStatut").value="";const r=filtrer(type);$("fStatut").value=v;return r}
 
 function renderSources(){
-  $("view").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button><span class="meta" style="align-self:center">Une passe de 5 minutes au plus. La collecte complète a lieu chaque dimanche soir.</span></div>
+  $("view").innerHTML=`<div class="acts" style="margin:0 0 10px">${st.collecte&&st.collecte.en_cours?`<button class="btn pri" disabled>⏳ Collecte en cours</button>`:`<button class="btn pri" id="runNow">▶ Lancer la collecte maintenant</button>`}<span class="meta" style="align-self:center">La collecte tourne en arrière-plan, par passes de 5 minutes enchaînées (tu peux fermer la page). Collecte automatique chaque dimanche soir.</span></div>
   <div class="tscroll"><table><tr><th>Source</th><th>Type</th><th>Accès</th><th>Dernière collecte</th><th>Nouvelles</th><th>Retenues</th><th>Pistes en base</th><th>Active</th></tr>
   ${st.sources.map(s=>{const n=st.pistes.filter(p=>p.source===s.id).length;const on=String(s.actif).toLowerCase()==="oui";
     return `<tr><td><b>${esc(s.nom)}</b>${s.derniere_erreur?`<div class="err-src">⚠️ ${esc(s.derniere_erreur)}</div>`:""}</td><td>${esc(TYPES[s.type]||s.type)}</td><td>${esc(s.acces)}</td><td>${esc(s.derniere_collecte||"jamais")}</td><td>${esc(s.collectees)}</td><td>${esc(s.retenues)}</td><td>${n}</td>
@@ -396,9 +405,10 @@ function rechercheFonds(id){
 }
 
 async function lancer(btn){
-  btn.disabled=true;btn.textContent="⏳ Collecte en cours…";
+  btn.disabled=true;btn.textContent="⏳ Lancement…";
   const r=await api("veilleRun").catch(e=>({error:e.message}));
-  if(r.error)toast("Erreur : "+r.error);else toast("Collecte terminée");
+  if(r.error){toast("Erreur : "+r.error);btn.disabled=false;btn.textContent="▶ Lancer la collecte maintenant";return}
+  toast(r.deja?"Une collecte est déjà en cours":"Collecte lancée : première passe dans 30 secondes");
   await charger();
 }
 

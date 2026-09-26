@@ -32,7 +32,7 @@
  * 2 semaines de la date limite pour les pistes « À étudier » et « GO » (simple lecture du Sheet, aucun site visité).
  */
 
-var VEILLE_VERSION = "2026-09-26a";
+var VEILLE_VERSION = "2026-09-26b";
 // Le Sheet est celui auquel le script est rattaché ; son identifiant est mémorisé à l'installation
 // pour les déclencheurs (qui n'ont pas de « Sheet actif »).
 function veilleSS_() {
@@ -65,6 +65,9 @@ var VEILLE_MOTS = ["jeune", "jeunesse", "decroch", "raccroch", "remobilis", "ins
   "fonctionnement associatif", "fonjep", "fdva", "sante mentale", "orientation"];
 var VEILLE_MOTS_FONDS = ["jeunes", "jeunesse", "décrochage", "insertion", "égalité des chances",
   "réussite éducative", "persévérance scolaire", "quartiers"];
+
+var VEILLE_MOTS_STOCK = ["décrochage", "insertion des jeunes", "insertion professionnelle", "égalité des chances",
+  "réussite éducative", "persévérance scolaire", "jeunes en difficulté", "quartiers prioritaires"];
 
 var VEILLE_COLS = ["id", "type", "source", "ref_externe", "date_detection", "financeur", "titre", "lien",
   "date_limite", "montant", "territoire", "objet", "profil", "note", "raison", "nature", "siren", "adresse",
@@ -135,7 +138,7 @@ function veilleHandle(action, params, data) {
     case "veilleList": return veilleList_();
     case "veilleUpdate": return veilleUpdate_(data);
     case "veilleSourceToggle": return veilleSourceToggle_(data);
-    case "veilleRun": return veilleCollecter(false);
+    case "veilleRun": return veilleLancerCollecte_();
     case "veilleComptes": return veilleAnalyserComptes_(data);
     case "veilleVersion": return { ok: true, version: VEILLE_VERSION };
     default: return { error: "Action veille inconnue : " + action };
@@ -228,7 +231,7 @@ function veilleList_() {
   var pr = veilleLire_(VEILLE_TAB_PROFILS);
   if (!p.sh) return { error: "Onglets veille absents : exécuter veilleInstaller" };
   var clean = function (rows) { return rows.map(function (r) { var o = {}; for (var k in r) if (k !== "_ligne") o[k] = r[k]; return o; }); };
-  return { ok: true, version: VEILLE_VERSION, pistes: clean(p.rows), sources: clean(s.rows),
+  return { ok: true, version: VEILLE_VERSION, collecte: veilleEtatCollecte_(), pistes: clean(p.rows), sources: clean(s.rows),
     profils: clean(pr.rows).map(function (x) { return { code: x.code, nom: x.nom }; }) };
 }
 
@@ -274,9 +277,33 @@ function veilleMajSource_(s, id, champs) {
 }
 
 // ─── COLLECTE ───
+/**
+ * Bouton « Lancer la collecte maintenant » : une passe dure jusqu'à 5 minutes, bien plus que ce qu'une page web
+ * peut attendre (Google coupe la réponse, d'où « Page introuvable »). La collecte est donc programmée en arrière-plan,
+ * passes enchaînées comme le dimanche, et la page se met à jour d'elle-même.
+ */
+function veilleLancerCollecte_() {
+  var props = PropertiesService.getScriptProperties();
+  var dejaProgrammee = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === "veilleCollecteSuite"; });
+  if (dejaProgrammee || props.getProperty("VEILLE_EN_COURS")) return { ok: true, deja: true, etat: veilleEtatCollecte_() };
+  props.setProperty("VEILLE_PASSE", "1");
+  props.setProperty("VEILLE_EN_COURS", new Date().toISOString());
+  ScriptApp.newTrigger("veilleCollecteSuite").timeBased().after(30 * 1000).create();
+  return { ok: true, lance: true, etat: veilleEtatCollecte_() };
+}
+
+function veilleEtatCollecte_() {
+  var props = PropertiesService.getScriptProperties();
+  var depuis = props.getProperty("VEILLE_EN_COURS");
+  // Sécurité : au-delà de 2 h, on considère la collecte terminée (déclencheur perdu, erreur Google)
+  if (depuis && Date.now() - new Date(depuis).getTime() > 2 * 3600 * 1000) { props.deleteProperty("VEILLE_EN_COURS"); depuis = null; }
+  return { en_cours: !!depuis, depuis: depuis || "", passe: Number(props.getProperty("VEILLE_PASSE") || 0), passes_max: VEILLE_PASSES_MAX };
+}
+
 /** Déclencheur du dimanche soir : première passe de la collecte hebdomadaire. */
 function veilleCollecteHebdo() {
   PropertiesService.getScriptProperties().setProperty("VEILLE_PASSE", "1");
+  PropertiesService.getScriptProperties().setProperty("VEILLE_EN_COURS", new Date().toISOString());
   veilleCollecter(true);
 }
 /** Passes suivantes, programmées automatiquement tant qu'il reste à lire. */
@@ -352,6 +379,8 @@ function veilleProgrammerSuite_(reste) {
   if (reste && passe < VEILLE_PASSES_MAX) {
     props.setProperty("VEILLE_PASSE", String(passe + 1));
     ScriptApp.newTrigger("veilleCollecteSuite").timeBased().after(5 * 60 * 1000).create();
+  } else {
+    props.deleteProperty("VEILLE_EN_COURS");
   }
 }
 
@@ -564,7 +593,8 @@ function veilleEnrichirSiren_(it) {
 function veilleChargerStockFonds() {
   var props = PropertiesService.getScriptProperties();
   var offset = Number(props.getProperty("VEILLE_STOCK_OFFSET") || 0);
-  var mots = VEILLE_MOTS_FONDS.map(function (m) { return 'search(objet,"' + m + '")'; }).join(" or ");
+  // Mots-clés plus précis que la veille courante : 342 fonds au lieu de 775 (mesure du 26/09/2026)
+  var mots = VEILLE_MOTS_STOCK.map(function (m) { return 'search(objet,"' + m + '")'; }).join(" or ");
   var where = 'source="joafe" and association_type="fondDotation" and annonce_type_facette like "*Création*"'
     + ' and (region_libelle="Île-de-France" or region_libelle="Provence-Alpes-Côte d\'Azur") and (' + mots + ')';
   var res = veilleJOAFEPage_(where, offset, 40, "dateparution desc");
