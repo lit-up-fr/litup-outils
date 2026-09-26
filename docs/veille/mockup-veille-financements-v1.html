@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquette veille financements</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--anth:#2B3442;--teal:#00989D;--teal-l:#E6F5F5;--jaune:#FCC33E;--jaune-l:#FFF6DD;--violet:#6B2468;--violet-l:#F3E8F2;--bg:#F6F6F8;--card:#fff;--border:#E1E3EA;--t2:#5B6474;--t3:#8A92A0;--rouge:#B42318;--rouge-l:#FDECEC}
+html,body{overflow-x:hidden}
+body{font-family:'Source Sans 3','Source Sans Pro',system-ui,sans-serif;background:var(--bg);color:var(--anth);padding:24px 16px 60px;line-height:1.45}
+.page{max-width:1080px;margin:0 auto}
+h1{font-size:28px;font-weight:700}
+.accroche{font-style:italic;font-weight:700;color:var(--teal);margin:2px 0 18px}
+h2{font-size:21px;font-weight:700;margin:40px 0 6px;padding-top:18px;border-top:2px solid var(--border)}
+h2 .lettre{display:inline-flex;width:34px;height:34px;border-radius:9px;background:var(--anth);color:#fff;align-items:center;justify-content:center;margin-right:8px;font-size:18px}
+.intro{color:var(--t2);font-size:15px;margin-bottom:14px;max-width:760px}
+.note{background:var(--jaune-l);border-left:4px solid var(--jaune);padding:10px 14px;border-radius:6px;font-size:14px;margin:12px 0;max-width:760px}
+.row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+/* Cadre téléphone / écran */
+.phone{width:340px;max-width:100%;background:var(--bg);border:8px solid var(--anth);border-radius:28px;padding:14px 12px;flex-shrink:0}
+.screen{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto}
+.cap{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin:0 0 8px}
+.bar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bar .back{color:var(--teal);font-size:20px}
+.bar b{font-size:17px}
+/* Éléments communs */
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px;font-weight:600}
+.tab.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.tab .n{opacity:.75;font-weight:400}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.flt{font-size:12px;border:1px dashed var(--t3);border-radius:6px;padding:2px 8px;color:var(--t2);background:#fff}
+.card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.card.urg{border-left:5px solid var(--rouge)}
+.card.hot{border-left:5px solid var(--teal)}
+.ch{display:flex;gap:8px;align-items:flex-start}
+.score{flex-shrink:0;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;background:var(--teal-l);color:var(--teal)}
+.score.m{background:var(--jaune-l);color:#8A5A00}
+.score.b{background:#EEF0F4;color:var(--t2)}
+.ct{flex:1;min-width:0}
+.fin{font-size:12px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.tit{font-weight:700;font-size:15px}
+.meta{font-size:13px;color:var(--t2);margin-top:4px}
+.why{font-size:13px;margin-top:6px;background:var(--teal-l);border-radius:7px;padding:5px 8px}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin:5px 4px 0 0}
+.p-jeu{background:#E3F2FD;color:#0B5394}.p-pro{background:var(--violet-l);color:var(--violet)}.p-lab{background:var(--jaune-l);color:#8A5A00}.p-str{background:#EEF0F4;color:var(--anth)}
+.p-urg{background:var(--rouge-l);color:var(--rouge)}
+.acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.btn{font-size:12px;font-weight:700;border-radius:7px;padding:5px 10px;border:1.5px solid var(--border);background:#fff;color:var(--anth)}
+.btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.no{color:var(--t2)}
+/* Kanban */
+.kb{display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));gap:10px;min-width:880px}
+.col{background:#EDEEF2;border-radius:10px;padding:8px}
+.col h4{font-size:13px;margin:0 0 8px;display:flex;justify-content:space-between}
+.col .card{padding:8px 9px}
+.col .tit{font-size:13px}
+.col .meta{font-size:12px}
+/* Tableau */
+table{border-collapse:collapse;width:100%;min-width:820px;background:#fff;border-radius:10px;overflow:hidden;font-size:13px}
+th{background:var(--anth);color:#fff;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+tr.u td:first-child{box-shadow:inset 4px 0 0 var(--rouge)}
+.stat{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;background:#EEF0F4}
+/* Accueil */
+.home-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.home-card.veille{border:1.5px dashed var(--teal)}
+.ico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;background:var(--teal-l);flex-shrink:0}
+.hc-t{font-weight:700;font-size:14px}.hc-d{font-size:12px;color:var(--t3)}
+.sheet{background:#fff;border-radius:16px 16px 0 0;border:1.5px solid var(--border);padding:12px;margin-top:10px;box-shadow:0 -6px 20px rgba(43,52,66,.12)}
+/* Fonds */
+.fonds .objet{font-size:13px;margin-top:6px;color:var(--anth);background:var(--bg);border-radius:7px;padding:6px 8px}
+.typeF{font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;background:var(--teal-l);color:var(--teal)}
+.typeF.op{background:var(--rouge-l);color:var(--rouge)}
+/* Comparatif */
+table.cmp{min-width:0}
+table.cmp td,table.cmp th{font-size:14px;padding:9px 10px}
+.avis{background:#fff;border:2px solid var(--teal);border-radius:12px;padding:16px 18px;margin-top:14px;max-width:820px}
+.avis h3{color:var(--teal);margin-bottom:6px}
+.avis p{margin-bottom:8px}
+.legend{font-size:12px;color:var(--t3);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Veille financements · maquette v1</h1>
+<p class="accroche">Repérer, trier, décider : tout au même endroit</p>
+<p class="intro">Maquette non cliquable pour choisir la mise en page. Les appels à projets et appels d'offres affichés sont des <b>exemples fictifs</b>. Les fonds de dotation de la partie « Nouveaux fonds » sont <b>réels</b> : ils viennent du Journal officiel (JOAFE), interrogé le 25 septembre 2026.</p>
+
+<!-- ================= ACCUEIL ================= -->
+<h2>Commun · Accès depuis l'accueil</h2>
+<p class="intro">Un bouton « Outils de veille » sur la page d'accueil. Un appui ouvre un panneau avec les deux choix. La veille Qualiopi reste affichée mais grisée tant qu'elle n'est pas construite.</p>
+<div class="row">
+  <div class="phone">
+    <p class="cap">Accueil litup-outils</p>
+    <div class="home-card"><div class="ico">👤</div><div><div class="hc-t">Salarié</div><div class="hc-d">Notes de frais</div></div></div>
+    <div class="home-card"><div class="ico">📊</div><div><div class="hc-t">Comptabilité</div><div class="hc-d">Suivi comptable · Budget</div></div></div>
+    <div class="home-card veille"><div class="ico">🔭</div><div><div class="hc-t">Outils de veille</div><div class="hc-d">Financements · Qualiopi</div></div></div>
+    <div class="sheet">
+      <p class="cap">Outils de veille</p>
+      <div class="home-card"><div class="ico">💶</div><div><div class="hc-t">Veille financements</div><div class="hc-d">AAP · nouveaux fonds · appels d'offres</div></div></div>
+      <div class="home-card" style="opacity:.5"><div class="ico">✅</div><div><div class="hc-t">Veille Qualiopi</div><div class="hc-d">Bientôt disponible</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= OPTION A ================= -->
+<h2><span class="lettre">A</span>Fil de pistes (cartes)</h2>
+<p class="intro">Une liste de cartes, les plus urgentes et les mieux notées en haut. Trois onglets : Appels à projets, Nouveaux fonds, Appels d'offres. Chaque carte donne la note, la raison de la note en une phrase, et les boutons de décision. Pensé d'abord pour le téléphone.</p>
+<div class="row">
+  <div class="phone">
+    <div class="bar"><span class="back">‹</span><b>Veille financements</b></div>
+    <div class="tabs"><span class="tab on">AAP <span class="n">12</span></span><span class="tab">Nouveaux fonds <span class="n">5</span></span><span class="tab">Appels d'offres <span class="n">2</span></span></div>
+    <div class="filters"><span class="flt">Profil : tous ▾</span><span class="flt">Note ≥ 60 ▾</span><span class="flt">Statut : à traiter ▾</span></div>
+
+    <div class="card urg">
+      <div class="ch"><div class="score">86</div><div class="ct">
+        <div class="fin">Département de la Seine-Saint-Denis</div>
+        <div class="tit">Insertion des jeunes par l'engagement 2027</div>
+        <div class="meta">📅 17 oct. (dans 22 jours) · 💶 10 à 40 k€ · 93</div>
+        <span class="pill p-urg">J-22</span><span class="pill p-jeu">Boost uP Jeunes</span>
+        <div class="why">Public 16-25 ans suivi en Mission Locale, engagement citoyen, 93 : correspond au cœur de Boost uP.</div>
+        <div class="acts"><span class="btn pri">Qualifier (go/no-go)</span><span class="btn">À étudier</span><span class="btn no">NO-GO</span></div>
+      </div></div>
+    </div>
+
+    <div class="card hot">
+      <div class="ch"><div class="score">78</div><div class="ct">
+        <div class="fin">Fondation d'entreprise (exemple)</div>
+        <div class="tit">Former les professionnels de l'insertion</div>
+        <div class="meta">📅 30 nov. · 💶 jusqu'à 50 k€ · national</div>
+        <span class="pill p-pro">Boost uP Pro</span><span class="pill p-str">Structuration</span>
+        <div class="why">Finance la montée en compétences des conseillers : angle direct pour Boost uP Pro.</div>
+        <div class="acts"><span class="btn pri">Qualifier (go/no-go)</span><span class="btn">À étudier</span><span class="btn no">NO-GO</span></div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div class="score m">61</div><div class="ct">
+        <div class="fin">Région Sud</div>
+        <div class="tit">Innovation sociale et jeunesse</div>
+        <div class="meta">📅 15 janv. · 💶 non précisé · PACA</div>
+        <span class="pill p-lab">Lit uP Lab'</span>
+        <div class="why">Thème pertinent, mais vise surtout les projets en création : à vérifier.</div>
+        <div class="acts"><span class="btn pri">Qualifier (go/no-go)</span><span class="btn">À étudier</span><span class="btn no">NO-GO</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="phone fonds">
+    <div class="bar"><span class="back">‹</span><b>Veille financements</b></div>
+    <div class="tabs"><span class="tab">AAP <span class="n">12</span></span><span class="tab on">Nouveaux fonds <span class="n">5</span></span><span class="tab">Appels d'offres <span class="n">2</span></span></div>
+    <p class="cap">Fonds déclarés au JO cette semaine</p>
+
+    <div class="card hot">
+      <div class="ch"><div class="score">72</div><div class="ct">
+        <div class="fin">Fonds de dotation · Paris (75) · créé le 7 sept. 2026</div>
+        <div class="tit">Fonds de dotation Odon Vallet</div>
+        <span class="typeF">Redistributeur probable</span>
+        <div class="objet">« … mission d'intérêt général à caractère social, éducatif et innovant en vue de favoriser l'accès de tous à une éducation et une formation d'excellence… »</div>
+        <div class="meta">SIREN 130 132 210 · ESS · 90 rue d'Assas, Paris</div>
+        <div class="acts"><span class="btn pri">À contacter</span><span class="btn">Voir au JO</span><span class="btn no">Sans suite</span></div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div class="score m">55</div><div class="ct">
+        <div class="fin">Fonds de dotation · Paris (75) · JO du 22 sept. 2026</div>
+        <div class="tit">Sharp Vision, Tech for progress</div>
+        <span class="typeF">Redistributeur probable</span>
+        <div class="objet">« … éducation numérique, sport et prévention des addictions aux jeux d'argent, accès de tous à l'éducation numérique et à la formation… »</div>
+        <div class="acts"><span class="btn pri">À contacter</span><span class="btn">Voir au JO</span><span class="btn no">Sans suite</span></div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div class="score b">20</div><div class="ct">
+        <div class="fin">Fonds de dotation · Morbihan (56) · JO du 22 sept. 2026</div>
+        <div class="tit">CRossroads</div>
+        <span class="typeF op">Fonds opérateur</span>
+        <div class="objet">« … fonds opérateur … accès à l'enseignement supérieur de jeunes femmes tanzaniennes… »</div>
+        <div class="meta">Mène ses propres actions à l'étranger : ne finance pas d'autres associations.</div>
+      </div></div>
+    </div>
+  </div>
+</div>
+<p class="legend">Liseré rouge : date limite à moins de 6 semaines. Liseré teal : note ≥ 70. Le type « opérateur / redistributeur » est déduit de l'objet par l'IA : un fonds opérateur mène ses propres actions et ne finance pas d'associations.</p>
+
+<!-- ================= OPTION B ================= -->
+<h2><span class="lettre">B</span>Tableau de bord par étapes (kanban)</h2>
+<p class="intro">Les pistes rangées en colonnes selon leur étape : de « Nouveau » jusqu'à « Déposé ». On voit d'un coup d'œil où en est chaque dossier, et on fait glisser une carte d'une colonne à l'autre. Pensé pour l'ordinateur ; sur téléphone, les colonnes défilent de côté.</p>
+<div class="screen">
+  <div class="bar"><span class="back">‹</span><b>Veille financements</b></div>
+  <div class="tabs"><span class="tab on">AAP</span><span class="tab">Nouveaux fonds</span><span class="tab">Appels d'offres</span></div>
+  <div class="kb">
+    <div class="col"><h4>Nouveau <span>7</span></h4>
+      <div class="card urg"><div class="fin">Seine-Saint-Denis</div><div class="tit">Insertion par l'engagement 2027</div><div class="meta">86 · 📅 17 oct.</div><span class="pill p-jeu">Jeunes</span></div>
+      <div class="card"><div class="fin">Région Sud</div><div class="tit">Innovation sociale et jeunesse</div><div class="meta">61 · 📅 15 janv.</div><span class="pill p-lab">Lab'</span></div>
+    </div>
+    <div class="col"><h4>À étudier <span>3</span></h4>
+      <div class="card hot"><div class="fin">Fondation (exemple)</div><div class="tit">Former les pros de l'insertion</div><div class="meta">78 · 📅 30 nov.</div><span class="pill p-pro">Pro</span></div>
+    </div>
+    <div class="col"><h4>GO <span>2</span></h4>
+      <div class="card urg"><div class="fin">CAF du Var</div><div class="tit">AAP jeunesse (exemple)</div><div class="meta">📅 31 oct. · 12 k€ visés</div><span class="pill p-jeu">Jeunes</span></div>
+    </div>
+    <div class="col"><h4>Déposé <span>4</span></h4>
+      <div class="card"><div class="fin">Fondation (exemple)</div><div class="tit">Changement d'échelle</div><div class="meta">Réponse attendue en déc.</div><span class="pill p-str">Structuration</span></div>
+    </div>
+    <div class="col"><h4>Clos <span>9</span></h4>
+      <div class="card" style="opacity:.7"><div class="fin">NO-GO (motif)</div><div class="tit">Culture et patrimoine</div><div class="meta">Hors public</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= OPTION C ================= -->
+<h2><span class="lettre">C</span>Tableau filtrable (comme le suivi comptable)</h2>
+<p class="intro">Une ligne par piste, colonnes triables, filtres en haut. Le plus dense : idéal pour passer 40 pistes en revue en 5 minutes sur l'ordinateur. Sur téléphone, il faut faire défiler de côté.</p>
+<div class="screen">
+  <div class="bar"><span class="back">‹</span><b>Veille financements</b></div>
+  <div class="filters"><span class="flt">Type : AAP ▾</span><span class="flt">Profil : tous ▾</span><span class="flt">Note ≥ 60 ▾</span><span class="flt">Statut ▾</span><span class="flt">Territoire ▾</span><span class="flt">🔎 Rechercher</span></div>
+  <table>
+    <tr><th>Note</th><th>Date limite</th><th>Financeur</th><th>Intitulé</th><th>Profil</th><th>Montant</th><th>Territoire</th><th>Statut</th><th>Action</th></tr>
+    <tr class="u"><td><b>86</b></td><td>17/10 · J-22</td><td>Dép. Seine-Saint-Denis</td><td>Insertion des jeunes par l'engagement 2027</td><td><span class="pill p-jeu">Jeunes</span></td><td>10 à 40 k€</td><td>93</td><td><span class="stat">Nouveau</span></td><td><span class="btn pri">Qualifier</span></td></tr>
+    <tr><td><b>78</b></td><td>30/11</td><td>Fondation (exemple)</td><td>Former les professionnels de l'insertion</td><td><span class="pill p-pro">Pro</span></td><td>≤ 50 k€</td><td>National</td><td><span class="stat">À étudier</span></td><td><span class="btn pri">Qualifier</span></td></tr>
+    <tr><td><b>61</b></td><td>15/01</td><td>Région Sud</td><td>Innovation sociale et jeunesse</td><td><span class="pill p-lab">Lab'</span></td><td>n. c.</td><td>PACA</td><td><span class="stat">Nouveau</span></td><td><span class="btn pri">Qualifier</span></td></tr>
+    <tr><td><b>58</b></td><td>05/12</td><td>BOAMP · commune (exemple)</td><td>Marché : ateliers de remobilisation 16-25 ans</td><td><span class="pill p-jeu">Jeunes</span></td><td>45 k€ HT</td><td>83</td><td><span class="stat">Nouveau</span></td><td><span class="btn pri">Qualifier</span></td></tr>
+  </table>
+</div>
+
+<!-- ================= ÉCRAN SOURCES (commun) ================= -->
+<h2>Commun · Écran « Sources »</h2>
+<p class="intro">Le même quelle que soit l'option. On voit ce que chaque source rapporte, pour couper celles qui n'apportent rien.</p>
+<div class="screen">
+  <table>
+    <tr><th>Source</th><th>Accès</th><th>Dernière collecte</th><th>Pistes (30 j)</th><th>Retenues</th><th>Active</th></tr>
+    <tr><td>Aides-territoires</td><td>API</td><td>aujourd'hui 03:00</td><td>41</td><td>6</td><td>✅</td></tr>
+    <tr><td>JOAFE, nouveaux fonds de dotation</td><td>API</td><td>aujourd'hui 03:05</td><td>9</td><td>3</td><td>✅</td></tr>
+    <tr><td>BOAMP</td><td>API</td><td>aujourd'hui 03:10</td><td>14</td><td>1</td><td>✅</td></tr>
+    <tr><td>Lettres de fondations (Gmail « Veille AAP »)</td><td>Mails</td><td>aujourd'hui 03:15</td><td>7</td><td>2</td><td>✅</td></tr>
+    <tr><td>Métropole TPM</td><td>Page</td><td>lundi</td><td>0</td><td>0</td><td>⚪ à couper ?</td></tr>
+  </table>
+</div>
+
+<!-- ================= COMPARATIF ================= -->
+<h2>Comparatif</h2>
+<div class="screen" style="border:none;padding:0">
+<table class="cmp">
+  <tr><th></th><th>A · Fil de cartes</th><th>B · Kanban</th><th>C · Tableau</th></tr>
+  <tr><td><b>Sur téléphone</b></td><td>✅ Très bien</td><td>🟠 Défilement de côté</td><td>🔴 Peu lisible</td></tr>
+  <tr><td><b>Trier 40 pistes vite</b></td><td>🟠 Correct</td><td>🟠 Correct</td><td>✅ Le plus rapide</td></tr>
+  <tr><td><b>Voir où en sont les dossiers</b></td><td>🟠 Via le filtre statut</td><td>✅ D'un coup d'œil</td><td>🟠 Via le filtre statut</td></tr>
+  <tr><td><b>Lire la raison de la note</b></td><td>✅ Toujours visible</td><td>🔴 Au clic</td><td>🔴 Au clic</td></tr>
+  <tr><td><b>Effort de développement</b></td><td>✅ Faible</td><td>🔴 Plus lourd (glisser-déposer)</td><td>✅ Faible (déjà fait pour la compta)</td></tr>
+  <tr><td><b>Nouveaux fonds (texte de l'objet)</b></td><td>✅ Adapté</td><td>🟠 Cartes trop petites</td><td>🔴 Texte tronqué</td></tr>
+</table>
+</div>
+
+<div class="avis">
+  <h3>Mon avis : A, avec un filtre « statut » pour remplacer le kanban</h3>
+  <p>La veille se consulte surtout par petites touches, souvent sur téléphone (le mail du lundi, un creux dans la journée). Le fil de cartes est le seul format où la <b>raison de la note</b> et l'<b>objet des fonds</b> restent lisibles, et c'est ce qui permet de décider en 10 secondes.</p>
+  <p>Le suivi des dossiers (option B) est utile, mais il concerne 5 à 10 pistes à la fois : un simple filtre « Statut : GO / Déposé » dans l'option A suffit, sans le coût du glisser-déposer.</p>
+  <p>Si tu fais tes revues de veille surtout sur ordinateur, on peut ajouter plus tard le tableau C en second affichage (bouton « vue tableau »), en réutilisant le code du suivi comptable.</p>
+</div>
+
+</div>
+</body>
+</html>

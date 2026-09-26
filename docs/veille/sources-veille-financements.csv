@@ -1,0 +1,58 @@
+id;famille;nom;url;acces;frequence;profils;territoire;priorite;notes
+F01;AAP publics;Aides-territoires (API);https://aides-territoires.beta.gouv.fr/data/;API;quotidienne;JEU,PRO,LAB,STR;national + filtres 83, 93, PACA, IDF;1;Clé API gratuite à demander. Filtre bénéficiaire = associations. Source principale du public.
+F02;AAP publics;Associations.gouv.fr, appels à projets;https://associations.gouv.fr/appels-projets;Page;hebdomadaire;JEU,STR;national;2;Lecture de page par Haiku.
+F03;AAP publics;FDVA Var et Seine-Saint-Denis (Le Compte Asso);https://lecompteasso.associations.gouv.fr/;Manuel + calendrier;annuelle;STR;83, 93;1;Campagnes annuelles, dates publiées par les SDJES. Alerte calendrier plutôt que collecte.
+F04;AAP publics;Région Sud, aides et appels à projets;https://www.maregionsud.fr/;Page;hebdomadaire;JEU,PRO,STR;PACA;1;URL exacte de la page AAP à confirmer.
+F05;AAP publics;Région Île-de-France, aides et appels à projets;https://www.iledefrance.fr/aides-et-appels-a-projets;Page;hebdomadaire;JEU,PRO,STR;IDF;1;Page filtrable par thème jeunesse / emploi.
+F06;AAP publics;Département du Var;https://www.var.fr/;Page;mensuelle;JEU;83;2;URL AAP à confirmer.
+F07;AAP publics;Département de la Seine-Saint-Denis (AGIR in 93);https://seinesaintdenis.fr/;Page;mensuelle;JEU,PRO;93;1;AGIR in Seine-Saint-Denis déjà candidaté. URL AAP à confirmer.
+F08;AAP publics;Métropole Toulon Provence Méditerranée;https://metropoletpm.fr/;Page;mensuelle;JEU;83;3;
+F09;AAP publics;Plaine Commune et Est Ensemble (contrats de ville);https://plainecommune.fr/;Page;mensuelle;JEU;93;2;Ajouter Est Ensemble pour Montreuil.
+F10;AAP publics;Préfectures du Var et de Seine-Saint-Denis, Politique de la Ville (Dauphin);https://www.var.gouv.fr/;Manuel + calendrier;annuelle;JEU;83, 93;1;Campagnes janvier à mars. Alerte 6 semaines avant.
+F11;AAP publics;ANCT, Cités éducatives et Politique de la Ville;https://agence-cohesion-territoires.gouv.fr/;Page;mensuelle;JEU;national;2;
+F12;AAP publics;CAF du Var (portail partenaires);https://www.caf.fr/partenaires/caf-du-var;Page;mensuelle;JEU;83;1;Récurrent. AAP type IEEJ.
+F13;AAP publics;DRAJES PACA et Île-de-France;https://www.ac-aix-marseille.fr/;Page;mensuelle;JEU,STR;PACA, IDF;2;Pages jeunesse, engagement et vie associative des rectorats de région académique. URL à confirmer.
+F14;AAP publics;DREETS PACA et Île-de-France;https://dreets.gouv.fr/;Page;mensuelle;PRO,STR;PACA, IDF;2;Insertion, emploi des jeunes.
+F15;AAP publics;Fonds d'expérimentation pour la jeunesse (INJEP);https://injep.fr/;Page;mensuelle;LAB,JEU;national;1;Très aligné avec le Lab' (expérimentation + évaluation).
+F16;AAP publics;France Travail et Réseau pour l'emploi;https://www.francetravail.fr/;Page;mensuelle;PRO,JEU;national;3;AAP et marchés d'accompagnement des jeunes.
+F17;AAP publics;Soltéa (taxe d'apprentissage);https://www.soltea.education.gouv.fr/;Manuel + calendrier;annuelle;STR;national;1;Pas de collecte : alerte mise à jour de la fiche avant la campagne de printemps.
+F18;Europe;Portail européen Funding and Tenders (API SEDIA);https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/support/apis;API;hebdomadaire;LAB,JEU;Europe;2;API de recherche publique (clé SEDIA). Filtrer Erasmus+ jeunesse et Corps européen de solidarité.
+F19;Europe;Agence Erasmus+ France Jeunesse et Sport;https://www.erasmusplus-jeunesse.fr/;Page;mensuelle;JEU,LAB;national;2;Calendrier des appels Erasmus+ jeunesse.
+F20;Europe;FSE+ Île-de-France et PACA;https://www.europeidf.fr/;Page;mensuelle;PRO,LAB;PACA, IDF;1;Lit uP est déjà conventionné FSE+ IDF. Ajouter la page FSE+ de la Région Sud.
+F21;AAP privés;Carenews, appels à projets;https://www.carenews.com/appels_a_projets;Page;quotidienne;JEU,PRO,LAB,STR;national;1;Collecte automatique (source C01) : 3 premières pages de la liste.
+F22;AAP privés;Centre français des Fonds et Fondations, appels à projets;https://www.centre-francais-fondations.org/appels-a-projets/;Newsletter;hebdomadaire;JEU,PRO,LAB,STR;national;1;Appels fournis par Yes Association (yesasso.org), application non lisible automatiquement : suivre par la lettre d'information.
+D05;Nouveaux fonds et fondations;Comptes annuels des fonds et fondations (JOAFE, dépôts de comptes);https://www.journal-officiel.gouv.fr/pages/associations-recherche/;API + PDF;à la demande;STR;national;1;Bouton « Analyser les comptes » : dernier dépôt par SIREN, PDF lu par Claude (montant redistribué, taille des aides, fourchette à solliciter).
+F23;AAP privés;Fondation de France, appels à projets;https://www.fondationdefrance.org/;Page + newsletter;mensuelle;LAB,JEU;national + régional;1;Partenaire actuel (Lab'). Suivre aussi les appels régionaux Méditerranée et Île-de-France.
+F24;AAP privés;Avise (ESS, changement d'échelle);https://www.avise.org/;Page + newsletter;mensuelle;STR,LAB;national;2;Appels et programmes d'accompagnement du changement d'échelle.
+F25;AAP privés;La France s'engage;https://www.fondationlafrancesengage.org/;Page;annuelle;STR,LAB;national;2;Changement d'échelle de projets innovants. URL à confirmer.
+F26;AAP privés;Admical (mécénat d'entreprise);https://admical.org/;Newsletter;mensuelle;STR;national;3;Pas d'annuaire public des mécènes (espace adhérents). Lettre d'information et liste des adhérents pour repérer les entreprises mécènes.
+F27;AAP privés;CRESS Sud et CRESS Île-de-France;https://www.cress-sud.org/;Newsletter;mensuelle;STR,JEU;PACA, IDF;3;Relais d'AAP régionaux ESS.
+F28;AAP privés;Réseaux partenaires (ARML PACA, UNML, Réseau E2C France);https://www.unml.info/;Newsletter;mensuelle;PRO,JEU;PACA, IDF, national;2;Les têtes de réseau relaient des AAP ciblés Missions Locales.
+N01;Fondations (lettres d'information);Fondation Pierre Bellon;https://www.fondationpierrebellon.com/;Newsletter;au fil de l'eau;STR,PRO;national;1;Partenaire actuel (2026-2028).
+N02;Fondations (lettres d'information);Fondation Crédit Mutuel;https://www.creditmutuel.com/;Newsletter;au fil de l'eau;LAB,STR;national;1;Partenaire actuel (BAO).
+N03;Fondations (lettres d'information);Fondation TotalEnergies;https://fondation.totalenergies.com/;Newsletter;au fil de l'eau;JEU;national;1;AAP jeunesse 2026 en cours.
+N04;Fondations (lettres d'information);Fondation Entreprendre;https://www.fondation-entreprendre.org/;Newsletter;au fil de l'eau;STR;national;2;Contact en cours.
+N05;Fondations (lettres d'information);Fondation OCIRP;https://www.ocirp.fr/;Newsletter;au fil de l'eau;JEU;national;2;Sollicitée.
+N06;Fondations (lettres d'information);Altrad Solidarity;https://www.altrad.com/;Newsletter;au fil de l'eau;JEU;national;2;Partenaire (décrochage).
+N07;Fondations (lettres d'information);Fondation Groupe ADP;https://www.groupeadp.fr/;Newsletter;au fil de l'eau;JEU;93, IDF;2;Cible nouvelle : éducation et insertion autour des aéroports, dont Seine-Saint-Denis. À vérifier.
+N08;Fondations (lettres d'information);Fondation SNCF;https://www.fondation-sncf.org/;Newsletter;au fil de l'eau;JEU;national + régional;2;Cible nouvelle : appels régionaux éducation et engagement. À vérifier.
+N09;Fondations (lettres d'information);Fondation RATP;https://www.ratp.fr/;Newsletter;au fil de l'eau;JEU;IDF;2;Cible nouvelle IDF. À vérifier.
+N10;Fondations (lettres d'information);Fondation Vinci pour la Cité;https://www.fondation-vinci.com/;Newsletter;au fil de l'eau;JEU,PRO;national + régional;2;Cible nouvelle : insertion, quartiers. À vérifier.
+N11;Fondations (lettres d'information);Fondation BNP Paribas;https://group.bnpparibas/;Newsletter;au fil de l'eau;JEU;national;3;Cible nouvelle : éducation, quartiers. À vérifier.
+N12;Fondations (lettres d'information);Fondation Société Générale (C'est vous l'avenir);https://www.societegenerale.com/;Newsletter;au fil de l'eau;JEU;national;3;Cible nouvelle : insertion par l'éducation. À vérifier.
+N13;Fondations (lettres d'information);Fondation Orange;https://www.fondationorange.com/;Newsletter;au fil de l'eau;JEU,LAB;national;3;Cible nouvelle : numérique et insertion des jeunes. À vérifier.
+N14;Fondations (lettres d'information);Fondation EDF;https://www.fondation.edf.com/;Newsletter;au fil de l'eau;JEU;national;3;Cible nouvelle. À vérifier.
+N15;Fondations (lettres d'information);Fondation Break Poverty;https://breakpoverty.com/;Newsletter;au fil de l'eau;JEU;national;2;Cible nouvelle : décrochage et pauvreté des jeunes. À vérifier.
+N16;Fondations (lettres d'information);Fondations régionales de banques (Crédit Agricole Provence Côte d'Azur, Caisse d'Épargne CEPAC);https://www.credit-agricole.fr/;Newsletter;au fil de l'eau;JEU,STR;PACA;2;Cibles nouvelles PACA. URL et existence d'un AAP à vérifier.
+D01;Nouveaux fonds et fondations;JOAFE, déclarations de fonds de dotation (API DILA);https://journal-officiel-datadila.opendatasoft.com/explore/dataset/jo_associations/api/;API;hebdomadaire;JEU,PRO,LAB,STR;national, priorité 83, 93, 75, PACA, IDF;1;Nouveaux fonds de dotation déclarés : filtrer sur l'objet (jeunes, éducation, insertion, décrochage). Haiku résume l'objet et note la pertinence.
+D02;Nouveaux fonds et fondations;Comptes annuels des fonds de dotation et fondations (API DILA);https://www.data.gouv.fr/dataservices/api-annonces-officielles-et-comptes-annuels-des-associations;API;trimestrielle;STR;national;2;Estimer la taille d'un fonds repéré (montant distribué) avant de le contacter.
+D03;Nouveaux fonds et fondations;Annuaire Carenews;https://www.carenews.com/annuaire;Page;mensuelle;STR;national;3;Repérer les nouveaux acteurs du mécénat.
+D04;Nouveaux fonds et fondations;Institut de France, fondations abritées;https://www.institutdefrance.fr/;Manuel;trimestrielle;STR;national;3;Repérage manuel.
+A01;Fondations abritées;Fondation de France, annuaire des fondations abritées;https://www.fondationdefrance.org/fr/annuaire-des-fondations;Annuaire;quotidienne (30 fiches);JEU,PRO,LAB,STR;national;1;≈ 780 fiches via le plan du site. Collecte automatique.
+A02;Fondations abritées;Fondation Caritas France, annuaire;https://www.fondationcaritasfrance.org/fondations-abritees/annuaire-des-fondations/;Annuaire;quotidienne (30 fiches);JEU,PRO,STR;national;1;≈ 100 fiches via le plan du site (fondations-sitemap.xml). Filtres Jeunesse, Insertion, Éducation sur le site. Collecte automatique.
+A03;Fondations familiales;Un Esprit de Famille, membres;https://unespritdefamille.org/membres/;Annuaire;quotidienne (30 fiches);JEU,STR;national;2;≈ 190 membres, fiches avec thèmes seulement. Collecte automatique.
+A04;Fondations;Centre français des Fonds et Fondations, annuaire;https://www.centre-francais-fondations.org/annuaire-des-fonds-et-fondations/;Manuel;trimestrielle;STR;national;3;Annuaire dynamique, non lisible automatiquement.
+M01;Appels d'offres;BOAMP (API DILA);https://www.boamp.fr/pages/donnees-ouvertes-et-api/;API;quotidienne;PRO,JEU;83, 93, 75, PACA, IDF, national;1;API gratuite. Filtres : codes CPV 80000000 (enseignement et formation), 80500000 (formation), 85312320 (conseil social) + mots-clés décrochage, insertion des jeunes, mission locale, remobilisation.
+M02;Appels d'offres;PLACE (marchés de l'État);https://www.marches-publics.gouv.fr/;Page;hebdomadaire;PRO;national;3;Doublon partiel avec le BOAMP : ne garder que les marchés absents du BOAMP.
+M03;Appels d'offres;Maximilien (marchés publics franciliens);https://www.maximilien.fr/;Page;hebdomadaire;PRO,JEU;IDF;2;Collectivités d'Île-de-France.
+M04;Appels d'offres;Plateforme marchés de la Région Sud;https://www.maregionsud.fr/;Page;hebdomadaire;PRO,JEU;PACA;2;URL de la plateforme acheteur à confirmer.
